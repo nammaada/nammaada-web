@@ -5,9 +5,6 @@ import { getPublicEnv } from "@/lib/env";
 
 export async function createSupabaseServerClient(): Promise<SupabaseClient> {
   const { supabaseUrl, supabaseAnonKey } = getPublicEnv();
-  if (!supabaseUrl || !supabaseAnonKey) {
-    throw new Error("Supabase server configuration is not available.");
-  }
 
   const cookieStore = await cookies();
   return createServerClient(supabaseUrl, supabaseAnonKey, {

@@ -4,8 +4,5 @@ import { getPublicEnv } from "@/lib/env";
 
 export function createSupabaseBrowserClient(): SupabaseClient {
   const { supabaseUrl, supabaseAnonKey } = getPublicEnv();
-  if (!supabaseUrl || !supabaseAnonKey) {
-    throw new Error("Supabase browser configuration is not available.");
-  }
   return createBrowserClient(supabaseUrl, supabaseAnonKey);
 }
