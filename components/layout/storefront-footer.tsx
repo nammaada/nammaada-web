@@ -39,6 +39,7 @@ export function StorefrontFooter() {
             href={siteConfig.instagramUrl}
             target="_blank"
             rel="noreferrer"
+            aria-label="Visit Namma Ada on Instagram"
           >
             <ArrowUpRight aria-hidden="true" size={17} />
             Instagram

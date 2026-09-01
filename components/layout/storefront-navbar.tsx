@@ -4,7 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { Menu, X } from "lucide-react";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { siteConfig, storefrontRoutes } from "@/lib/constants/site";
 import { Container } from "@/components/ui/container";
 
@@ -15,6 +15,7 @@ function isActivePath(pathname: string, href: string) {
 export function StorefrontNavbar() {
   const pathname = usePathname();
   const [menuOpen, setMenuOpen] = useState(false);
+  const menuButtonRef = useRef<HTMLButtonElement>(null);
 
   function closeMenu() {
     setMenuOpen(false);
@@ -27,7 +28,8 @@ export function StorefrontNavbar() {
 
     function handleKeyDown(event: KeyboardEvent) {
       if (event.key === "Escape") {
-        closeMenu();
+        setMenuOpen(false);
+        menuButtonRef.current?.focus();
       }
     }
 
@@ -37,7 +39,8 @@ export function StorefrontNavbar() {
 
   return (
     <header className="sticky top-0 z-40 border-b border-border/70 bg-background/95 backdrop-blur-sm">
-      <Container className="flex min-h-18 items-center justify-between gap-4">
+      <Container className="py-2 sm:py-3">
+        <div className="flex min-h-16 items-center justify-between gap-4 rounded-2xl border border-border/70 bg-card/80 px-3 shadow-soft backdrop-blur-sm sm:rounded-full sm:px-5">
         <Link
           className="shrink-0 rounded-lg focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring"
           href="/"
@@ -78,6 +81,7 @@ export function StorefrontNavbar() {
         </div>
 
         <button
+          ref={menuButtonRef}
           aria-controls="mobile-storefront-navigation"
           aria-expanded={menuOpen}
           aria-label={menuOpen ? "Close navigation menu" : "Open navigation menu"}
@@ -87,6 +91,7 @@ export function StorefrontNavbar() {
         >
           {menuOpen ? <X aria-hidden="true" size={20} /> : <Menu aria-hidden="true" size={20} />}
         </button>
+        </div>
       </Container>
 
       {menuOpen ? (
