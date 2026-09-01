@@ -5,6 +5,9 @@ import { getPublicEnv } from "@/lib/env";
 export async function updateSupabaseSession(request: NextRequest) {
   const { supabaseUrl, supabaseAnonKey } = getPublicEnv();
   let response = NextResponse.next({ request });
+  const isPrivateRoute =
+    request.nextUrl.pathname.startsWith("/admin") ||
+    request.nextUrl.pathname.startsWith("/auth");
 
   const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
     cookies: {
@@ -27,7 +30,13 @@ export async function updateSupabaseSession(request: NextRequest) {
   // This is only an early unauthenticated redirect. The admin allowlist check
   // remains authoritative in the server-side admin layout and database RLS.
   if (request.nextUrl.pathname.startsWith("/admin") && !data.user) {
-    return NextResponse.redirect(new URL("/auth/login?next=/admin", request.url));
+    const redirectResponse = NextResponse.redirect(new URL("/auth/login?next=/admin", request.url));
+    redirectResponse.headers.set("Cache-Control", "private, no-store");
+    return redirectResponse;
+  }
+
+  if (isPrivateRoute) {
+    response.headers.set("Cache-Control", "private, no-store");
   }
 
   return response;
