@@ -35,7 +35,7 @@ export function ProductOptions({ product, variants }: { product: StorefrontProdu
                 <label className={`flex min-h-14 cursor-pointer items-center justify-between gap-3 rounded-lg border px-4 py-3 text-sm transition-colors focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-ring ${selected ? "border-primary bg-secondary" : "border-border bg-card hover:border-primary/40"}`} key={variant.id}>
                   <span className="flex min-w-0 items-center gap-3">
                     <input checked={selected} className="accent-primary" name="product-variant" onChange={() => setSelectedVariantId(variant.id)} type="radio" value={variant.id} />
-                    <span className="truncate font-semibold">{variant.name}</span>
+                    <span className="break-words font-semibold">{variant.name}</span>
                   </span>
                   <span className="shrink-0 text-xs text-muted-foreground">{formatPrice(variant.price_paise)}</span>
                 </label>
