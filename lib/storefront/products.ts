@@ -72,11 +72,15 @@ async function attachPrimaryImages(
   }));
 }
 
-export async function getProducts(): Promise<StorefrontProduct[]> {
+export async function getProducts(categoryId?: string): Promise<StorefrontProduct[]> {
   const supabase = await createSupabaseServerClient();
-  const products = await queryProducts(
-    supabase.from("storefront_products").select(productFields).order("display_order", { ascending: true }),
-  );
+  let query = supabase.from("storefront_products").select(productFields).order("display_order", { ascending: true });
+
+  if (categoryId) {
+    query = query.eq("category_id", categoryId);
+  }
+
+  const products = await queryProducts(query);
   return attachPrimaryImages(supabase, products);
 }
 
