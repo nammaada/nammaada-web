@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireAdmin } from "@/lib/auth/admin";
-import { deleteCloudinaryImage, uploadCloudinaryImage, validateImage } from "@/lib/cloudinary/server";
+import { deleteCloudinaryImage, deleteCloudinaryMedia, uploadCloudinaryImage, uploadCloudinaryMedia, validateImage, validateMedia } from "@/lib/cloudinary/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 function text(form: FormData, key: string) { return String(form.get(key) ?? "").trim(); }
@@ -42,3 +42,87 @@ export async function setPrimaryImage(form: FormData) { await requireAdmin(); co
 export async function updateProductImage(form: FormData) { await requireAdmin(); const productId = uuid(form, "product_id"); const id = uuid(form, "id"); const alt = text(form, "alt_text"); if (!productId || !id || !alt || alt.length > 240) fail(`/admin/products/${productId ?? ""}`, "Provide meaningful alt text."); const displayOrder = integer(form, "display_order"); const result = await createSupabaseAdminClient().from("product_images").update({ alt_text: alt, display_order: displayOrder }).eq("id", id).eq("product_id", productId); if (result.error) fail(`/admin/products/${productId}`, "Unable to update image details."); ok(`/admin/products/${productId}`); }
 export async function moveProductImage(form: FormData) { await requireAdmin(); const productId = uuid(form, "product_id"); const id = uuid(form, "id"); const direction = text(form, "direction"); if (!productId || !id || !["up", "down"].includes(direction)) fail(`/admin/products/${productId ?? ""}`, "Invalid image order."); const client = createSupabaseAdminClient(); const { data: current } = await client.from("product_images").select("id,display_order").eq("id", id).eq("product_id", productId).maybeSingle(); if (!current) fail(`/admin/products/${productId}`, "The image could not be found."); const query = direction === "up" ? client.from("product_images").select("id,display_order").eq("product_id", productId).lt("display_order", current.display_order).order("display_order", { ascending: false }).limit(1) : client.from("product_images").select("id,display_order").eq("product_id", productId).gt("display_order", current.display_order).order("display_order", { ascending: true }).limit(1); const { data: sibling } = await query.maybeSingle(); if (!sibling) ok(`/admin/products/${productId}`); const first = await client.from("product_images").update({ display_order: -1 }).eq("id", current.id); const second = await client.from("product_images").update({ display_order: current.display_order }).eq("id", sibling.id); const third = await client.from("product_images").update({ display_order: sibling.display_order }).eq("id", current.id); if (first.error || second.error || third.error) fail(`/admin/products/${productId}`, "Unable to reorder image."); ok(`/admin/products/${productId}`); }
 export async function replaceProductImage(form: FormData) { await requireAdmin(); const productId = uuid(form, "product_id"); const id = uuid(form, "id"); const file = form.get("file"); if (!productId || !id || !(file instanceof File) || !file.size) fail(`/admin/products/${productId ?? ""}`, "Choose a replacement image."); const validation = validateImage(file); if (validation) fail(`/admin/products/${productId}`, validation); const client = createSupabaseAdminClient(); const { data: existing, error: lookupError } = await client.from("product_images").select("cloudinary_public_id").eq("id", id).eq("product_id", productId).maybeSingle(); if (lookupError || !existing) fail(`/admin/products/${productId}`, "The image could not be found."); let uploaded: Awaited<ReturnType<typeof uploadCloudinaryImage>>; try { uploaded = await uploadCloudinaryImage(file); if (uploaded.width > 6000 || uploaded.height > 6000) { await deleteCloudinaryImage(uploaded.public_id); fail(`/admin/products/${productId}`, "Images must not exceed 6000 pixels on either side."); } } catch { fail(`/admin/products/${productId}`, "Replacement upload failed. The existing image is unchanged."); } const result = await client.from("product_images").update({ cloudinary_public_id: uploaded.public_id, secure_url: uploaded.secure_url }).eq("id", id).eq("product_id", productId); if (result.error) { await deleteCloudinaryImage(uploaded.public_id).catch(() => undefined); fail(`/admin/products/${productId}`, "The replacement could not be saved. The existing image is unchanged."); } try { await deleteCloudinaryImage(existing.cloudinary_public_id); } catch { fail(`/admin/products/${productId}`, "Replacement saved, but the old Cloudinary asset could not be cleaned up."); } ok(`/admin/products/${productId}`); }
+
+export async function saveHeroMedia(form: FormData) {
+  await requireAdmin();
+  const mediaType = text(form, "media_type") === "video" ? "video" : "image";
+  const altText = text(form, "alt_text");
+  const mediaFile = form.get("media_file");
+  const posterFile = form.get("poster_file");
+
+  const client = createSupabaseAdminClient();
+  const { data: current } = await client.from("site_settings").select("value").eq("key", "hero_media").maybeSingle();
+  const currentVal = (current?.value || {}) as Record<string, string | null>;
+
+  let mediaUrl = currentVal.media_url || null;
+  let mediaPublicId = currentVal.cloudinary_public_id || null;
+  let posterUrl = currentVal.poster_url || null;
+  let posterPublicId = currentVal.poster_public_id || null;
+
+  if (mediaFile instanceof File && mediaFile.size > 0) {
+    const validation = validateMedia(mediaFile);
+    if (validation) fail("/admin/hero", validation);
+    try {
+      const uploaded = await uploadCloudinaryMedia(mediaFile, mediaType === "video" ? "video" : "image");
+      mediaUrl = uploaded.secure_url;
+      mediaPublicId = uploaded.public_id;
+    } catch {
+      fail("/admin/hero", "Hero media upload failed. Please try again.");
+    }
+  }
+
+  if (posterFile instanceof File && posterFile.size > 0) {
+    try {
+      const uploadedPoster = await uploadCloudinaryMedia(posterFile, "image");
+      posterUrl = uploadedPoster.secure_url;
+      posterPublicId = uploadedPoster.public_id;
+    } catch {
+      fail("/admin/hero", "Poster image upload failed. Please try again.");
+    }
+  }
+
+  const newValue = {
+    media_type: mediaType,
+    cloudinary_public_id: mediaPublicId,
+    media_url: mediaUrl,
+    poster_public_id: posterPublicId,
+    poster_url: posterUrl,
+    alt_text: altText || "Namma Ada authentic Kerala handcrafted delicacies",
+    resource_type: mediaType,
+  };
+
+  const result = await client.from("site_settings").upsert({ key: "hero_media", value: newValue, updated_at: new Date().toISOString() });
+  if (result.error) fail("/admin/hero", dbMessage());
+
+  revalidatePath("/");
+  ok("/admin/hero");
+}
+
+export async function deleteHeroMedia() {
+  await requireAdmin();
+  const client = createSupabaseAdminClient();
+  const { data: current } = await client.from("site_settings").select("value").eq("key", "hero_media").maybeSingle();
+  const currentVal = (current?.value || {}) as Record<string, string | null>;
+
+  if (currentVal.cloudinary_public_id) {
+    await deleteCloudinaryMedia(currentVal.cloudinary_public_id, currentVal.media_type === "video" ? "video" : "image").catch(() => undefined);
+  }
+  if (currentVal.poster_public_id) {
+    await deleteCloudinaryMedia(currentVal.poster_public_id, "image").catch(() => undefined);
+  }
+
+  const defaultValue = {
+    media_type: "image",
+    cloudinary_public_id: null,
+    media_url: null,
+    poster_public_id: null,
+    poster_url: null,
+    alt_text: "Namma Ada authentic Kerala handcrafted delicacies",
+    resource_type: "image",
+  };
+
+  await client.from("site_settings").upsert({ key: "hero_media", value: defaultValue, updated_at: new Date().toISOString() });
+  revalidatePath("/");
+  ok("/admin/hero");
+}
+

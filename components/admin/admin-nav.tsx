@@ -13,6 +13,7 @@ import {
   MessageSquareQuote,
   Inbox,
   Building2,
+  Film,
 } from "lucide-react";
 
 type NavGroup = {
@@ -49,6 +50,7 @@ const navGroups: NavGroup[] = [
   {
     title: "CONTENT",
     items: [
+      { label: "Hero Banner", href: "/admin/hero", icon: Film },
       { label: "Testimonials", href: "/admin/testimonials", icon: MessageSquareQuote },
       { label: "Enquiries", href: "/admin/enquiries", icon: Inbox },
     ],

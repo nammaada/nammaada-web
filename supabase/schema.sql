@@ -273,6 +273,13 @@ create table public.bulk_enquiries (
   updated_at timestamptz not null default now()
 );
 
+create table public.site_settings (
+  key text primary key check (length(trim(key)) > 0),
+  value jsonb not null,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
 -- ---------------------------------------------------------------------------
 -- Indexes for storefront, admin, and operational queries
 -- ---------------------------------------------------------------------------
