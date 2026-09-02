@@ -1,7 +1,9 @@
 "use client";
 
 import { useState } from "react";
+import { useCart } from "@/components/cart/cart-provider";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import type { StorefrontProduct, StorefrontProductVariant } from "@/lib/storefront/products";
 
 function formatPrice(pricePaise: number) {
@@ -13,15 +15,33 @@ function Availability({ available }: { available: boolean }) {
 }
 
 export function ProductOptions({ product, variants }: { product: StorefrontProduct; variants: StorefrontProductVariant[] }) {
-  const [selectedVariantId, setSelectedVariantId] = useState(variants[0]?.id ?? "");
+  const { addItem } = useCart();
+  const [selectedVariantId, setSelectedVariantId] = useState("");
+  const [statusMessage, setStatusMessage] = useState("");
   const selectedVariant = variants.find((variant) => variant.id === selectedVariantId);
-  const price = selectedVariant?.price_paise ?? product.price_paise;
-  const available = selectedVariant?.is_in_stock ?? product.is_in_stock;
+  const available = selectedVariant?.is_in_stock ?? (variants.length === 0 ? product.is_in_stock : false);
+
+  function handleAddToCart() {
+    if (!available || (variants.length > 0 && !selectedVariant)) {
+      return;
+    }
+
+    addItem({
+      productId: product.id,
+      slug: product.slug,
+      name: product.name,
+      variantId: selectedVariant?.id ?? null,
+      variantName: selectedVariant?.name ?? null,
+      unitPricePaise: selectedVariant?.price_paise ?? product.price_paise,
+      image: product.primary_image,
+    });
+    setStatusMessage(`${product.name} added to your cart.`);
+  }
 
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-end gap-x-4 gap-y-2">
-        <p className="font-display text-3xl text-primary" aria-live="polite">{formatPrice(price)}</p>
+        <p className="font-display text-3xl text-primary" aria-live="polite">{selectedVariant || variants.length === 0 ? formatPrice(selectedVariant?.price_paise ?? product.price_paise) : "Choose an option"}</p>
         <Availability available={available} />
       </div>
 
@@ -47,8 +67,9 @@ export function ProductOptions({ product, variants }: { product: StorefrontProdu
 
       {product.delivery_scope ? <div className="flex flex-wrap gap-2 border-t border-border pt-5"><Badge variant="default">{product.delivery_scope === "bangalore_only" ? "Available in Bangalore" : "Delivery across India"}</Badge>{product.is_free_shipping ? <Badge variant="accent">Free shipping</Badge> : null}</div> : null}
 
-      <div className="rounded-lg border border-dashed border-primary/20 bg-secondary/45 px-4 py-4 text-sm leading-6 text-muted-foreground">
-        Product ordering will be available in a future phase. This page currently shows product information only.
+      <div className="space-y-3">
+        <Button className="w-full sm:w-auto" disabled={!available || (variants.length > 0 && !selectedVariant)} onClick={handleAddToCart} type="button">Add to cart</Button>
+        <p className="text-xs leading-5 text-muted-foreground" aria-live="polite">{statusMessage || (variants.length > 0 && !selectedVariant ? "Choose an option before adding this product." : !available ? "This product is currently unavailable." : "Your selection will be revalidated at checkout.")}</p>
       </div>
     </div>
   );

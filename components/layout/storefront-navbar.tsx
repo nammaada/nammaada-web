@@ -2,11 +2,12 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { Menu, X } from "lucide-react";
+import { Menu, ShoppingBag, X } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { siteConfig, storefrontRoutes } from "@/lib/constants/site";
 import { Container } from "@/components/ui/container";
+import { useCart } from "@/components/cart/cart-provider";
 
 function isActivePath(pathname: string, href: string) {
   return href === "/" ? pathname === href : pathname.startsWith(href);
@@ -15,6 +16,7 @@ function isActivePath(pathname: string, href: string) {
 export function StorefrontNavbar() {
   const pathname = usePathname();
   const isHome = pathname === "/";
+  const { itemCount } = useCart();
   const [menuOpen, setMenuOpen] = useState(false);
   const menuButtonRef = useRef<HTMLButtonElement>(null);
 
@@ -75,12 +77,20 @@ export function StorefrontNavbar() {
           ))}
         </nav>
 
-        <div className="hidden lg:block">
-          <Link className="inline-flex min-h-11 items-center justify-center rounded-full bg-primary px-5 !text-primary-foreground shadow-sm transition-[background-color,box-shadow,transform] duration-200 hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring active:translate-y-px" href="/products">
+        <div className="flex items-center gap-2">
+          <Link
+            aria-label={itemCount > 0 ? `Cart, ${itemCount} ${itemCount === 1 ? "item" : "items"}` : "Cart, empty"}
+            className="inline-flex min-h-11 min-w-11 items-center justify-center gap-2 rounded-full border border-border px-3 text-sm font-semibold text-primary transition-colors hover:bg-secondary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
+            href="/cart"
+          >
+            <ShoppingBag aria-hidden="true" size={18} />
+            <span className="hidden sm:inline">Cart</span>
+            {itemCount > 0 ? <span aria-live="polite" className="inline-flex min-w-5 items-center justify-center rounded-full bg-accent px-1.5 py-0.5 text-xs text-accent-foreground">{itemCount}</span> : null}
+          </Link>
+          <Link className="hidden min-h-11 items-center justify-center rounded-full bg-primary px-5 !text-primary-foreground shadow-sm transition-[background-color,box-shadow,transform] duration-200 hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring active:translate-y-px lg:inline-flex" href="/products">
             Order Now
           </Link>
         </div>
-
         <button
           ref={menuButtonRef}
           aria-controls="mobile-storefront-navigation"
