@@ -17,6 +17,14 @@ export type StorefrontProduct = {
   is_featured: boolean;
   display_order: number;
   primary_image: { url: string; alt: string } | null;
+  images: StorefrontProductImage[];
+};
+
+export type StorefrontProductImage = {
+  id: string;
+  url: string;
+  alt: string;
+  display_order: number;
 };
 
 export type StorefrontProductVariant = {
@@ -38,8 +46,9 @@ async function queryProducts(query: PromiseLike<{ data: unknown[] | null; error:
   }
 
   return (data ?? []).map((product) => ({
-    ...(product as Omit<StorefrontProduct, "primary_image">),
+    ...(product as Omit<StorefrontProduct, "primary_image" | "images">),
     primary_image: null,
+    images: [],
   }));
 }
 
@@ -53,22 +62,28 @@ async function attachPrimaryImages(
 
   const { data, error } = await supabase
     .from("product_images")
-    .select("product_id,secure_url,alt_text")
+    .select("id,product_id,secure_url,alt_text,display_order,is_primary")
     .in("product_id", products.map((product) => product.id))
-    .eq("is_primary", true);
+    .order("is_primary", { ascending: false })
+    .order("display_order", { ascending: true });
 
   if (error) {
     throw new AppError("internal", "We could not load product imagery right now.");
   }
 
-  const images = (data ?? []) as { product_id: string; secure_url: string; alt_text: string }[];
-  const imageByProduct = new Map(
-    images.map((image) => [image.product_id, { url: image.secure_url, alt: image.alt_text }]),
-  );
+  const images = (data ?? []) as { id: string; product_id: string; secure_url: string; alt_text: string; display_order: number; is_primary: boolean }[];
+  const imagesByProduct = new Map<string, StorefrontProductImage[]>();
+
+  for (const image of images) {
+    const productImages = imagesByProduct.get(image.product_id) ?? [];
+    productImages.push({ id: image.id, url: image.secure_url, alt: image.alt_text, display_order: image.display_order });
+    imagesByProduct.set(image.product_id, productImages);
+  }
 
   return products.map((product) => ({
     ...product,
-    primary_image: imageByProduct.get(product.id) ?? null,
+    primary_image: imagesByProduct.get(product.id)?.[0] ?? null,
+    images: imagesByProduct.get(product.id) ?? [],
   }));
 }
 
@@ -109,7 +124,7 @@ export async function getProductBySlug(slug: string): Promise<StorefrontProduct 
   }
 
   const [product] = await attachPrimaryImages(supabase, [
-    { ...(data as Omit<StorefrontProduct, "primary_image">), primary_image: null },
+    { ...(data as Omit<StorefrontProduct, "primary_image" | "images">), primary_image: null, images: [] },
   ]);
   return product ?? null;
 }
