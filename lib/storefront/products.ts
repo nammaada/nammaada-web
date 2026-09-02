@@ -2,6 +2,7 @@ import "server-only";
 
 import { AppError } from "@/lib/server/errors";
 import { getCloudinaryImageUrl } from "@/lib/cloudinary/delivery";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export type StorefrontProduct = {
@@ -54,14 +55,18 @@ async function queryProducts(query: PromiseLike<{ data: unknown[] | null; error:
 }
 
 async function attachPrimaryImages(
-  supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>,
   products: StorefrontProduct[],
 ) {
   if (products.length === 0) {
     return products;
   }
 
-  const { data, error } = await supabase
+  // Product IDs have already come from the narrow public storefront view.
+  // Read the related image metadata through the server-only client because the
+  // public image policy's cross-table predicate cannot access the deliberately
+  // non-public products base table for anonymous requests.
+  const imageClient = createSupabaseAdminClient();
+  const { data, error } = await imageClient
     .from("product_images")
     .select("id,product_id,cloudinary_public_id,alt_text,display_order,is_primary")
     .in("product_id", products.map((product) => product.id))
@@ -97,7 +102,7 @@ export async function getProducts(categoryId?: string): Promise<StorefrontProduc
   }
 
   const products = await queryProducts(query);
-  return attachPrimaryImages(supabase, products);
+  return attachPrimaryImages(products);
 }
 
 export async function getFeaturedProducts(): Promise<StorefrontProduct[]> {
@@ -105,7 +110,7 @@ export async function getFeaturedProducts(): Promise<StorefrontProduct[]> {
   const products = await queryProducts(
     supabase.from("storefront_products").select(productFields).eq("is_featured", true).order("display_order", { ascending: true }),
   );
-  return attachPrimaryImages(supabase, products);
+  return attachPrimaryImages(products);
 }
 
 export async function getProductBySlug(slug: string): Promise<StorefrontProduct | null> {
@@ -124,7 +129,7 @@ export async function getProductBySlug(slug: string): Promise<StorefrontProduct 
     return null;
   }
 
-  const [product] = await attachPrimaryImages(supabase, [
+  const [product] = await attachPrimaryImages([
     { ...(data as Omit<StorefrontProduct, "primary_image" | "images">), primary_image: null, images: [] },
   ]);
   return product ?? null;

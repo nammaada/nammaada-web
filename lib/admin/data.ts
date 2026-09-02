@@ -1,15 +1,15 @@
 import "server-only";
 
-import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export async function adminRows<T>(table: string, columns = "*") {
-  const { data, error } = await createSupabaseAdminClient().from(table).select(columns).order("created_at", { ascending: false });
+  const { data, error } = await (await createSupabaseServerClient()).from(table).select(columns).order("created_at", { ascending: false });
   if (error) return [] as T[];
   return (data ?? []) as T[];
 }
 
 export async function adminRow<T>(table: string, id: string, columns = "*") {
-  const { data, error } = await createSupabaseAdminClient().from(table).select(columns).eq("id", id).maybeSingle();
+  const { data, error } = await (await createSupabaseServerClient()).from(table).select(columns).eq("id", id).maybeSingle();
   return error ? null : data as T | null;
 }
 

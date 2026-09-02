@@ -1,9 +1,9 @@
 import Link from "next/link";
 import { PageHeader } from "@/components/admin/page-header";
 import { Card } from "@/components/ui/card";
-import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 
-async function count(table: string, filters?: [string, string][]) { let query = createSupabaseAdminClient().from(table).select("id", { count: "exact", head: true }); for (const [key, value] of filters ?? []) query = query.eq(key, value); const result = await query; return result.count ?? 0; }
+async function count(table: string, filters?: [string, string][]) { let query = (await createSupabaseServerClient()).from(table).select("id", { count: "exact", head: true }); for (const [key, value] of filters ?? []) query = query.eq(key, value); const result = await query; return result.count ?? 0; }
 export default async function AdminPage() {
   const [products, activeProducts, featuredProducts, pendingOrders, processingOrders, shippedOrders, deliveredOrders, enquiries] = await Promise.all([count("admin_products"), count("admin_products", [["is_active", "true"]]), count("admin_products", [["is_featured", "true"]]), count("admin_orders", [["order_status", "pending"]]), count("admin_orders", [["order_status", "processing"]]), count("admin_orders", [["order_status", "shipped"]]), count("admin_orders", [["order_status", "delivered"]]), count("admin_bulk_enquiries", [["status", "new"]])]);
   const metrics = [["Total products", products], ["Active products", activeProducts], ["Featured products", featuredProducts], ["Pending orders", pendingOrders], ["Processing orders", processingOrders], ["Shipped orders", shippedOrders], ["Delivered orders", deliveredOrders], ["New enquiries", enquiries]];
