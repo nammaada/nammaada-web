@@ -14,6 +14,7 @@ function isActivePath(pathname: string, href: string) {
 
 export function StorefrontNavbar() {
   const pathname = usePathname();
+  const isHome = pathname === "/";
   const [menuOpen, setMenuOpen] = useState(false);
   const menuButtonRef = useRef<HTMLButtonElement>(null);
 
@@ -38,9 +39,9 @@ export function StorefrontNavbar() {
   }, [menuOpen]);
 
   return (
-    <header className="sticky top-0 z-40 border-b border-border/70 bg-background/95 backdrop-blur-sm">
-      <Container className="py-2 sm:py-3">
-        <div className="flex min-h-16 items-center justify-between gap-4 rounded-2xl border border-border/70 bg-card/80 px-3 shadow-soft backdrop-blur-sm sm:rounded-full sm:px-5">
+    <header className={isHome ? "absolute inset-x-0 top-0 z-50 bg-transparent" : "sticky top-0 z-40 border-b border-border/70 bg-background/95 backdrop-blur-sm"}>
+      <Container className={isHome ? "py-4 sm:py-5" : "py-2 sm:py-3"}>
+        <div className={`flex min-h-16 items-center justify-between gap-4 rounded-2xl border px-3 backdrop-blur-sm sm:rounded-full sm:px-5 ${isHome ? "border-primary-foreground/50 bg-primary-foreground/85 shadow-lifted" : "border-border/70 bg-card/80 shadow-soft"}`}>
         <Link
           className="shrink-0 rounded-lg focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring"
           href="/"
@@ -75,7 +76,7 @@ export function StorefrontNavbar() {
         </nav>
 
         <div className="hidden lg:block">
-          <Link className="inline-flex min-h-11 items-center justify-center rounded-full bg-primary px-5 text-sm font-semibold text-primary-foreground shadow-sm transition-[background-color,box-shadow,transform] duration-200 hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring active:translate-y-px" href="/products">
+          <Link className="inline-flex min-h-11 items-center justify-center rounded-full bg-primary px-5 !text-primary-foreground shadow-sm transition-[background-color,box-shadow,transform] duration-200 hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring active:translate-y-px" href="/products">
             Order Now
           </Link>
         </div>
@@ -112,7 +113,7 @@ export function StorefrontNavbar() {
                   </Link>
                 );
               })}
-              <Link className="mt-3 inline-flex min-h-11 items-center justify-center rounded-full bg-primary px-5 text-sm font-semibold text-primary-foreground shadow-sm transition-[background-color,box-shadow,transform] duration-200 hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring active:translate-y-px" href="/products" onClick={closeMenu}>
+              <Link className="mt-3 inline-flex min-h-11 items-center justify-center rounded-full bg-primary px-5 !text-primary-foreground shadow-sm transition-[background-color,box-shadow,transform] duration-200 hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring active:translate-y-px" href="/products" onClick={closeMenu}>
                 Order Now
               </Link>
             </nav>
