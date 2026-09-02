@@ -1,6 +1,7 @@
 import "server-only";
 
 import { AppError } from "@/lib/server/errors";
+import { getCloudinaryImageUrl } from "@/lib/cloudinary/delivery";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export type StorefrontProduct = {
@@ -62,7 +63,7 @@ async function attachPrimaryImages(
 
   const { data, error } = await supabase
     .from("product_images")
-    .select("id,product_id,secure_url,alt_text,display_order,is_primary")
+    .select("id,product_id,cloudinary_public_id,alt_text,display_order,is_primary")
     .in("product_id", products.map((product) => product.id))
     .order("is_primary", { ascending: false })
     .order("display_order", { ascending: true });
@@ -71,12 +72,12 @@ async function attachPrimaryImages(
     throw new AppError("internal", "We could not load product imagery right now.");
   }
 
-  const images = (data ?? []) as { id: string; product_id: string; secure_url: string; alt_text: string; display_order: number; is_primary: boolean }[];
+  const images = (data ?? []) as { id: string; product_id: string; cloudinary_public_id: string; alt_text: string; display_order: number; is_primary: boolean }[];
   const imagesByProduct = new Map<string, StorefrontProductImage[]>();
 
   for (const image of images) {
     const productImages = imagesByProduct.get(image.product_id) ?? [];
-    productImages.push({ id: image.id, url: image.secure_url, alt: image.alt_text, display_order: image.display_order });
+    productImages.push({ id: image.id, url: getCloudinaryImageUrl({ publicId: image.cloudinary_public_id, width: 960, height: 720, crop: "fill" }), alt: image.alt_text, display_order: image.display_order });
     imagesByProduct.set(image.product_id, productImages);
   }
 

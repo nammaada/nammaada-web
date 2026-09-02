@@ -1,0 +1,7 @@
+import type { ReactNode } from "react";
+import { AdminField, CheckField, MoneyField, Submit } from "@/components/admin/admin-form";
+import { PageHeader } from "@/components/admin/page-header";
+import { Card } from "@/components/ui/card";
+type Action = (formData: FormData) => Promise<void>;
+export function SimpleCrud({ title, description, rows, columns, action, fields, error }: { title:string; description:string; rows: ReactNode[]; columns: ReactNode; action: Action; fields: ReactNode; error?:string }) { return <><PageHeader title={title} description={description}/>{error?<p role="alert" className="mb-6 rounded-lg border border-red-900/20 bg-red-900/5 px-4 py-3 text-sm text-red-900">{error}</p>:null}<div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_22rem]"><Card className="overflow-hidden"><div className="overflow-x-auto"><table className="w-full min-w-[38rem] text-left text-sm"><thead className="border-b border-border bg-secondary/50 text-xs uppercase tracking-wider text-muted-foreground">{columns}</thead><tbody className="divide-y divide-border">{rows}</tbody></table>{rows.length===0?<p className="p-12 text-center text-sm text-muted-foreground">No {title.toLowerCase()} yet.</p>:null}</div></Card><Card className="p-5"><h2 className="font-display text-2xl">Add {title.toLowerCase().replace(/s$/,"")}</h2><form action={action} className="mt-5 grid gap-4">{fields}<Submit label="Create"/></form></Card></div></>; }
+export { AdminField, CheckField, MoneyField };

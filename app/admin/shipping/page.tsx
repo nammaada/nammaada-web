@@ -1,5 +1,5 @@
-import { PhasePlaceholder } from "@/components/layout/phase-placeholder";
-
-export default function AdminShippingPage() {
-  return <PhasePlaceholder area="Admin" title="Admin shipping" />;
-}
+import { deleteShippingRule, saveShippingRule } from "@/actions/admin";
+import { SimpleCrud, AdminField, CheckField, MoneyField } from "@/components/admin/simple-crud";
+import { adminRows, formatINR } from "@/lib/admin/data";
+type Row={id:string;state_code:string;state_name:string;charge_paise:number;is_active:boolean};
+export default async function ShippingPage({searchParams}:{searchParams:Promise<{error?:string}>}) { const rows=await adminRows<Row>("admin_shipping_rules"); const q=await searchParams; return <SimpleCrud title="Shipping rules" description="Configure real delivery charges when they are approved." error={q.error} action={saveShippingRule} columns={<tr><th className="px-5 py-4">State</th><th className="px-5 py-4">Charge</th><th className="px-5 py-4">Status</th><th className="px-5 py-4">Action</th></tr>} rows={rows.map(r=><tr key={r.id}><td className="px-5 py-4 font-semibold">{r.state_name} <span className="text-xs text-muted-foreground">({r.state_code})</span></td><td className="px-5 py-4">{formatINR(r.charge_paise)}</td><td className="px-5 py-4">{r.is_active?"Active":"Inactive"}</td><td className="px-5 py-4"><form action={deleteShippingRule}><input name="id" type="hidden" value={r.id}/><button className="font-semibold text-primary" type="submit">Delete</button></form></td></tr>)} fields={<><AdminField label="State code" name="state_code" required/><AdminField label="State name" name="state_name" required/><MoneyField label="Charge" name="charge"/><CheckField label="Active" name="is_active" defaultChecked/></>}/>; }

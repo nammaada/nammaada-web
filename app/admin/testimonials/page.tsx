@@ -1,5 +1,5 @@
-import { PhasePlaceholder } from "@/components/layout/phase-placeholder";
-
-export default function AdminTestimonialsPage() {
-  return <PhasePlaceholder area="Admin" title="Admin testimonials" />;
-}
+import { deleteTestimonial, saveTestimonial } from "@/actions/admin";
+import { SimpleCrud, AdminField, CheckField } from "@/components/admin/simple-crud";
+import { adminRows } from "@/lib/admin/data";
+type Row={id:string;display_name:string;location:string|null;content:string;is_active:boolean};
+export default async function TestimonialsPage({searchParams}:{searchParams:Promise<{error?:string}>}) { const rows=await adminRows<Row>("admin_testimonials"); const q=await searchParams; return <SimpleCrud title="Testimonials" description="Publish only genuine client-provided testimonials." error={q.error} action={saveTestimonial} columns={<tr><th className="px-5 py-4">Name</th><th className="px-5 py-4">Story</th><th className="px-5 py-4">Status</th><th className="px-5 py-4">Action</th></tr>} rows={rows.map(r=><tr key={r.id}><td className="px-5 py-4 font-semibold">{r.display_name}<p className="text-xs text-muted-foreground">{r.location??""}</p></td><td className="max-w-md px-5 py-4 text-muted-foreground">{r.content}</td><td className="px-5 py-4">{r.is_active?"Active":"Inactive"}</td><td className="px-5 py-4"><form action={deleteTestimonial}><input name="id" type="hidden" value={r.id}/><button className="font-semibold text-primary" type="submit">Delete</button></form></td></tr>)} fields={<><AdminField label="Display name" name="display_name" required/><AdminField label="Location" name="location"/><AdminField label="Content" name="content" required/><CheckField label="Active" name="is_active"/></>}/>; }

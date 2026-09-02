@@ -1,5 +1,11 @@
-import { PhasePlaceholder } from "@/components/layout/phase-placeholder";
+import Link from "next/link";
+import { PageHeader } from "@/components/admin/page-header";
+import { Card } from "@/components/ui/card";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
-export default function AdminPage() {
-  return <PhasePlaceholder area="Admin" title="Admin area" />;
+async function count(table: string, filters?: [string, string][]) { let query = createSupabaseAdminClient().from(table).select("id", { count: "exact", head: true }); for (const [key, value] of filters ?? []) query = query.eq(key, value); const result = await query; return result.count ?? 0; }
+export default async function AdminPage() {
+  const [products, activeProducts, featuredProducts, pendingOrders, processingOrders, shippedOrders, deliveredOrders, enquiries] = await Promise.all([count("admin_products"), count("admin_products", [["is_active", "true"]]), count("admin_products", [["is_featured", "true"]]), count("admin_orders", [["order_status", "pending"]]), count("admin_orders", [["order_status", "processing"]]), count("admin_orders", [["order_status", "shipped"]]), count("admin_orders", [["order_status", "delivered"]]), count("admin_bulk_enquiries", [["status", "new"]])]);
+  const metrics = [["Total products", products], ["Active products", activeProducts], ["Featured products", featuredProducts], ["Pending orders", pendingOrders], ["Processing orders", processingOrders], ["Shipped orders", shippedOrders], ["Delivered orders", deliveredOrders], ["New enquiries", enquiries]];
+  return <><PageHeader eyebrow="Overview" title="Admin dashboard" description="A clear view of the Namma Ada catalogue and operations." /><div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">{metrics.map(([label, value]) => <Card className="p-5" key={String(label)}><p className="text-sm text-muted-foreground">{label}</p><p className="mt-3 font-display text-3xl text-primary">{value}</p></Card>)}</div><div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">{[["Add product","/admin/products/new"],["Manage products","/admin/products"],["Manage shipping","/admin/shipping"],["View orders","/admin/orders"]].map(([label, href]) => <Link className="rounded-xl border border-border bg-card p-5 text-sm font-semibold transition-colors hover:border-primary/40 hover:text-primary" href={href} key={href}>{label}<span aria-hidden="true" className="ml-2">↗</span></Link>)}</div></>;
 }

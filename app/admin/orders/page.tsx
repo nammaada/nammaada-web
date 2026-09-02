@@ -1,5 +1,6 @@
-import { PhasePlaceholder } from "@/components/layout/phase-placeholder";
-
-export default function AdminOrdersPage() {
-  return <PhasePlaceholder area="Admin" title="Admin orders" />;
-}
+import { updateOrder } from "@/actions/admin";
+import { PageHeader } from "@/components/admin/page-header";
+import { Card } from "@/components/ui/card";
+import { adminRows, formatINR } from "@/lib/admin/data";
+type Row={id:string;order_number:string;customer_name_snapshot:string;total_amount_paise:number;order_status:string;payment_status:string;created_at:string};
+export default async function OrdersPage() { const rows=await adminRows<Row>("admin_orders"); return <><PageHeader title="Orders" description="Review real guest orders and operational status. Payment and stock automation remain deferred."/><Card className="overflow-hidden"><div className="overflow-x-auto"><table className="w-full min-w-[52rem] text-left text-sm"><thead className="border-b border-border bg-secondary/50 text-xs uppercase tracking-wider text-muted-foreground"><tr><th className="px-5 py-4">Order</th><th className="px-5 py-4">Customer</th><th className="px-5 py-4">Total</th><th className="px-5 py-4">Payment</th><th className="px-5 py-4">Order status</th></tr></thead><tbody className="divide-y divide-border">{rows.map(r=><tr key={r.id}><td className="px-5 py-4 font-semibold">{r.order_number}<p className="text-xs text-muted-foreground">{new Date(r.created_at).toLocaleDateString("en-IN")}</p></td><td className="px-5 py-4">{r.customer_name_snapshot}</td><td className="px-5 py-4">{formatINR(r.total_amount_paise)}</td><td className="px-5 py-4">{r.payment_status}</td><td className="px-5 py-4"><form action={updateOrder} className="flex items-center gap-2"><input name="id" type="hidden" value={r.id}/><select aria-label={`Status for ${r.order_number}`} className="rounded border border-input bg-card px-2 py-2" defaultValue={r.order_status} name="order_status"><option>pending</option><option>paid</option><option>processing</option><option>shipped</option><option>delivered</option><option>cancelled</option><option>refunded</option></select><button className="font-semibold text-primary" type="submit">Save</button></form></td></tr>)}</tbody></table>{rows.length===0?<p className="p-12 text-center text-sm text-muted-foreground">No orders yet.</p>:null}</div></Card></>; }

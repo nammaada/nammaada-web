@@ -1,5 +1,6 @@
-import { PhasePlaceholder } from "@/components/layout/phase-placeholder";
-
-export default function AdminEnquiriesPage() {
-  return <PhasePlaceholder area="Admin" title="Admin enquiries" />;
-}
+import { updateEnquiry } from "@/actions/admin";
+import { PageHeader } from "@/components/admin/page-header";
+import { Card } from "@/components/ui/card";
+import { adminRows } from "@/lib/admin/data";
+type Row={id:string;name:string;phone:string;product_requirement:string;quantity_details:string;status:string;created_at:string};
+export default async function EnquiriesPage() { const rows=await adminRows<Row>("admin_bulk_enquiries"); return <><PageHeader title="Bulk enquiries" description="Review real enquiries and keep their operational status current."/><Card className="overflow-hidden"><div className="overflow-x-auto"><table className="w-full min-w-[54rem] text-left text-sm"><thead className="border-b border-border bg-secondary/50 text-xs uppercase tracking-wider text-muted-foreground"><tr><th className="px-5 py-4">Contact</th><th className="px-5 py-4">Requirement</th><th className="px-5 py-4">Quantity</th><th className="px-5 py-4">Status</th></tr></thead><tbody className="divide-y divide-border">{rows.map(r=><tr key={r.id}><td className="px-5 py-4"><p className="font-semibold">{r.name}</p><p className="text-xs text-muted-foreground">{r.phone}</p></td><td className="px-5 py-4">{r.product_requirement}</td><td className="px-5 py-4">{r.quantity_details}</td><td className="px-5 py-4"><form action={updateEnquiry} className="flex items-center gap-2"><input name="id" type="hidden" value={r.id}/><select aria-label={`Status for ${r.name}`} className="rounded border border-input bg-card px-2 py-2" defaultValue={r.status} name="status"><option>new</option><option>in_progress</option><option>resolved</option><option>closed</option></select><button className="font-semibold text-primary" type="submit">Save</button></form></td></tr>)}</tbody></table>{rows.length===0?<p className="p-12 text-center text-sm text-muted-foreground">No enquiries yet.</p>:null}</div></Card></>; }

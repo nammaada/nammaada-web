@@ -1,5 +1,5 @@
-import { PhasePlaceholder } from "@/components/layout/phase-placeholder";
-
-export default function AdminCouriersPage() {
-  return <PhasePlaceholder area="Admin" title="Admin couriers" />;
-}
+import { deleteCourier, saveCourier } from "@/actions/admin";
+import { SimpleCrud, AdminField, CheckField } from "@/components/admin/simple-crud";
+import { adminRows } from "@/lib/admin/data";
+type Row={id:string;name:string;tracking_url_template:string|null;is_active:boolean};
+export default async function CouriersPage({searchParams}:{searchParams:Promise<{error?:string}>}) { const rows=await adminRows<Row>("admin_courier_partners"); const q=await searchParams; return <SimpleCrud title="Courier partners" description="Maintain courier references for future fulfilment operations." error={q.error} action={saveCourier} columns={<tr><th className="px-5 py-4">Name</th><th className="px-5 py-4">Tracking template</th><th className="px-5 py-4">Status</th><th className="px-5 py-4">Action</th></tr>} rows={rows.map(r=><tr key={r.id}><td className="px-5 py-4 font-semibold">{r.name}</td><td className="px-5 py-4 text-xs text-muted-foreground">{r.tracking_url_template??"—"}</td><td className="px-5 py-4">{r.is_active?"Active":"Inactive"}</td><td className="px-5 py-4"><form action={deleteCourier}><input name="id" type="hidden" value={r.id}/><button className="font-semibold text-primary" type="submit">Delete</button></form></td></tr>)} fields={<><AdminField label="Name" name="name" required/><AdminField label="Tracking URL template" name="tracking_url_template"/><CheckField label="Active" name="is_active" defaultChecked/></>}/>; }

@@ -1,5 +1,7 @@
-import { PhasePlaceholder } from "@/components/layout/phase-placeholder";
-
-export default function AdminProductsPage() {
-  return <PhasePlaceholder area="Admin" title="Admin products" />;
-}
+import Link from "next/link";
+import { deleteProduct } from "@/actions/admin";
+import { PageHeader } from "@/components/admin/page-header";
+import { Card } from "@/components/ui/card";
+import { adminRows, formatINR } from "@/lib/admin/data";
+type Product = { id:string; name:string; slug:string; price_paise:number; stock_quantity:number; is_active:boolean; is_featured:boolean };
+export default async function AdminProductsPage({ searchParams }: { searchParams: Promise<{ error?: string }> }) { const rows = await adminRows<Product>("admin_products"); const params = await searchParams; return <><PageHeader title="Products" description="Manage catalogue content, pricing, availability, variants, and imagery." action={<Link className="inline-flex min-h-11 items-center justify-center rounded-full bg-primary px-5 text-sm font-semibold text-primary-foreground" href="/admin/products/new">Add product</Link>} />{params.error ? <p className="mb-5 rounded-lg border border-red-900/20 bg-red-900/5 px-4 py-3 text-sm text-red-900">{params.error}</p> : null}<Card className="overflow-hidden"><div className="overflow-x-auto"><table className="w-full min-w-[48rem] text-left text-sm"><thead className="border-b border-border bg-secondary/50 text-xs uppercase tracking-wider text-muted-foreground"><tr><th className="px-5 py-4">Product</th><th className="px-5 py-4">Price</th><th className="px-5 py-4">Stock</th><th className="px-5 py-4">Status</th><th className="px-5 py-4">Action</th></tr></thead><tbody className="divide-y divide-border">{rows.map((row) => <tr key={row.id}><td className="px-5 py-4"><Link className="font-semibold hover:text-primary" href={`/admin/products/${row.id}`}>{row.name}</Link><p className="text-xs text-muted-foreground">{row.slug}</p></td><td className="px-5 py-4">{formatINR(row.price_paise)}</td><td className="px-5 py-4">{row.stock_quantity}</td><td className="px-5 py-4">{row.is_active ? "Active" : "Inactive"}{row.is_featured ? " · Featured" : ""}</td><td className="px-5 py-4"><form action={deleteProduct}><input name="id" type="hidden" value={row.id} /><button className="font-semibold text-primary hover:underline" type="submit">Delete</button></form></td></tr>)}</tbody></table>{rows.length === 0 ? <p className="p-12 text-center text-sm text-muted-foreground">No products yet. Add your first product.</p> : null}</div></Card></>; }

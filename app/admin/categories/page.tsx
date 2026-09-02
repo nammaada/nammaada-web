@@ -1,5 +1,11 @@
-import { PhasePlaceholder } from "@/components/layout/phase-placeholder";
+import { saveCategory, deleteCategory } from "@/actions/admin";
+import { AdminField, CheckField, Submit } from "@/components/admin/admin-form";
+import { PageHeader } from "@/components/admin/page-header";
+import { Card } from "@/components/ui/card";
+import { adminRows } from "@/lib/admin/data";
 
-export default function AdminCategoriesPage() {
-  return <PhasePlaceholder area="Admin" title="Admin categories" />;
+type Category = { id: string; name: string; slug: string; description: string | null; is_active: boolean; display_order: number };
+export default async function AdminCategoriesPage({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
+  const rows = await adminRows<Category>("categories"); const params = await searchParams;
+  return <><PageHeader title="Categories" description="Organise the catalogue with the active category structure." /><p className={params.error ? "mb-5 rounded-lg border border-red-900/20 bg-red-900/5 px-4 py-3 text-sm text-red-900" : "hidden"}>{params.error}</p><div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_22rem]"><Card className="overflow-hidden"><div className="overflow-x-auto"><table className="w-full min-w-[38rem] text-left text-sm"><thead className="border-b border-border bg-secondary/50 text-xs uppercase tracking-wider text-muted-foreground"><tr><th className="px-5 py-4">Name</th><th className="px-5 py-4">Slug</th><th className="px-5 py-4">Status</th><th className="px-5 py-4">Action</th></tr></thead><tbody className="divide-y divide-border">{rows.map((row) => <tr key={row.id}><td className="px-5 py-4 font-semibold">{row.name}</td><td className="px-5 py-4 text-muted-foreground">{row.slug}</td><td className="px-5 py-4">{row.is_active ? "Active" : "Inactive"}</td><td className="px-5 py-4"><form action={deleteCategory}><input name="id" type="hidden" value={row.id} /><button className="text-sm font-semibold text-primary hover:underline" type="submit">Delete</button></form></td></tr>)}</tbody></table>{rows.length === 0 ? <p className="p-10 text-center text-sm text-muted-foreground">No categories yet. Add the first category.</p> : null}</div></Card><Card className="p-5"><h2 className="font-display text-2xl">Add category</h2><form action={saveCategory} className="mt-5 grid gap-4"><AdminField label="Name" name="name" required /><AdminField label="Slug" name="slug" required /><AdminField label="Description" name="description" /><AdminField label="Display order" name="display_order" type="number" defaultValue={0} /><CheckField label="Active" name="is_active" defaultChecked /><Submit label="Create category" /></form></Card></div></>;
 }
