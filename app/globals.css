@@ -67,15 +67,19 @@ body {
   color: var(--accent-foreground);
 }
 
-a {
-  color: inherit;
-}
-
 button,
 input,
 textarea,
 select {
   font: inherit;
+}
+
+/* Keep element resets in the base layer so semantic utility classes such as
+   text-primary-foreground can correctly control link and button contrast. */
+@layer base {
+  a {
+    color: inherit;
+  }
 }
 
 button,
