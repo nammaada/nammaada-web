@@ -549,6 +549,205 @@ after insert or update or delete on public.order_items
 deferrable initially deferred
 for each row execute function private.assert_order_subtotal();
 
+-- Trusted guest-checkout boundary. This creates only a pending order: it
+-- validates the active catalog and current stock, resolves all prices and
+-- snapshots server-side, and deliberately does not reserve/decrement stock or
+-- create a payment. The idempotency key becomes a stable customer-facing
+-- order number so a retried request returns the original pending order.
+create or replace function public.create_pending_order(
+  p_idempotency_key uuid,
+  p_full_name text,
+  p_phone text,
+  p_email text,
+  p_address text,
+  p_city text,
+  p_state text,
+  p_pincode text,
+  p_cart jsonb
+)
+returns table (result_code text, order_number text)
+language plpgsql
+security definer
+set search_path = pg_catalog, public
+as $$
+declare
+  v_order_number text := 'NA-' || upper(substr(encode(digest(p_idempotency_key::text, 'sha256'), 'hex'), 1, 24));
+  v_existing_order_number text;
+  v_customer_id uuid;
+  v_product_id uuid;
+  v_variant_id uuid;
+  v_quantity integer;
+  v_client_price bigint;
+  v_product_name text;
+  v_variant_name text;
+  v_sku text;
+  v_unit_price bigint;
+  v_product_stock integer;
+  v_variant_stock integer;
+  v_has_variants boolean;
+  v_delivery_scope public.delivery_scope;
+  v_subtotal bigint := 0;
+  v_shipping_fee bigint;
+  v_state_rule_count integer;
+  v_has_bangalore_only boolean := false;
+  v_line_key text;
+  v_seen_lines text[] := '{}';
+  v_resolved_items jsonb := '[]'::jsonb;
+  v_line jsonb;
+  v_item record;
+begin
+  if p_idempotency_key is null or jsonb_typeof(p_cart) <> 'array' or jsonb_array_length(p_cart) = 0 then
+    return query select 'validation_error', null::text;
+    return;
+  end if;
+
+  select o.order_number into v_existing_order_number
+  from public.orders o
+  where o.order_number = v_order_number;
+
+  if v_existing_order_number is not null then
+    return query select 'duplicate', v_existing_order_number;
+    return;
+  end if;
+
+  for v_line in select value from jsonb_array_elements(p_cart) loop
+    begin
+      v_product_id := (v_line->>'product_id')::uuid;
+      v_variant_id := nullif(v_line->>'variant_id', '')::uuid;
+      v_quantity := (v_line->>'quantity')::integer;
+      v_client_price := nullif(v_line->>'unit_price_paise', '')::bigint;
+    exception when others then
+      return query select 'validation_error', null::text;
+      return;
+    end;
+
+    if v_product_id is null or v_quantity is null or v_quantity <= 0 then
+      return query select 'validation_error', null::text;
+      return;
+    end if;
+
+    v_line_key := v_product_id::text || ':' || coalesce(v_variant_id::text, 'base');
+    if v_line_key = any(v_seen_lines) then
+      return query select 'validation_error', null::text;
+      return;
+    end if;
+    v_seen_lines := array_append(v_seen_lines, v_line_key);
+
+    select p.name, p.stock_quantity, p.delivery_scope
+      into v_product_name, v_product_stock, v_delivery_scope
+    from public.products p
+    where p.id = v_product_id and p.is_active;
+
+    if v_product_name is null then
+      return query select 'item_unavailable', null::text;
+      return;
+    end if;
+
+    select exists (
+      select 1 from public.product_variants pv
+      where pv.product_id = v_product_id and pv.is_active
+    ) into v_has_variants;
+
+    if v_variant_id is null then
+      if v_has_variants then
+        return query select 'variant_required', null::text;
+        return;
+      end if;
+      if v_product_stock < v_quantity then
+        return query select 'stock_unavailable', null::text;
+        return;
+      end if;
+      select p.price_paise into v_unit_price from public.products p where p.id = v_product_id;
+      v_variant_name := null;
+      v_sku := null;
+    else
+      select pv.name, pv.sku, pv.price_paise, pv.stock_quantity
+        into v_variant_name, v_sku, v_unit_price, v_variant_stock
+      from public.product_variants pv
+      where pv.id = v_variant_id and pv.product_id = v_product_id and pv.is_active;
+      if v_variant_name is null then
+        return query select 'item_unavailable', null::text;
+        return;
+      end if;
+      if v_variant_stock < v_quantity then
+        return query select 'stock_unavailable', null::text;
+        return;
+      end if;
+    end if;
+
+    if v_client_price is not null and v_client_price <> v_unit_price then
+      return query select 'price_changed', null::text;
+      return;
+    end if;
+    if v_unit_price > 0 and v_unit_price > floor(9223372036854775807::numeric / v_quantity) then
+      return query select 'validation_error', null::text;
+      return;
+    end if;
+    if v_delivery_scope = 'bangalore_only' then
+      v_has_bangalore_only := true;
+    end if;
+    v_subtotal := v_subtotal + (v_unit_price * v_quantity);
+    v_resolved_items := v_resolved_items || jsonb_build_array(jsonb_build_object(
+      'product_id', v_product_id,
+      'variant_id', v_variant_id,
+      'product_name', v_product_name,
+      'variant_name', v_variant_name,
+      'sku', v_sku,
+      'unit_price_paise', v_unit_price,
+      'quantity', v_quantity
+    ));
+  end loop;
+
+  -- Bangalore eligibility and mixed-cart behavior remain unresolved business
+  -- rules, so this foundation fails safely instead of guessing.
+  if v_has_bangalore_only then
+    return query select 'delivery_unavailable', null::text;
+    return;
+  end if;
+
+  select count(*), min(sr.charge_paise)
+    into v_state_rule_count, v_shipping_fee
+  from public.shipping_rules sr
+  where sr.is_active and lower(trim(sr.state_name)) = lower(trim(p_state));
+  if v_state_rule_count <> 1 or v_shipping_fee is null then
+    return query select 'delivery_unavailable', null::text;
+    return;
+  end if;
+
+  insert into public.customers (full_name, phone, email, address, district_city, state, pincode)
+  values (trim(p_full_name), trim(p_phone), nullif(trim(p_email), ''), trim(p_address), trim(p_city), trim(p_state), trim(p_pincode))
+  returning id into v_customer_id;
+
+  insert into public.orders (
+    order_number, customer_id, subtotal_paise, shipping_fee_paise,
+    total_amount_paise, order_status, payment_status,
+    customer_name_snapshot, customer_phone_snapshot, customer_email_snapshot,
+    delivery_address_snapshot, delivery_district_city, delivery_state, delivery_pincode
+  ) values (
+    v_order_number, v_customer_id, v_subtotal, v_shipping_fee,
+    v_subtotal + v_shipping_fee, 'pending', 'pending',
+    trim(p_full_name), trim(p_phone), nullif(trim(p_email), ''),
+    trim(p_address), trim(p_city), trim(p_state), trim(p_pincode)
+  );
+
+  for v_item in select * from jsonb_to_recordset(v_resolved_items) as x(
+    product_id uuid, variant_id uuid, product_name text, variant_name text,
+    sku text, unit_price_paise bigint, quantity integer
+  ) loop
+    insert into public.order_items (
+      order_id, product_id, product_variant_id, product_name_snapshot,
+      variant_name_snapshot, sku_snapshot, unit_price_paise, quantity
+    ) values (
+      (select id from public.orders where order_number = v_order_number),
+      v_item.product_id, v_item.variant_id, v_item.product_name,
+      v_item.variant_name, v_item.sku, v_item.unit_price_paise, v_item.quantity
+    );
+  end loop;
+
+  return query select 'created', v_order_number;
+end;
+$$;
+
 -- The admin UUID is deliberately not seeded. After creating the intended user
 -- manually in Supabase Auth, run this once as a trusted database administrator:
 --   insert into public.admin_users (user_id) values ('AUTH_USER_UUID');
@@ -606,6 +805,8 @@ revoke all on function private.decrement_stock(uuid, uuid, integer) from public,
 revoke all on function private.assert_order_subtotal() from public, anon, authenticated;
 revoke all on function private.is_admin() from public;
 grant execute on function private.is_admin() to authenticated;
+revoke all on function public.create_pending_order(uuid, text, text, text, text, text, text, text, jsonb) from public, anon, authenticated;
+grant execute on function public.create_pending_order(uuid, text, text, text, text, text, text, text, jsonb) to service_role;
 
 revoke all on all tables in schema public from anon, authenticated;
 
