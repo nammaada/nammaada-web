@@ -84,9 +84,9 @@ export function CheckField({ label, name, defaultChecked, description }: { label
   return <Switch defaultChecked={defaultChecked} description={description} label={label} name={name} />;
 }
 
-export function Submit({ label = "Save changes", variant = "primary", size = "md", className = "" }: { label?: string; variant?: "primary" | "secondary" | "outline" | "ghost" | "destructive"; size?: "sm" | "md" | "lg"; className?: string }) {
+export function Submit({ label = "Save changes", variant = "primary", size = "md", className = "", disabled = false }: { label?: string; variant?: "primary" | "secondary" | "outline" | "ghost" | "destructive"; size?: "sm" | "md" | "lg"; className?: string; disabled?: boolean }) {
   return (
-    <Button className={className} size={size} type="submit" variant={variant}>
+    <Button className={className} disabled={disabled} size={size} type="submit" variant={variant}>
       {label}
     </Button>
   );
