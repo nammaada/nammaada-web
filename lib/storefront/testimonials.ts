@@ -1,6 +1,6 @@
 import "server-only";
 
-import { AppError } from "@/lib/server/errors";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export type StorefrontTestimonial = {
@@ -11,16 +11,36 @@ export type StorefrontTestimonial = {
 };
 
 export async function getTestimonials(): Promise<StorefrontTestimonial[]> {
-  const supabase = await createSupabaseServerClient();
-  const { data, error } = await supabase
-    .from("testimonials")
-    .select("id,display_name,location,content")
-    .eq("is_active", true)
-    .order("display_order", { ascending: true });
+  try {
+    const supabase = await createSupabaseServerClient();
+    const { data, error } = await supabase
+      .from("testimonials")
+      .select("id,display_name,location,content")
+      .eq("is_active", true)
+      .order("display_order", { ascending: true });
 
-  if (error) {
-    throw new AppError("internal", "We could not load testimonials right now.");
+    if (!error && data) {
+      return data as StorefrontTestimonial[];
+    }
+  } catch {
+    // fallback
   }
 
-  return (data ?? []) as StorefrontTestimonial[];
+  try {
+    const admin = createSupabaseAdminClient();
+    const { data, error } = await admin
+      .from("testimonials")
+      .select("id,display_name,location,content")
+      .eq("is_active", true)
+      .order("display_order", { ascending: true });
+
+    if (!error && data) {
+      return data as StorefrontTestimonial[];
+    }
+  } catch {
+    // ignore
+  }
+
+  return [];
 }
+

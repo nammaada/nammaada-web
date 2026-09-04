@@ -5,15 +5,18 @@ import { HeroSection } from "@/components/home/hero-section";
 import { InstagramPreview } from "@/components/home/instagram-preview";
 import { StoryPreview } from "@/components/home/story-preview";
 import { Testimonials } from "@/components/home/testimonials";
+import { getFromOurKitchenContent, getWhoWeAreContent } from "@/lib/storefront/content";
 import { getFeaturedProducts } from "@/lib/storefront/products";
 import { getTestimonials } from "@/lib/storefront/testimonials";
 
 export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
-  const [featuredProducts, testimonials] = await Promise.all([
+  const [featuredProducts, testimonials, whoWeAreContent, fromOurKitchenContent] = await Promise.all([
     getFeaturedProducts(),
     getTestimonials(),
+    getWhoWeAreContent(),
+    getFromOurKitchenContent(),
   ]);
 
   return (
@@ -21,10 +24,10 @@ export default async function HomePage() {
       <HeroSection />
       <FeaturedProducts products={featuredProducts} />
       <BrandValues />
-      <StoryPreview />
-      <InstagramPreview />
-      <Testimonials testimonials={testimonials} />
+      <StoryPreview content={whoWeAreContent} />
+      <InstagramPreview content={fromOurKitchenContent} />
       <CelebrationCta />
+      <Testimonials testimonials={testimonials} />
     </>
   );
 }
