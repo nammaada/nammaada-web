@@ -43,6 +43,44 @@ export async function deleteCloudinaryMedia(publicId: string, resourceType: "ima
   if (!response.ok) throw new Error("Cloudinary deletion failed");
 }
 
+export function createUploadSignature() {
+  const env = getCloudinaryEnv();
+  const time = timestamp();
+  const params: Record<string, string> = { timestamp: time };
+  const sig = signature(params, env.apiSecret);
+  return {
+    signature: sig,
+    timestamp: time,
+    apiKey: env.apiKey,
+    cloudName: env.cloudName,
+  };
+}
+
+export async function verifyCloudinaryVideoDuration(publicId: string, maxSeconds = 20) {
+  try {
+    const env = getCloudinaryEnv();
+    const auth = Buffer.from(`${env.apiKey}:${env.apiSecret}`).toString("base64");
+    const res = await fetch(
+      `https://api.cloudinary.com/v1_1/${encodeURIComponent(env.cloudName)}/resources/video/upload/${encodeURIComponent(publicId)}`,
+      {
+        headers: { Authorization: `Basic ${auth}` },
+        cache: "no-store",
+      }
+    );
+    if (!res.ok) return null;
+    const data = (await res.json()) as { duration?: number; bytes?: number };
+    if (data.duration && data.duration > maxSeconds) {
+      return `Hero video duration (${Math.round(data.duration)}s) exceeds the maximum allowed ${maxSeconds} seconds limit.`;
+    }
+    if (data.bytes && data.bytes > 25 * 1024 * 1024) {
+      return `Hero video file size (${(data.bytes / (1024 * 1024)).toFixed(1)} MB) exceeds the 25 MB limit.`;
+    }
+  } catch {
+    // Fail safely if Cloudinary resource API is unreachable
+  }
+  return null;
+}
+
 export function validateImage(file: File) {
   const supported = new Set(["image/jpeg", "image/png", "image/webp", "image/avif"]);
   if (!supported.has(file.type)) return "Use a JPEG, PNG, WebP, or AVIF image.";
@@ -60,10 +98,10 @@ export function validateMedia(file: File) {
   }
 
   if (supportedVideos.has(file.type)) {
-    if (file.size > 50 * 1024 * 1024) return "Videos must be 50 MB or smaller.";
+    if (file.size > 25 * 1024 * 1024) return "Hero videos must be 25 MB or smaller.";
     return null;
   }
 
-  return "Use a supported image (JPEG, PNG, WebP, AVIF) or video (MP4, WebM, MOV).";
+  return "Use a supported image (JPEG, PNG, WebP, AVIF) or video (MP4, WebM, MOV under 25MB).";
 }
 

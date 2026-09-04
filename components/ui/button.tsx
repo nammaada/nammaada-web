@@ -2,7 +2,7 @@ import type { ButtonHTMLAttributes } from "react";
 
 type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
   variant?: "primary" | "secondary" | "outline" | "ghost" | "destructive";
-  size?: "sm" | "md" | "lg";
+  size?: "sm" | "md" | "lg" | "icon";
   isLoading?: boolean;
 };
 
@@ -18,6 +18,7 @@ const sizes = {
   sm: "min-h-9 px-3.5 text-xs gap-1.5",
   md: "min-h-10 px-4 text-sm gap-2",
   lg: "min-h-12 px-6 text-base gap-2.5",
+  icon: "h-9 w-9 p-0 gap-0",
 } as const;
 
 export function Button({ className = "", variant = "primary", size = "md", isLoading = false, disabled, children, ...props }: ButtonProps) {

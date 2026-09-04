@@ -98,31 +98,168 @@ export async function saveHeroMedia(form: FormData) {
   ok("/admin/hero");
 }
 
-export async function deleteHeroMedia() {
+export async function getCloudinaryUploadSignatureAction() {
   await requireAdmin();
-  const client = createSupabaseAdminClient();
-  const { data: current } = await client.from("site_settings").select("value").eq("key", "hero_media").maybeSingle();
-  const currentVal = (current?.value || {}) as Record<string, string | null>;
-
-  if (currentVal.cloudinary_public_id) {
-    await deleteCloudinaryMedia(currentVal.cloudinary_public_id, currentVal.media_type === "video" ? "video" : "image").catch(() => undefined);
-  }
-  if (currentVal.poster_public_id) {
-    await deleteCloudinaryMedia(currentVal.poster_public_id, "image").catch(() => undefined);
-  }
-
-  const defaultValue = {
-    media_type: "image",
-    cloudinary_public_id: null,
-    media_url: null,
-    poster_public_id: null,
-    poster_url: null,
-    alt_text: "Namma Ada authentic Kerala handcrafted delicacies",
-    resource_type: "image",
-  };
-
-  await client.from("site_settings").upsert({ key: "hero_media", value: defaultValue, updated_at: new Date().toISOString() });
-  revalidatePath("/");
-  ok("/admin/hero");
+  const { createUploadSignature } = await import("@/lib/cloudinary/server");
+  return createUploadSignature();
 }
 
+export async function saveHeroBanner(form: FormData) {
+  await requireAdmin();
+
+  const id = uuid(form, "id");
+  const mediaType = text(form, "media_type") === "video" ? "video" : "image";
+  const cloudinaryPublicId = required(form, "cloudinary_public_id", "Hero media", 250);
+  const posterPublicId = text(form, "poster_public_id") || null;
+  const eyebrow = required(form, "eyebrow", "Eyebrow", 100);
+  const headline = required(form, "headline", "Headline", 200);
+  const description = required(form, "description", "Description", 1000);
+
+  const primaryCtaLabel = required(form, "primary_cta_label", "Primary button label", 100);
+  const primaryCtaHref = required(form, "primary_cta_href", "Primary button destination", 250);
+  const isSecondaryEnabled = bool(form, "is_secondary_cta_enabled");
+  const secondaryCtaLabel = isSecondaryEnabled ? text(form, "secondary_cta_label") || null : null;
+  const secondaryCtaHref = isSecondaryEnabled ? text(form, "secondary_cta_href") || null : null;
+
+  const displayOrder = integer(form, "display_order", 0);
+  const isActive = bool(form, "is_active");
+  const altText = text(form, "alt_text") || null;
+
+  const mobileHeadline = text(form, "mobile_headline") || null;
+  const mobileDescription = text(form, "mobile_description") || null;
+  const mobileMediaPublicId = text(form, "mobile_media_public_id") || null;
+  const mobileMediaType = text(form, "mobile_media_type") === "video" ? "video" : text(form, "mobile_media_type") === "image" ? "image" : null;
+
+  if (mediaType === "video" && !posterPublicId) {
+    fail(id ? `/admin/hero-banners/${id}` : "/admin/hero-banners/new", "A poster image is required for video hero banners.");
+  }
+
+  const client = createSupabaseAdminClient();
+
+  const { data: existing } = id
+    ? await client.from("hero_banners").select("cloudinary_public_id, poster_public_id, media_type").eq("id", id).maybeSingle()
+    : { data: null };
+
+  const oldPublicId = existing?.cloudinary_public_id || null;
+  const oldPosterPublicId = existing?.poster_public_id || null;
+  const oldMediaType = existing?.media_type || "image";
+
+  if (mediaType === "video") {
+    const { verifyCloudinaryVideoDuration } = await import("@/lib/cloudinary/server");
+    const videoError = await verifyCloudinaryVideoDuration(cloudinaryPublicId, 20);
+    if (videoError) {
+      if (cloudinaryPublicId && cloudinaryPublicId !== oldPublicId) {
+        await deleteCloudinaryMedia(cloudinaryPublicId, "video").catch(() => undefined);
+      }
+      fail(id ? `/admin/hero-banners/${id}` : "/admin/hero-banners/new", videoError);
+    }
+  }
+
+  const values = {
+    cloudinary_public_id: cloudinaryPublicId,
+    poster_public_id: posterPublicId,
+    media_type: mediaType,
+    eyebrow,
+    headline,
+    description,
+    primary_cta_label: primaryCtaLabel,
+    primary_cta_href: primaryCtaHref,
+    secondary_cta_label: secondaryCtaLabel,
+    secondary_cta_href: secondaryCtaHref,
+    is_secondary_cta_enabled: isSecondaryEnabled,
+    display_order: displayOrder,
+    is_active: isActive,
+    alt_text: altText,
+    mobile_headline: mobileHeadline,
+    mobile_description: mobileDescription,
+    mobile_media_public_id: mobileMediaPublicId,
+    mobile_media_type: mobileMediaType,
+    updated_at: new Date().toISOString(),
+  };
+
+  const result = id
+    ? await client.from("hero_banners").update(values).eq("id", id)
+    : await client.from("hero_banners").insert(values);
+
+  if (result.error) {
+    if (cloudinaryPublicId && cloudinaryPublicId !== oldPublicId) {
+      await deleteCloudinaryMedia(cloudinaryPublicId, mediaType).catch(() => undefined);
+    }
+    if (posterPublicId && posterPublicId !== oldPosterPublicId) {
+      await deleteCloudinaryMedia(posterPublicId, "image").catch(() => undefined);
+    }
+    fail(id ? `/admin/hero-banners/${id}` : "/admin/hero-banners/new", dbMessage());
+  }
+
+  if (oldPublicId && oldPublicId !== cloudinaryPublicId) {
+    await deleteCloudinaryMedia(oldPublicId, oldMediaType === "video" ? "video" : "image").catch(() => undefined);
+  }
+  if (oldPosterPublicId && oldPosterPublicId !== posterPublicId) {
+    await deleteCloudinaryMedia(oldPosterPublicId, "image").catch(() => undefined);
+  }
+
+  revalidatePath("/");
+  ok("/admin/hero-banners");
+}
+
+export async function deleteHeroBanner(form: FormData) {
+  await requireAdmin();
+  const id = uuid(form, "id");
+  if (!id) fail("/admin/hero-banners", "Invalid banner ID.");
+
+  const client = createSupabaseAdminClient();
+  const { data: existing } = await client.from("hero_banners").select("cloudinary_public_id, poster_public_id, media_type").eq("id", id).maybeSingle();
+
+  const result = await client.from("hero_banners").delete().eq("id", id);
+  if (result.error) fail("/admin/hero-banners", "Unable to delete banner.");
+
+  if (existing?.cloudinary_public_id) {
+    await deleteCloudinaryMedia(existing.cloudinary_public_id, existing.media_type === "video" ? "video" : "image").catch(() => undefined);
+  }
+  if (existing?.poster_public_id) {
+    await deleteCloudinaryMedia(existing.poster_public_id, "image").catch(() => undefined);
+  }
+
+  revalidatePath("/");
+  ok("/admin/hero-banners");
+}
+
+export async function toggleHeroBannerActive(form: FormData) {
+  await requireAdmin();
+  const id = uuid(form, "id");
+  const isActive = bool(form, "is_active");
+  if (!id) fail("/admin/hero-banners", "Invalid banner.");
+
+  const result = await createSupabaseAdminClient().from("hero_banners").update({ is_active: isActive, updated_at: new Date().toISOString() }).eq("id", id);
+  if (result.error) fail("/admin/hero-banners", "Unable to update banner status.");
+
+  revalidatePath("/");
+  ok("/admin/hero-banners");
+}
+
+export async function moveHeroBanner(form: FormData) {
+  await requireAdmin();
+  const id = uuid(form, "id");
+  const direction = text(form, "direction");
+  if (!id || !["up", "down"].includes(direction)) fail("/admin/hero-banners", "Invalid banner order.");
+
+  const client = createSupabaseAdminClient();
+  const { data: current } = await client.from("hero_banners").select("id,display_order").eq("id", id).maybeSingle();
+  if (!current) fail("/admin/hero-banners", "Banner not found.");
+
+  const query = direction === "up"
+    ? client.from("hero_banners").select("id,display_order").lt("display_order", current.display_order).order("display_order", { ascending: false }).limit(1)
+    : client.from("hero_banners").select("id,display_order").gt("display_order", current.display_order).order("display_order", { ascending: true }).limit(1);
+
+  const { data: sibling } = await query.maybeSingle();
+  if (!sibling) ok("/admin/hero-banners");
+
+  const first = await client.from("hero_banners").update({ display_order: -1 }).eq("id", current.id);
+  const second = await client.from("hero_banners").update({ display_order: current.display_order }).eq("id", sibling.id);
+  const third = await client.from("hero_banners").update({ display_order: sibling.display_order }).eq("id", current.id);
+
+  if (first.error || second.error || third.error) fail("/admin/hero-banners", "Unable to reorder banner.");
+
+  revalidatePath("/");
+  ok("/admin/hero-banners");
+}

@@ -261,6 +261,30 @@ create table public.testimonials (
   updated_at timestamptz not null default now()
 );
 
+create table public.hero_banners (
+  id uuid primary key default gen_random_uuid(),
+  cloudinary_public_id text not null check (length(trim(cloudinary_public_id)) > 0),
+  poster_public_id text,
+  media_type text not null default 'image' check (media_type in ('image', 'video')),
+  eyebrow text not null check (length(trim(eyebrow)) > 0),
+  headline text not null check (length(trim(headline)) > 0),
+  description text not null check (length(trim(description)) > 0),
+  primary_cta_label text not null check (length(trim(primary_cta_label)) > 0),
+  primary_cta_href text not null check (length(trim(primary_cta_href)) > 0),
+  secondary_cta_label text,
+  secondary_cta_href text,
+  is_secondary_cta_enabled boolean not null default false,
+  display_order integer not null default 0 check (display_order >= 0),
+  is_active boolean not null default true,
+  alt_text text,
+  mobile_headline text,
+  mobile_description text,
+  mobile_media_public_id text,
+  mobile_media_type text check (mobile_media_type in ('image', 'video')),
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
 create table public.bulk_enquiries (
   id uuid primary key default gen_random_uuid(),
   name text not null check (length(trim(name)) > 0),
@@ -818,7 +842,7 @@ grant execute on function public.create_pending_order(uuid, text, text, text, te
 revoke all on all tables in schema public from anon, authenticated;
 
 grant select on public.categories, public.product_images, public.testimonials,
-  public.storefront_products, public.storefront_product_variants
+  public.hero_banners, public.storefront_products, public.storefront_product_variants
   to anon, authenticated;
 
 grant select on public.admin_products, public.admin_product_variants,
@@ -904,6 +928,14 @@ create policy testimonials_admin_all on public.testimonials
 for all to authenticated using (private.is_admin()) with check (private.is_admin());
 
 create policy bulk_enquiries_admin_all on public.bulk_enquiries
+for all to authenticated using (private.is_admin()) with check (private.is_admin());
+
+alter table public.hero_banners enable row level security;
+
+create policy hero_banners_public_read on public.hero_banners
+for select to anon, authenticated using (is_active);
+
+create policy hero_banners_admin_all on public.hero_banners
 for all to authenticated using (private.is_admin()) with check (private.is_admin());
 
 -- No policies are defined for admin_users. It is intentionally inaccessible
