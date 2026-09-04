@@ -34,14 +34,23 @@ export function HeroBannerForm({ banner }: HeroBannerFormProps) {
     error: null,
   });
 
+  const [cloudName, setCloudName] = useState("");
+
   // Client direct Cloudinary upload function (Zero binary bytes pass through Vercel!)
   async function handleDirectCloudinaryUpload(
     file: File,
     resourceType: "image" | "video",
     target: "media" | "poster" | "mobile"
   ) {
+    const actualResourceType =
+      target === "poster" || target === "mobile"
+        ? "image"
+        : file.type.startsWith("video/") || resourceType === "video"
+        ? "video"
+        : "image";
+
     // Validate limits on browser before uploading
-    if (resourceType === "video") {
+    if (actualResourceType === "video") {
       if (file.size > 25 * 1024 * 1024) {
         setUploadingState((prev) => ({ ...prev, error: "Hero video must be 25 MB or smaller." }));
         return;
@@ -56,8 +65,14 @@ export function HeroBannerForm({ banner }: HeroBannerFormProps) {
     setUploadingState((prev) => ({ ...prev, [target]: true, error: null }));
 
     try {
-      // Step 1: Get signature from server (Vercel generates signature only, no binary bytes)
+      // Step 1: Get signed upload parameters from server action (Vercel generates signature only, no binary bytes)
       const sigData = await getCloudinaryUploadSignatureAction();
+
+      if (!sigData?.apiKey || !sigData?.cloudName || !sigData?.signature) {
+        throw new Error("Cloudinary authorization failed. Missing server credentials.");
+      }
+
+      setCloudName(sigData.cloudName);
 
       // Step 2: Upload file directly from browser to Cloudinary API
       const formData = new FormData();
@@ -66,18 +81,24 @@ export function HeroBannerForm({ banner }: HeroBannerFormProps) {
       formData.append("timestamp", sigData.timestamp);
       formData.append("signature", sigData.signature);
 
-      const endpoint = `https://api.cloudinary.com/v1_1/${encodeURIComponent(sigData.cloudName)}/${resourceType}/upload`;
+      const endpoint = `https://api.cloudinary.com/v1_1/${encodeURIComponent(sigData.cloudName)}/${actualResourceType}/upload`;
       const res = await fetch(endpoint, {
         method: "POST",
         body: formData,
       });
 
       if (!res.ok) {
-        throw new Error("Direct Cloudinary upload failed.");
+        const errorJson = await res.json().catch(() => null);
+        const cloudMsg = errorJson?.error?.message;
+        throw new Error(cloudMsg ? `Video upload failed: ${cloudMsg}` : `Cloudinary upload failed (${res.status}).`);
       }
 
       const json = await res.json();
       const uploadedPublicId = json.public_id;
+
+      if (!uploadedPublicId) {
+        throw new Error("Cloudinary upload did not return a valid public ID.");
+      }
 
       if (target === "media") setCloudinaryPublicId(uploadedPublicId);
       if (target === "poster") setPosterPublicId(uploadedPublicId);
@@ -95,11 +116,11 @@ export function HeroBannerForm({ banner }: HeroBannerFormProps) {
 
   const activeMediaUrl = cloudinaryPublicId
     ? mediaType === "video"
-      ? getHeroVideoUrl(cloudinaryPublicId)
-      : getHeroImageUrl(cloudinaryPublicId, "desktop")
+      ? getHeroVideoUrl(cloudinaryPublicId, cloudName)
+      : getHeroImageUrl(cloudinaryPublicId, "desktop", cloudName)
     : null;
 
-  const activePosterUrl = posterPublicId ? getHeroImageUrl(posterPublicId, "desktop") : null;
+  const activePosterUrl = posterPublicId ? getHeroImageUrl(posterPublicId, "desktop", cloudName) : null;
 
   return (
     <form action={saveHeroBanner} className="grid gap-8">
@@ -176,7 +197,7 @@ export function HeroBannerForm({ banner }: HeroBannerFormProps) {
             </p>
 
             <input
-              accept={mediaType === "video" ? "video/mp4,video/webm,video/quicktime" : "image/jpeg,image/png,image/webp,image/avif"}
+              accept={mediaType === "video" ? "video/mp4,video/webm,video/quicktime,video/*" : "image/jpeg,image/png,image/webp,image/avif,image/*"}
               className="block w-full text-xs text-muted-foreground file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-primary file:text-primary-foreground hover:file:bg-primary/90 cursor-pointer"
               onChange={(e) => {
                 const file = e.target.files?.[0];

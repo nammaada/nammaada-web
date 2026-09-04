@@ -67,13 +67,25 @@ export async function verifyCloudinaryVideoDuration(publicId: string, maxSeconds
         cache: "no-store",
       }
     );
-    if (!res.ok) return null;
-    const data = (await res.json()) as { duration?: number; bytes?: number };
-    if (data.duration && data.duration > maxSeconds) {
-      return `Hero video duration (${Math.round(data.duration)}s) exceeds the maximum allowed ${maxSeconds} seconds limit.`;
+    if (!res.ok) {
+      if (res.status === 404) {
+        return "Uploaded Cloudinary video asset was not found.";
+      }
+      return null;
     }
-    if (data.bytes && data.bytes > 25 * 1024 * 1024) {
-      return `Hero video file size (${(data.bytes / (1024 * 1024)).toFixed(1)} MB) exceeds the 25 MB limit.`;
+    const data = (await res.json()) as {
+      duration?: number;
+      bytes?: number;
+      video?: { duration?: number };
+    };
+    const duration = typeof data.duration === "number" ? data.duration : typeof data.video?.duration === "number" ? data.video.duration : null;
+    const bytes = typeof data.bytes === "number" ? data.bytes : null;
+
+    if (duration !== null && duration > maxSeconds) {
+      return `Hero video duration (${Math.round(duration)}s) exceeds the maximum allowed ${maxSeconds} seconds limit.`;
+    }
+    if (bytes !== null && bytes > 25 * 1024 * 1024) {
+      return `Hero video file size (${(bytes / (1024 * 1024)).toFixed(1)} MB) exceeds the 25 MB limit.`;
     }
   } catch {
     // Fail safely if Cloudinary resource API is unreachable
