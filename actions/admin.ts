@@ -13,7 +13,7 @@ function moneyPaise(form: FormData, key: string) { const value = Number.parseInt
 function uuid(form: FormData, key: string) { const value = text(form, key); return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value) ? value : null; }
 function fail(path: string, message: string): never { redirect(`${path}?error=${encodeURIComponent(message)}`); }
 function ok(path: string): never { revalidatePath(path); redirect(path); }
-function required(form: FormData, key: string, label: string, max: number) { const value = text(form, key); if (!value || value.length > max) return fail("/admin", `${label} is required and must be ${max} characters or fewer.`); return value; }
+function required(form: FormData, key: string, label: string, max: number, failPath = "/admin") { const value = text(form, key); if (!value || value.length > max) return fail(failPath, `${label} is required and must be ${max} characters or fewer.`); return value; }
 function dbMessage() { return "Unable to save this change. Check the values and try again."; }
 
 export async function saveCategory(form: FormData) { await requireAdmin(); const id = uuid(form, "id"); const name = required(form, "name", "Name", 120); const slug = text(form, "slug").toLowerCase(); if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)) fail("/admin/categories", "Enter a valid lowercase slug."); const client = createSupabaseAdminClient(); const values = { name, slug, description: text(form, "description") || null, is_active: bool(form, "is_active"), display_order: integer(form, "display_order") }; const result = id ? await client.from("categories").update(values).eq("id", id) : await client.from("categories").insert(values); if (result.error) fail("/admin/categories", dbMessage()); ok("/admin/categories"); }
@@ -108,15 +108,23 @@ export async function saveHeroBanner(form: FormData) {
   await requireAdmin();
 
   const id = uuid(form, "id");
-  const mediaType = text(form, "media_type") === "video" ? "video" : "image";
-  const cloudinaryPublicId = required(form, "cloudinary_public_id", "Hero media", 250);
-  const posterPublicId = text(form, "poster_public_id") || null;
-  const eyebrow = required(form, "eyebrow", "Eyebrow", 100);
-  const headline = required(form, "headline", "Headline", 200);
-  const description = required(form, "description", "Description", 1000);
+  const failPath = id ? `/admin/hero-banners/${id}` : "/admin/hero-banners/new";
 
-  const primaryCtaLabel = required(form, "primary_cta_label", "Primary button label", 100);
-  const primaryCtaHref = required(form, "primary_cta_href", "Primary button destination", 250);
+  const mediaType = text(form, "media_type") === "video" ? "video" : "image";
+  const cloudinaryPublicId = required(form, "cloudinary_public_id", "Hero media", 250, failPath);
+  let posterPublicId = text(form, "poster_public_id") || null;
+
+  // Default video poster to the video public ID if no separate poster image was uploaded
+  if (mediaType === "video" && !posterPublicId) {
+    posterPublicId = cloudinaryPublicId;
+  }
+
+  const eyebrow = required(form, "eyebrow", "Eyebrow", 100, failPath);
+  const headline = required(form, "headline", "Headline", 200, failPath);
+  const description = required(form, "description", "Description", 1000, failPath);
+
+  const primaryCtaLabel = required(form, "primary_cta_label", "Primary button label", 100, failPath);
+  const primaryCtaHref = required(form, "primary_cta_href", "Primary button destination", 250, failPath);
   const isSecondaryEnabled = bool(form, "is_secondary_cta_enabled");
   const secondaryCtaLabel = isSecondaryEnabled ? text(form, "secondary_cta_label") || null : null;
   const secondaryCtaHref = isSecondaryEnabled ? text(form, "secondary_cta_href") || null : null;
@@ -129,10 +137,6 @@ export async function saveHeroBanner(form: FormData) {
   const mobileDescription = text(form, "mobile_description") || null;
   const mobileMediaPublicId = text(form, "mobile_media_public_id") || null;
   const mobileMediaType = text(form, "mobile_media_type") === "video" ? "video" : text(form, "mobile_media_type") === "image" ? "image" : null;
-
-  if (mediaType === "video" && !posterPublicId) {
-    fail(id ? `/admin/hero-banners/${id}` : "/admin/hero-banners/new", "A poster image is required for video hero banners.");
-  }
 
   const client = createSupabaseAdminClient();
 
@@ -151,7 +155,7 @@ export async function saveHeroBanner(form: FormData) {
       if (cloudinaryPublicId && cloudinaryPublicId !== oldPublicId) {
         await deleteCloudinaryMedia(cloudinaryPublicId, "video").catch(() => undefined);
       }
-      fail(id ? `/admin/hero-banners/${id}` : "/admin/hero-banners/new", videoError);
+      fail(failPath, videoError);
     }
   }
 
@@ -185,16 +189,16 @@ export async function saveHeroBanner(form: FormData) {
     if (cloudinaryPublicId && cloudinaryPublicId !== oldPublicId) {
       await deleteCloudinaryMedia(cloudinaryPublicId, mediaType).catch(() => undefined);
     }
-    if (posterPublicId && posterPublicId !== oldPosterPublicId) {
+    if (posterPublicId && posterPublicId !== oldPosterPublicId && posterPublicId !== cloudinaryPublicId) {
       await deleteCloudinaryMedia(posterPublicId, "image").catch(() => undefined);
     }
-    fail(id ? `/admin/hero-banners/${id}` : "/admin/hero-banners/new", dbMessage());
+    fail(failPath, result.error?.message || dbMessage());
   }
 
   if (oldPublicId && oldPublicId !== cloudinaryPublicId) {
     await deleteCloudinaryMedia(oldPublicId, oldMediaType === "video" ? "video" : "image").catch(() => undefined);
   }
-  if (oldPosterPublicId && oldPosterPublicId !== posterPublicId) {
+  if (oldPosterPublicId && oldPosterPublicId !== posterPublicId && oldPosterPublicId !== oldPublicId) {
     await deleteCloudinaryMedia(oldPosterPublicId, "image").catch(() => undefined);
   }
 

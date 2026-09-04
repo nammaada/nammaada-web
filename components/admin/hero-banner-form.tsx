@@ -438,6 +438,7 @@ export function HeroBannerForm({ banner }: HeroBannerFormProps) {
 
         <Submit
           className="min-w-40"
+          disabled={uploadingState.media || uploadingState.poster || uploadingState.mobile}
           label={banner?.id ? "Update Banner" : "Create Banner"}
           size="lg"
         />
