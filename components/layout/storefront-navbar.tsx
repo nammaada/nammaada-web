@@ -43,65 +43,75 @@ export function StorefrontNavbar() {
   return (
     <header className={isHome ? "absolute inset-x-0 top-0 z-50 bg-transparent" : "sticky top-0 z-40 border-b border-border/70 bg-background/95 backdrop-blur-sm"}>
       <Container className={isHome ? "py-4 sm:py-5" : "py-2 sm:py-3"}>
-        <div className={`flex min-h-16 items-center justify-between gap-4 rounded-2xl border px-3 backdrop-blur-sm sm:rounded-full sm:px-5 ${isHome ? "border-primary-foreground/50 bg-primary-foreground/85 shadow-lifted" : "border-border/70 bg-card/80 shadow-soft"}`}>
-        <Link
-          className="shrink-0 rounded-lg focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring"
-          href="/"
-          onClick={closeMenu}
-          aria-label={`${siteConfig.name} home`}
-        >
-          <Image
-            src="/namma-ada-logo.png"
-            alt="Namma Ada"
-            width={144}
-            height={96}
-            priority
-            className="h-14 w-auto object-contain sm:h-16"
-          />
-        </Link>
-
-        <nav className="hidden items-center gap-7 lg:flex" aria-label="Primary navigation">
-          {storefrontRoutes.map((route) => (
-            <Link
-              className={`relative py-3 text-sm font-medium transition-colors after:absolute after:inset-x-0 after:bottom-1 after:h-px after:origin-left after:bg-primary after:transition-transform focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring ${
-                isActivePath(pathname, route.href)
-                  ? "text-primary after:scale-x-100"
-                  : "text-foreground/75 after:scale-x-0 hover:text-primary hover:after:scale-x-100"
-              }`}
-              href={route.href}
-              key={route.href}
-              aria-current={isActivePath(pathname, route.href) ? "page" : undefined}
-            >
-              {route.label}
-            </Link>
-          ))}
-        </nav>
-
-        <div className="flex items-center gap-2">
+        <div className={`flex min-h-16 items-center justify-between gap-4 rounded-full border px-4 backdrop-blur-xl sm:px-6 ${
+          isHome
+            ? "border-white/65 bg-white/50 shadow-lg shadow-amber-950/5 transition-all"
+            : "border-border/70 bg-card/80 shadow-soft"
+        }`}>
           <Link
-            aria-label={itemCount > 0 ? `Cart, ${itemCount} ${itemCount === 1 ? "item" : "items"}` : "Cart, empty"}
-            className="inline-flex min-h-11 min-w-11 items-center justify-center gap-2 rounded-full border border-border px-3 text-sm font-semibold text-primary transition-colors hover:bg-secondary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
-            href="/cart"
+            className="shrink-0 rounded-lg focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring"
+            href="/"
+            onClick={closeMenu}
+            aria-label={`${siteConfig.name} home`}
           >
-            <ShoppingBag aria-hidden="true" size={18} />
-            <span className="hidden sm:inline">Cart</span>
-            {itemCount > 0 ? <span aria-live="polite" className="inline-flex min-w-5 items-center justify-center rounded-full bg-accent px-1.5 py-0.5 text-xs text-accent-foreground">{itemCount}</span> : null}
+            <Image
+              src="/namma-ada-logo.png"
+              alt="Namma Ada"
+              width={144}
+              height={96}
+              priority
+              className="h-12 w-auto object-contain sm:h-14"
+            />
           </Link>
-          <Link className="hidden min-h-11 items-center justify-center rounded-full bg-primary px-5 !text-primary-foreground shadow-sm transition-[background-color,box-shadow,transform] duration-200 hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring active:translate-y-px lg:inline-flex" href="/products">
-            Order Now
-          </Link>
-        </div>
-        <button
-          ref={menuButtonRef}
-          aria-controls="mobile-storefront-navigation"
-          aria-expanded={menuOpen}
-          aria-label={menuOpen ? "Close navigation menu" : "Open navigation menu"}
-          className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-full border border-border text-primary transition-colors hover:bg-secondary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring lg:hidden"
-          onClick={() => setMenuOpen((open) => !open)}
-          type="button"
-        >
-          {menuOpen ? <X aria-hidden="true" size={20} /> : <Menu aria-hidden="true" size={20} />}
-        </button>
+
+          <nav className="hidden items-center gap-8 lg:flex" aria-label="Primary navigation">
+            {storefrontRoutes.map((route) => {
+              const active = isActivePath(pathname, route.href);
+              return (
+                <Link
+                  className={`relative py-2 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring ${
+                    active
+                      ? "text-[#4a0e17] font-semibold"
+                      : "text-[#3d1a20]/80 hover:text-[#4a0e17]"
+                  }`}
+                  href={route.href}
+                  key={route.href}
+                  aria-current={active ? "page" : undefined}
+                >
+                  {route.label}
+                  {active && (
+                    <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 h-[3px] w-6 rounded-full bg-[#4a0e17]" />
+                  )}
+                </Link>
+              );
+            })}
+          </nav>
+
+          <div className="flex items-center gap-2.5">
+            <Link
+              aria-label={itemCount > 0 ? `Cart, ${itemCount} ${itemCount === 1 ? "item" : "items"}` : "Cart, empty"}
+              className="inline-flex min-h-10 min-w-10 items-center justify-center gap-2 rounded-full border border-white/60 bg-white/35 px-3.5 text-xs sm:text-sm font-semibold text-[#4a0e17] transition-all hover:bg-white/65 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring backdrop-blur-md"
+              href="/cart"
+            >
+              <ShoppingBag aria-hidden="true" size={17} />
+              <span className="hidden sm:inline">Cart</span>
+              {itemCount > 0 ? <span aria-live="polite" className="inline-flex min-w-5 items-center justify-center rounded-full bg-accent px-1.5 py-0.5 text-xs text-accent-foreground font-bold">{itemCount}</span> : null}
+            </Link>
+            <Link className="hidden min-h-10 items-center justify-center rounded-full bg-[#5c111a] px-6 text-xs sm:text-sm font-semibold !text-white shadow-md transition-all duration-200 hover:bg-[#480d14] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring active:scale-95 lg:inline-flex" href="/products">
+              Order Now
+            </Link>
+          </div>
+          <button
+            ref={menuButtonRef}
+            aria-controls="mobile-storefront-navigation"
+            aria-expanded={menuOpen}
+            aria-label={menuOpen ? "Close navigation menu" : "Open navigation menu"}
+            className="inline-flex min-h-10 min-w-10 items-center justify-center rounded-full border border-white/60 bg-white/40 text-[#4a0e17] transition-colors hover:bg-white/70 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring lg:hidden"
+            onClick={() => setMenuOpen((open) => !open)}
+            type="button"
+          >
+            {menuOpen ? <X aria-hidden="true" size={20} /> : <Menu aria-hidden="true" size={20} />}
+          </button>
         </div>
       </Container>
 

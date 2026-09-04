@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { HeroBannerForm } from "@/components/admin/hero-banner-form";
 import { PageHeader } from "@/components/admin/page-header";
 import { Card } from "@/components/ui/card";
+import { getCloudinaryCloudName } from "@/lib/env/server";
 import { getHeroBannerById } from "@/lib/storefront/hero";
 
 export default async function EditHeroBannerPage({ params }: { params: Promise<{ id: string }> }) {
@@ -12,6 +13,8 @@ export default async function EditHeroBannerPage({ params }: { params: Promise<{
     notFound();
   }
 
+  const cloudName = getCloudinaryCloudName();
+
   return (
     <>
       <PageHeader
@@ -21,7 +24,7 @@ export default async function EditHeroBannerPage({ params }: { params: Promise<{
       />
 
       <Card className="p-6 sm:p-8 shadow-xs max-w-4xl">
-        <HeroBannerForm banner={banner} />
+        <HeroBannerForm banner={banner} cloudName={cloudName} />
       </Card>
     </>
   );

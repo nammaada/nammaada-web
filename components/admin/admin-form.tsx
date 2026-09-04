@@ -20,6 +20,8 @@ export function AdminField({
   label,
   name,
   defaultValue,
+  value,
+  onChange,
   type = "text",
   required = false,
   placeholder,
@@ -29,6 +31,8 @@ export function AdminField({
   label: string;
   name: string;
   defaultValue?: string | number | readonly string[];
+  value?: string | number | readonly string[];
+  onChange?: (e: React.ChangeEvent<HTMLInputElement>) => void;
   type?: string;
   required?: boolean;
   placeholder?: string;
@@ -46,9 +50,11 @@ export function AdminField({
           className="min-h-10 w-full rounded-lg border border-input bg-card px-3.5 text-sm font-normal text-foreground placeholder:text-muted-foreground/60 transition-colors focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30 focus-visible:outline-none"
           defaultValue={defaultValue}
           name={name}
+          onChange={onChange}
           placeholder={placeholder}
           required={required}
           type={type}
+          value={value}
         />
       )}
       {helperText && <span className="text-xs font-normal text-muted-foreground">{helperText}</span>}
@@ -68,6 +74,7 @@ export function MoneyField({ label, name, paise, required = true, helperText }: 
         <input
           className="min-h-10 w-full rounded-lg border border-input bg-card pl-8 pr-3.5 text-sm font-medium text-foreground placeholder:text-muted-foreground/60 transition-colors focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30 focus-visible:outline-none"
           defaultValue={paise === undefined || paise === null ? "" : (paise / 100).toFixed(2)}
+          min="0"
           name={name}
           placeholder="0.00"
           required={required}
@@ -75,7 +82,7 @@ export function MoneyField({ label, name, paise, required = true, helperText }: 
           type="number"
         />
       </div>
-      {helperText ? <span className="text-xs font-normal text-muted-foreground">{helperText}</span> : <span className="text-[11px] font-normal text-muted-foreground">Stored safely as paise in database</span>}
+      {helperText ? <span className="text-xs font-normal text-muted-foreground">{helperText}</span> : <span className="text-[11px] font-normal text-muted-foreground">Price in INR (e.g. 100 or 100.50)</span>}
     </label>
   );
 }

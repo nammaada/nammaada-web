@@ -1,6 +1,6 @@
 import "server-only";
 
-import { AppError } from "@/lib/server/errors";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export type StorefrontCategory = {
@@ -11,16 +11,36 @@ export type StorefrontCategory = {
 };
 
 export async function getStorefrontCategories(): Promise<StorefrontCategory[]> {
-  const supabase = await createSupabaseServerClient();
-  const { data, error } = await supabase
-    .from("categories")
-    .select("id,name,slug,description")
-    .eq("is_active", true)
-    .order("display_order", { ascending: true });
+  try {
+    const supabase = await createSupabaseServerClient();
+    const { data, error } = await supabase
+      .from("categories")
+      .select("id,name,slug,description")
+      .eq("is_active", true)
+      .order("display_order", { ascending: true });
 
-  if (error) {
-    throw new AppError("internal", "We could not load product categories right now.");
+    if (!error && data) {
+      return data as StorefrontCategory[];
+    }
+  } catch {
+    // fallback
   }
 
-  return (data ?? []) as StorefrontCategory[];
+  try {
+    const admin = createSupabaseAdminClient();
+    const { data, error } = await admin
+      .from("categories")
+      .select("id,name,slug,description")
+      .eq("is_active", true)
+      .order("display_order", { ascending: true });
+
+    if (!error && data) {
+      return data as StorefrontCategory[];
+    }
+  } catch {
+    // ignore
+  }
+
+  return [];
 }
+

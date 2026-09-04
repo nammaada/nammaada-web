@@ -33,9 +33,19 @@ export function getHeroImageUrl(publicId: string, target: "desktop" | "mobile" |
   return getCloudinaryImageUrl({ publicId, width, height, crop, cloudName: cloudNameOverride });
 }
 
-/** Optimized web video delivery URL */
-export function getHeroVideoUrl(publicId: string, cloudNameOverride?: string) {
+/** Optimized web video delivery URL with explicit format and codec to prevent browser MIME mismatch */
+export function getHeroVideoUrl(publicId: string, cloudNameOverride?: string, format: "mp4" | "webm" = "mp4") {
   const cloudName = cloudNameOverride || getCloudName();
-  return `https://res.cloudinary.com/${encodeURIComponent(cloudName)}/video/upload/f_auto,q_auto,w_1920,c_limit/${publicId}`;
+  const cleanId = publicId.replace(/\.(mp4|webm|mov|ogg)$/i, "");
+  const formatTransform = format === "webm" ? "f_webm,vc_vp9" : "f_mp4,vc_h264";
+  return `https://res.cloudinary.com/${encodeURIComponent(cloudName)}/video/upload/${formatTransform},q_auto,w_1920,c_limit/${cleanId}.${format}`;
+}
+
+/** Optimized video poster frame delivery URL (extracts frame 0 from video asset as JPG) */
+export function getHeroVideoPosterUrl(publicId: string, target: "desktop" | "mobile" | "thumbnail" = "desktop", cloudNameOverride?: string) {
+  const cloudName = cloudNameOverride || getCloudName();
+  const cleanId = publicId.replace(/\.(mp4|webm|mov|ogg|jpg|jpeg|png)$/i, "");
+  const dimensions = target === "thumbnail" ? "w_400,h_250,c_fill" : target === "mobile" ? "w_800,c_limit" : "w_1920,c_limit";
+  return `https://res.cloudinary.com/${encodeURIComponent(cloudName)}/video/upload/so_0,f_jpg,${dimensions}/${cleanId}.jpg`;
 }
 

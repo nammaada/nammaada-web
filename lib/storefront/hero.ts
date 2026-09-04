@@ -1,6 +1,6 @@
 import "server-only";
 
-import { getHeroImageUrl, getHeroVideoUrl } from "@/lib/cloudinary/delivery";
+import { getHeroImageUrl, getHeroVideoPosterUrl, getHeroVideoUrl } from "@/lib/cloudinary/delivery";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export type HeroBanner = {
@@ -45,7 +45,11 @@ export function formatBannerWithUrls(row: Record<string, any>): HeroBanner {
     ? getHeroVideoUrl(row.cloudinary_public_id)
     : getHeroImageUrl(row.cloudinary_public_id, "desktop");
 
-  const poster_url = row.poster_public_id
+  // If banner is a video and has no distinct poster image uploaded, extract poster frame directly from the video!
+  const isPosterFromVideo = isVideo && (!row.poster_public_id || row.poster_public_id === row.cloudinary_public_id);
+  const poster_url = isPosterFromVideo
+    ? getHeroVideoPosterUrl(row.cloudinary_public_id, "desktop")
+    : row.poster_public_id
     ? getHeroImageUrl(row.poster_public_id, "desktop")
     : null;
 

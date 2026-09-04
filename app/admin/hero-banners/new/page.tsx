@@ -1,8 +1,11 @@
 import { HeroBannerForm } from "@/components/admin/hero-banner-form";
 import { PageHeader } from "@/components/admin/page-header";
 import { Card } from "@/components/ui/card";
+import { getCloudinaryCloudName } from "@/lib/env/server";
 
 export default function NewHeroBannerPage() {
+  const cloudName = getCloudinaryCloudName();
+
   return (
     <>
       <PageHeader
@@ -12,7 +15,7 @@ export default function NewHeroBannerPage() {
       />
 
       <Card className="p-6 sm:p-8 shadow-xs max-w-4xl">
-        <HeroBannerForm />
+        <HeroBannerForm cloudName={cloudName} />
       </Card>
     </>
   );
