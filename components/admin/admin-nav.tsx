@@ -55,7 +55,7 @@ const navGroups: NavGroup[] = [
       { label: "Testimonials", href: "/admin/testimonials", icon: MessageSquareQuote },
       { label: "Enquiries", href: "/admin/enquiries", icon: Inbox },
       { label: "Our Story", href: "/admin/our-story", icon: Users },
-      { label: "Kitchen Reels", href: "/admin/kitchen-reels", icon: Video },
+      { label: "Instagram Reels", href: "/admin/kitchen-reels", icon: Video },
     ],
   },
 ];

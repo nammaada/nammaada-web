@@ -3,34 +3,94 @@
 import { useState, useRef, useEffect, useCallback } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Container } from "@/components/ui/container";
+import { Modal } from "@/components/ui/modal";
 import type { StorefrontTestimonial } from "@/lib/storefront/testimonials";
 
 function TestimonialCard({ testimonial }: { testimonial: StorefrontTestimonial }) {
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
+  const isLongText = (testimonial.content || "").length > 220;
+
   return (
-    <div className="group relative flex h-full w-full flex-col justify-between rounded-2xl sm:rounded-3xl border border-white/70 bg-gradient-to-br from-white/80 via-white/60 to-white/40 p-5 sm:p-6 backdrop-blur-xl shadow-xl shadow-amber-950/8 transition-all duration-200 hover:border-white hover:bg-white/75 text-left min-h-[240px] sm:min-h-[260px]">
-      <div className="flex-1 flex flex-col justify-between">
-        <div>
-          <div className="flex items-center text-[#4a0e17]" aria-hidden="true">
+    <>
+      <div className="group relative flex h-[260px] sm:h-[280px] w-full flex-col justify-between rounded-2xl sm:rounded-3xl border border-white/45 bg-gradient-to-br from-white/50 via-[#fcf7ee]/28 to-[#f5e8d5]/18 p-5 sm:p-6 backdrop-blur-xl shadow-[0_16px_36px_-10px_rgba(43,23,25,0.08),inset_0_1px_1.5px_0_rgba(255,255,255,0.75)] transition-all duration-300 hover:border-white/60 hover:from-white/60 hover:via-[#fcf7ee]/38 hover:to-[#f5e8d5]/24 hover:shadow-[0_20px_40px_-10px_rgba(43,23,25,0.12),inset_0_1px_1.5px_0_rgba(255,255,255,0.85)] text-left overflow-hidden">
+        <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
+          <div className="flex items-center text-[#711e2c] shrink-0" aria-hidden="true">
             <span className="font-serif text-3xl sm:text-4xl leading-none font-bold select-none">“</span>
           </div>
 
-          <blockquote className="mt-2 text-xs sm:text-sm leading-relaxed text-[#2b1719]/90 font-normal">
-            {testimonial.content}
-          </blockquote>
+          <div className="mt-1.5 flex-1 flex flex-col min-h-0 justify-start overflow-hidden">
+            {isLongText && isExpanded ? (
+              <div className="max-h-[110px] sm:max-h-[125px] overflow-y-auto pr-1 text-xs sm:text-sm leading-relaxed text-[#2b1719]/90 font-normal">
+                <blockquote>{testimonial.content}</blockquote>
+              </div>
+            ) : (
+              <blockquote
+                className={`text-xs sm:text-sm leading-relaxed text-[#2b1719]/90 font-normal ${
+                  isLongText ? "line-clamp-4" : ""
+                }`}
+              >
+                {testimonial.content}
+              </blockquote>
+            )}
+
+            {isLongText && (
+              <div className="mt-1 flex items-center gap-2 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setIsExpanded((prev) => !prev)}
+                  className="text-xs font-semibold text-[#711e2c] hover:underline cursor-pointer"
+                >
+                  {isExpanded ? "Read less" : "Read more"}
+                </button>
+                {isExpanded && (
+                  <>
+                    <span className="text-[#e5d8c6] text-xs">•</span>
+                    <button
+                      type="button"
+                      onClick={() => setIsModalOpen(true)}
+                      className="text-xs font-semibold text-[#711e2c]/80 hover:text-[#711e2c] hover:underline cursor-pointer"
+                    >
+                      Full view
+                    </button>
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="mt-2 pt-3 border-t border-[#e5d8c6] shrink-0">
+          <p className="font-semibold text-xs sm:text-sm text-[#711e2c] truncate">
+            {testimonial.display_name}
+          </p>
+          {testimonial.location ? (
+            <p className="text-[11px] sm:text-xs text-[#6e5b55] mt-0.5 font-medium truncate">
+              {testimonial.location}
+            </p>
+          ) : null}
         </div>
       </div>
 
-      <div className="mt-4 pt-3 border-t border-[#e5d8c6] shrink-0">
-        <p className="font-semibold text-xs sm:text-sm text-[#4a0e17]">
-          {testimonial.display_name}
-        </p>
-        {testimonial.location ? (
-          <p className="text-[11px] sm:text-xs text-[#6e5b55] mt-0.5 font-medium">
-            {testimonial.location}
-          </p>
-        ) : null}
-      </div>
-    </div>
+      {isModalOpen && (
+        <Modal
+          isOpen={isModalOpen}
+          onClose={() => setIsModalOpen(false)}
+          title={testimonial.display_name}
+          description={testimonial.location || undefined}
+        >
+          <div className="space-y-3">
+            <div className="flex items-center text-[#711e2c]" aria-hidden="true">
+              <span className="font-serif text-3xl sm:text-4xl leading-none font-bold select-none">“</span>
+            </div>
+            <blockquote className="text-xs sm:text-sm leading-relaxed text-[#2b1719]/90 font-normal max-h-[50vh] overflow-y-auto pr-2">
+              {testimonial.content}
+            </blockquote>
+          </div>
+        </Modal>
+      )}
+    </>
   );
 }
 
@@ -153,7 +213,7 @@ export function Testimonials({ testimonials }: { testimonials: StorefrontTestimo
       <Container className="relative z-10">
         {/* Heading */}
         <div className="mx-auto max-w-2xl">
-          <p className="text-[10px] sm:text-xs font-bold uppercase tracking-[0.2em] text-[#4a0e17]">
+          <p className="text-[10px] sm:text-xs font-bold uppercase tracking-[0.2em] text-[#711e2c]">
             TESTIMONIALS
           </p>
           <h2 className="mt-2 font-display text-2xl sm:text-4xl font-semibold leading-tight text-[#2b1719]">
@@ -172,24 +232,24 @@ export function Testimonials({ testimonials }: { testimonials: StorefrontTestimo
         ) : total === 1 ? (
           /* CASE B: 1 Testimonial - Centered Single Card */
           <div className="mx-auto mt-8 max-w-xl flex justify-center">
-            <div className="w-full">
+            <div className="w-full h-[260px] sm:h-[280px] flex flex-col">
               <TestimonialCard testimonial={testimonials[0]} />
             </div>
           </div>
         ) : total === 2 ? (
           /* CASE C: 2 Testimonials - Centered Side-by-Side */
-          <div className="mx-auto mt-8 grid max-w-3xl gap-5 sm:grid-cols-2 items-stretch">
+          <div className="mx-auto mt-8 grid max-w-3xl gap-5 sm:grid-cols-2">
             {testimonials.map((testimonial) => (
-              <div key={testimonial.id} className="h-full">
+              <div key={testimonial.id} className="h-[260px] sm:h-[280px] flex flex-col">
                 <TestimonialCard testimonial={testimonial} />
               </div>
             ))}
           </div>
         ) : total === 3 && visibleCards === 3 ? (
           /* CASE D: Exactly 3 Testimonials on Desktop - 3 Cards Centered */
-          <div className="mx-auto mt-8 grid max-w-6xl gap-5 md:grid-cols-3 items-stretch">
+          <div className="mx-auto mt-8 grid max-w-6xl gap-5 md:grid-cols-3">
             {testimonials.map((testimonial) => (
-              <div key={testimonial.id} className="h-full">
+              <div key={testimonial.id} className="h-[260px] sm:h-[280px] flex flex-col">
                 <TestimonialCard testimonial={testimonial} />
               </div>
             ))}
@@ -220,7 +280,7 @@ export function Testimonials({ testimonials }: { testimonials: StorefrontTestimo
                 {testimonials.map((testimonial) => (
                   <div
                     key={testimonial.id}
-                    className={`h-full shrink-0 flex flex-col ${
+                    className={`h-[260px] sm:h-[280px] shrink-0 flex flex-col ${
                       screenSize === "mobile"
                         ? "w-full px-1"
                         : screenSize === "tablet"
@@ -241,7 +301,7 @@ export function Testimonials({ testimonials }: { testimonials: StorefrontTestimo
                   type="button"
                   aria-label="Previous testimonials"
                   onClick={handlePrev}
-                  className="pointer-events-auto flex h-10 w-10 items-center justify-center rounded-full border border-[#e5d8c6] bg-[#fffdf8] text-[#4a0e17] shadow-xs hover:bg-[#f4efeb] active:scale-95 cursor-pointer focus-visible:ring-2 focus-visible:ring-[#4a0e17]"
+                  className="pointer-events-auto flex h-10 w-10 items-center justify-center rounded-full border border-white/60 bg-white/70 backdrop-blur-md text-[#711e2c] shadow-sm hover:bg-white active:scale-95 cursor-pointer focus-visible:ring-2 focus-visible:ring-[#711e2c]"
                 >
                   <ChevronLeft size={20} />
                 </button>
@@ -249,7 +309,7 @@ export function Testimonials({ testimonials }: { testimonials: StorefrontTestimo
                   type="button"
                   aria-label="Next testimonials"
                   onClick={handleNext}
-                  className="pointer-events-auto flex h-10 w-10 items-center justify-center rounded-full border border-[#e5d8c6] bg-[#fffdf8] text-[#4a0e17] shadow-xs hover:bg-[#f4efeb] active:scale-95 cursor-pointer focus-visible:ring-2 focus-visible:ring-[#4a0e17]"
+                  className="pointer-events-auto flex h-10 w-10 items-center justify-center rounded-full border border-white/60 bg-white/70 backdrop-blur-md text-[#711e2c] shadow-sm hover:bg-white active:scale-95 cursor-pointer focus-visible:ring-2 focus-visible:ring-[#711e2c]"
                 >
                   <ChevronRight size={20} />
                 </button>
@@ -265,10 +325,10 @@ export function Testimonials({ testimonials }: { testimonials: StorefrontTestimo
                     type="button"
                     aria-label={`Go to testimonial group ${idx + 1}`}
                     onClick={() => goToPage(idx)}
-                    className={`h-2 transition-all duration-300 rounded-full cursor-pointer focus-visible:ring-2 focus-visible:ring-[#4a0e17] ${
+                    className={`h-2 transition-all duration-300 rounded-full cursor-pointer focus-visible:ring-2 focus-visible:ring-[#711e2c] ${
                       currentPage === idx
-                        ? "w-6 bg-[#4a0e17]"
-                        : "w-2 bg-[#4a0e17]/20 hover:bg-[#4a0e17]/40"
+                        ? "w-6 bg-[#711e2c]"
+                        : "w-2 bg-[#711e2c]/20 hover:bg-[#711e2c]/40"
                     }`}
                   />
                 ))}
@@ -280,4 +340,3 @@ export function Testimonials({ testimonials }: { testimonials: StorefrontTestimo
     </section>
   );
 }
-

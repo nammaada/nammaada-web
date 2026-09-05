@@ -63,8 +63,8 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
               <Link
                 className={`shrink-0 rounded-full border px-4 py-2 text-xs sm:text-sm font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring ${
                   !selectedCategory
-                    ? "border-[#4a0e17] bg-[#4a0e17] text-white"
-                    : "border-[#e5d8c6] bg-[#fffdf8] text-[#4a0e17] hover:border-[#4a0e17]/50"
+                    ? "border-[#711e2c] bg-[#711e2c] text-white"
+                    : "border-[#e5d8c6] bg-[#fffdf8] text-[#711e2c] hover:border-[#711e2c]/50"
                 }`}
                 href="/products"
               >
@@ -77,8 +77,8 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
                     key={category.id}
                     className={`shrink-0 rounded-full border px-4 py-2 text-xs sm:text-sm font-semibold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring ${
                       isSelected
-                        ? "border-[#4a0e17] bg-[#4a0e17] text-white"
-                        : "border-[#e5d8c6] bg-[#fffdf8] text-[#4a0e17] hover:border-[#4a0e17]/50"
+                        ? "border-[#711e2c] bg-[#711e2c] text-white"
+                        : "border-[#e5d8c6] bg-[#fffdf8] text-[#711e2c] hover:border-[#711e2c]/50"
                     }`}
                     href={`/products?category=${encodeURIComponent(category.slug)}`}
                   >
@@ -101,7 +101,7 @@ export default async function ProductsPage({ searchParams }: ProductsPageProps) 
             </div>
             {selectedCategory ? (
               <Link
-                className="text-xs sm:text-sm font-semibold text-[#4a0e17] underline decoration-[#4a0e17]/30 underline-offset-4"
+                className="text-xs sm:text-sm font-semibold text-[#711e2c] underline decoration-[#711e2c]/30 underline-offset-4"
                 href="/products"
               >
                 Clear filter

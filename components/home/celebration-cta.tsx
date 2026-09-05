@@ -22,27 +22,27 @@ export function CelebrationCta() {
               <img
                 src="/cele-bg.png"
                 alt="Kerala traditional celebration"
-                className="h-full w-full object-cover object-center opacity-30"
+                className="h-full w-full object-cover object-center"
                 onError={() => setBgLoaded(false)}
               />
             )}
-            <div className="absolute inset-0 bg-gradient-to-r from-[#2b1719]/95 via-[#2b1719]/90 to-[#2b1719]/80" />
+            <div className="absolute inset-0 bg-gradient-to-r from-[#1c080b]/60 via-black/20 to-[#1c080b]/50" />
           </div>
 
           {/* Content & Form */}
           <div className="relative z-10 p-6 sm:p-10 md:p-12 grid gap-8 lg:grid-cols-12 lg:items-center">
             {/* Left text */}
             <div className="lg:col-span-6 space-y-3">
-              <div className="inline-flex items-center gap-2 text-[#d4af37] font-semibold text-xs uppercase tracking-widest">
+              <div className="inline-flex items-center gap-2 text-[#d4af37] font-semibold text-xs uppercase tracking-widest drop-shadow-sm">
                 <Gift size={16} />
                 <span>Bulk Orders & Catering</span>
               </div>
 
-              <h2 className="font-display text-2xl sm:text-4xl font-semibold leading-tight text-white">
+              <h2 className="font-display text-2xl sm:text-4xl font-semibold leading-tight text-white drop-shadow-sm">
                 Planning a celebration?
               </h2>
 
-              <p className="text-xs sm:text-sm text-white/85 leading-relaxed max-w-lg">
+              <p className="text-xs sm:text-sm text-white/90 leading-relaxed max-w-lg drop-shadow-sm">
                 Make your occasion special with authentic Kerala delicacies, freshly prepared for festivals, family functions, and gifting.
               </p>
             </div>

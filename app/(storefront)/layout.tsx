@@ -20,7 +20,7 @@ export default function StorefrontLayout({ children }: Readonly<{ children: Reac
           />
         </div>
 
-        {/* STOREFRONT CONTENT REGION (LAYERS 2-6) */}
+        {/* STOREFRONT CONTENT REGION */}
         <div className="relative z-10 flex min-h-screen flex-col">
           <StorefrontNavbar />
           <main className="flex-1">{children}</main>
@@ -30,4 +30,6 @@ export default function StorefrontLayout({ children }: Readonly<{ children: Reac
     </CartProvider>
   );
 }
+
+
 

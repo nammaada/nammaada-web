@@ -24,7 +24,7 @@ function EmptyCart() {
   return (
     <div className="rounded-2xl border border-[#e5d8c6] bg-[#fffdf8] px-6 py-12 text-center shadow-soft sm:px-10 sm:py-16">
       <div className="mx-auto max-w-md space-y-4">
-        <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-[#f4efeb] text-[#4a0e17]">
+        <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-[#f4efeb] text-[#711e2c]">
           <ShoppingBag size={26} />
         </div>
         <p className="eyebrow">A little space for something special</p>
@@ -34,7 +34,7 @@ function EmptyCart() {
         </p>
         <div className="pt-2">
           <Link
-            className="inline-flex min-h-12 items-center justify-center rounded-full bg-[#4a0e17] px-6 text-xs sm:text-sm font-semibold text-white shadow-sm transition-all hover:bg-[#380a11]"
+            className="inline-flex min-h-12 items-center justify-center rounded-full bg-[#711e2c] px-6 text-xs sm:text-sm font-semibold text-white shadow-sm transition-all hover:bg-[#5a1723]"
             href="/products"
           >
             Browse delicacies
@@ -97,7 +97,7 @@ export function CartPage() {
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0">
                           <Link
-                            className="font-display text-base sm:text-lg font-semibold text-[#2b1719] hover:text-[#4a0e17] transition-colors"
+                            className="font-display text-base sm:text-lg font-semibold text-[#2b1719] hover:text-[#711e2c] transition-colors"
                             href={`/products/${item.slug}`}
                           >
                             {item.name}
@@ -110,7 +110,7 @@ export function CartPage() {
                         {/* Remove button (min 44px target) */}
                         <button
                           aria-label={`Remove ${item.name} from cart`}
-                          className="inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-full text-[#4a0e17] transition-colors hover:bg-[#f4efeb]"
+                          className="inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-full text-[#711e2c] transition-colors hover:bg-[#f4efeb]"
                           onClick={() => removeItem(item.lineId)}
                           type="button"
                         >
@@ -122,7 +122,7 @@ export function CartPage() {
                       <div className="mt-3 flex flex-wrap items-center justify-between gap-3 pt-2 border-t border-[#e5d8c6]/60">
                         <div>
                           <p className="text-xs text-[#6e5b55]">{formatPrice(item.unitPricePaise)} each</p>
-                          <p className="mt-0.5 text-sm font-bold text-[#4a0e17]">
+                          <p className="mt-0.5 text-sm font-bold text-[#711e2c]">
                             {formatPrice(item.unitPricePaise * item.quantity)}
                           </p>
                         </div>
@@ -131,7 +131,7 @@ export function CartPage() {
                         <div className="flex items-center rounded-full border border-[#e5d8c6] bg-[#f4efeb]/60" aria-label={`Quantity for ${item.name}`}>
                           <button
                             aria-label={`Decrease quantity of ${item.name}`}
-                            className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-full text-[#4a0e17] hover:bg-[#e5d8c6]"
+                            className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-full text-[#711e2c] hover:bg-[#e5d8c6]"
                             onClick={() => setQuantity(item.lineId, item.quantity - 1)}
                             type="button"
                           >
@@ -144,7 +144,7 @@ export function CartPage() {
 
                           <button
                             aria-label={`Increase quantity of ${item.name}`}
-                            className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-full text-[#4a0e17] hover:bg-[#e5d8c6]"
+                            className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-full text-[#711e2c] hover:bg-[#e5d8c6]"
                             onClick={() => setQuantity(item.lineId, item.quantity + 1)}
                             type="button"
                           >
@@ -159,7 +159,7 @@ export function CartPage() {
             </div>
 
             {/* Summary Box */}
-            <div className="rounded-2xl sm:rounded-3xl border border-white/70 bg-gradient-to-br from-white/80 via-white/60 to-white/40 p-5 sm:p-6 backdrop-blur-xl shadow-xl shadow-amber-950/8 space-y-5">
+            <div className="rounded-2xl sm:rounded-3xl border border-white/45 bg-gradient-to-br from-white/50 via-[#fcf7ee]/28 to-[#f5e8d5]/18 p-5 sm:p-6 backdrop-blur-xl shadow-[0_16px_36px_-10px_rgba(43,23,25,0.08),inset_0_1px_1.5px_0_rgba(255,255,255,0.75)] space-y-5">
               <div className="flex items-center justify-between gap-4 border-b border-[#e5d8c6] pb-4">
                 <h2 className="font-display text-xl sm:text-2xl font-semibold text-[#2b1719]">Order Summary</h2>
                 <span className="text-xs text-[#6e5b55] font-semibold">
@@ -169,7 +169,7 @@ export function CartPage() {
 
               <div className="flex items-center justify-between text-sm">
                 <span className="text-[#6e5b55]">Subtotal</span>
-                <span className="font-bold text-lg text-[#4a0e17]">{formatPrice(subtotalPaise)}</span>
+                <span className="font-bold text-lg text-[#711e2c]">{formatPrice(subtotalPaise)}</span>
               </div>
 
               <p className="text-xs text-[#6e5b55] leading-relaxed">
@@ -179,14 +179,14 @@ export function CartPage() {
               {/* ACTIVE PROCEED TO CHECKOUT LINK */}
               <Link
                 href="/checkout"
-                className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-full bg-[#4a0e17] px-6 text-sm font-semibold text-white shadow-md transition-all hover:bg-[#380a11] active:scale-98"
+                className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-full bg-[#711e2c] px-6 text-sm font-semibold text-white shadow-md transition-all hover:bg-[#5a1723] active:scale-98"
               >
                 <span>Proceed to Checkout</span>
                 <ArrowRight size={16} />
               </Link>
 
               <button
-                className="w-full text-xs font-semibold text-[#4a0e17] underline decoration-[#4a0e17]/30 underline-offset-4"
+                className="w-full text-xs font-semibold text-[#711e2c] underline decoration-[#711e2c]/30 underline-offset-4"
                 onClick={clearCart}
                 type="button"
               >

@@ -23,9 +23,9 @@ export function InstagramPreview({ content = DEFAULT_FROM_OUR_KITCHEN }: { conte
   }
 
   return (
-    <section className="relative py-12 sm:py-16 bg-transparent" id="kitchen-preview">
+    <section className="relative py-12 sm:py-6 bg-transparent" id="kitchen-preview">
       <Container className="max-w-4xl mx-auto text-center">
-        <p className="text-[10px] sm:text-xs font-bold uppercase tracking-[0.2em] text-[#4a0e17]">
+        <p className="text-[10px] sm:text-xs font-bold uppercase tracking-[0.2em] text-[#711e2c]">
           {data.label}
         </p>
         <h2 className="mt-2 font-display text-2xl sm:text-4xl font-semibold leading-tight text-[#2b1719]">
@@ -40,6 +40,7 @@ export function InstagramPreview({ content = DEFAULT_FROM_OUR_KITCHEN }: { conte
             <ReelCardPlayer
               src={publishedReels[0].video_url}
               title={publishedReels[0].alt_text || data.heading}
+              instagramUrl={publishedReels[0].instagram_url || data.instagramUrl}
               className="h-full w-full"
             />
           </div>
@@ -55,6 +56,7 @@ export function InstagramPreview({ content = DEFAULT_FROM_OUR_KITCHEN }: { conte
                 <ReelCardPlayer
                   src={reel.video_url}
                   title={reel.alt_text}
+                  instagramUrl={reel.instagram_url || data.instagramUrl}
                   className="h-full w-full"
                 />
               </div>
@@ -64,7 +66,7 @@ export function InstagramPreview({ content = DEFAULT_FROM_OUR_KITCHEN }: { conte
 
         <div className="mt-4">
           <Link
-            className="inline-flex min-h-11 items-center gap-1.5 rounded-full border border-[#4a0e17]/30 bg-[#fffdf8] px-5 text-xs sm:text-sm font-semibold text-[#4a0e17] transition-all hover:bg-[#f4efeb] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring active:scale-95"
+            className="inline-flex min-h-11 items-center gap-1.5 rounded-full border border-[#711e2c]/30 bg-[#fffdf8] px-5 text-xs sm:text-sm font-semibold text-[#711e2c] transition-all hover:bg-[#f4efeb] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring active:scale-95"
             href={data.instagramUrl || "https://www.instagram.com/namma_ada/"}
             target="_blank"
             rel="noreferrer"
