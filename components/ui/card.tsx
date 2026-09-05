@@ -6,7 +6,7 @@ type CardProps = HTMLAttributes<HTMLDivElement> & {
 
 const variants = {
   default: "border border-[#e5d8c6] bg-[#fffdf8]",
-  bordered: "border border-[#4a0e17]/25 bg-[#fffdf8]",
+  bordered: "border border-[#711e2c]/25 bg-[#fffdf8]",
   elevated: "border border-[#e5d8c6] bg-[#fffdf8] shadow-lifted",
   subtle: "border border-[#e5d8c6]/80 bg-[#f4efeb]",
 } as const;

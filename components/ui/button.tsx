@@ -7,10 +7,10 @@ type ButtonProps = ButtonHTMLAttributes<HTMLButtonElement> & {
 };
 
 const variants = {
-  primary: "bg-[#4a0e17] text-white shadow-sm hover:bg-[#380a11] active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-ring/40",
-  secondary: "bg-[#f4efeb] text-[#4a0e17] border border-[#e5d8c6] hover:bg-[#eae1d7] active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-ring/40",
-  outline: "border border-[#4a0e17]/30 bg-transparent text-[#4a0e17] hover:border-[#4a0e17] hover:bg-[#4a0e17]/5 active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-ring/40",
-  ghost: "text-[#2b1719]/85 hover:bg-[#4a0e17]/10 hover:text-[#4a0e17] active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-ring/40",
+  primary: "bg-[#711e2c] text-white shadow-sm hover:bg-[#5a1723] active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-ring/40",
+  secondary: "bg-[#f4efeb] text-[#711e2c] border border-[#e5d8c6] hover:bg-[#eae1d7] active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-ring/40",
+  outline: "border border-[#711e2c]/30 bg-transparent text-[#711e2c] hover:border-[#711e2c] hover:bg-[#711e2c]/5 active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-ring/40",
+  ghost: "text-[#2b1719]/85 hover:bg-[#711e2c]/10 hover:text-[#711e2c] active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-ring/40",
   destructive: "bg-red-900 text-white hover:bg-red-950 active:scale-[0.98] focus-visible:ring-2 focus-visible:ring-red-900/40",
 } as const;
 

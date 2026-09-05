@@ -19,11 +19,11 @@ export default async function KitchenReelsPage({
       <PageHeader
         breadcrumbs={[
           { label: "Content" },
-          { label: "Kitchen Reels" },
+          { label: "Instagram Reels" },
         ]}
         description="Manage behind-the-scenes Instagram reel videos showcased on the storefront homepage."
         eyebrow="CONTENT"
-        title="Kitchen Reels"
+        title="Instagram Reels"
       />
 
       {params.error && (

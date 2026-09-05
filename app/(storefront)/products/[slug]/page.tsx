@@ -49,11 +49,11 @@ export default async function ProductPage({ params }: ProductPageProps) {
       <Container>
         {/* Breadcrumb */}
         <nav aria-label="Breadcrumb" className="mb-5 sm:mb-8 text-xs sm:text-sm text-[#6e5b55]">
-          <Link className="underline decoration-[#e5d8c6] underline-offset-4 hover:text-[#4a0e17]" href="/">
+          <Link className="underline decoration-[#e5d8c6] underline-offset-4 hover:text-[#711e2c]" href="/">
             Home
           </Link>
           <span className="px-2" aria-hidden="true">/</span>
-          <Link className="underline decoration-[#e5d8c6] underline-offset-4 hover:text-[#4a0e17]" href="/products">
+          <Link className="underline decoration-[#e5d8c6] underline-offset-4 hover:text-[#711e2c]" href="/products">
             Products
           </Link>
           <span className="px-2" aria-hidden="true">/</span>

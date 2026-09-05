@@ -27,7 +27,7 @@ export function ProductCard({ product, index }: { product: StorefrontProduct; in
             />
           ) : (
             <div className="absolute inset-0 flex flex-col items-center justify-center gap-1.5 px-4 text-center text-[#6e5b55]">
-              <span className="font-display text-xl text-[#4a0e17]">{String(index + 1).padStart(2, "0")}</span>
+              <span className="font-display text-xl text-[#711e2c]">{String(index + 1).padStart(2, "0")}</span>
               <span className="text-[10px] font-semibold uppercase tracking-wider">{product.name}</span>
             </div>
           )}
@@ -40,11 +40,11 @@ export function ProductCard({ product, index }: { product: StorefrontProduct; in
 
         <div className="flex flex-1 flex-col p-4 sm:p-5">
           <div className="flex items-center justify-between gap-3">
-            <span className="text-xs font-bold text-[#4a0e17] tracking-wider">{String(index + 1).padStart(2, "0")}</span>
-            <span className="text-sm font-bold text-[#4a0e17]">{formatPrice(product.price_paise)}</span>
+            <span className="text-xs font-bold text-[#711e2c] tracking-wider">{String(index + 1).padStart(2, "0")}</span>
+            <span className="text-sm font-bold text-[#711e2c]">{formatPrice(product.price_paise)}</span>
           </div>
 
-          <h2 className="mt-2 font-display text-xl leading-tight font-semibold text-[#2b1719] group-hover:text-[#4a0e17] transition-colors">
+          <h2 className="mt-2 font-display text-xl leading-tight font-semibold text-[#2b1719] group-hover:text-[#711e2c] transition-colors">
             {product.name}
           </h2>
 
@@ -55,7 +55,7 @@ export function ProductCard({ product, index }: { product: StorefrontProduct; in
           ) : null}
 
           <div className="mt-auto flex items-center justify-between gap-2 pt-4 border-t border-[#e5d8c6]/60">
-            <span className="inline-flex min-h-10 items-center gap-1 rounded-full bg-[#4a0e17] px-4 text-xs font-semibold text-white transition-colors group-hover:bg-[#380a11]">
+            <span className="inline-flex min-h-10 items-center gap-1 rounded-full bg-[#711e2c] px-4 text-xs font-semibold text-white transition-colors group-hover:bg-[#5a1723]">
               View product <ArrowUpRight aria-hidden="true" size={14} />
             </span>
             <span className="text-xs text-[#6e5b55]">

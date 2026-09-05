@@ -192,49 +192,56 @@ export function HeroSlider({ banners }: HeroSliderProps) {
         <Container className="relative z-20 w-full pt-20 pb-12 sm:pt-28 sm:pb-16 lg:pt-32 lg:pb-20">
           <div className="grid lg:grid-cols-12 gap-6 items-center">
             <div className="lg:col-span-7 xl:col-span-6">
-              <div className="relative w-full rounded-3xl sm:rounded-[2.5rem] border border-white/75 bg-gradient-to-br from-white/80 via-white/60 to-white/45 backdrop-blur-xl p-6 sm:p-9 lg:p-10 shadow-2xl shadow-amber-950/10">
+              <div className="relative w-full rounded-3xl sm:rounded-[2.5rem] border border-white/40 bg-gradient-to-br from-white/50 via-[#fcf6ed]/32 to-[#f5e8d6]/22 backdrop-blur-xl p-6 sm:p-8 lg:p-9 shadow-[0_20px_50px_-12px_rgba(43,23,25,0.12),inset_0_1px_1.5px_0_rgba(255,255,255,0.75)]">
                 <div className="flex items-center gap-3">
-                  <span className="text-[11px] sm:text-xs font-bold uppercase tracking-[0.22em] text-[#6b1e28]">
-                    AUTHENTIC KERALA FLAVOURS
+                  <span className="text-[11px] sm:text-xs font-bold uppercase tracking-[0.22em] text-[#711e2c]">
+                    A TASTE OF HOME
                   </span>
-                  <span className="h-[1.5px] w-10 sm:w-14 bg-[#6b1e28]/35 rounded-full" />
+                  <span className="h-[1.5px] w-10 sm:w-14 bg-[#711e2c]/35 rounded-full" />
                 </div>
 
-                <h1 className="mt-3 font-display text-3xl sm:text-4xl lg:text-[44px] font-bold tracking-tight text-[#3d0b13] leading-[1.12]">
-                  Soul Of Kerala,<br /> Served With Heart.
+                <h1 className="mt-3 font-display text-2xl sm:text-3xl lg:text-4xl font-bold tracking-tight text-[#2b1719] leading-[1.2]">
+                  Every celebration begins with a little sweetness.
                 </h1>
 
-                <p className="mt-3 text-xs sm:text-sm text-[#4a242a]/85 leading-relaxed max-w-md">
-                  Craving For Ada Payasam? At Namma Ada, we bring you the timeless taste of Ada Payasam, made with a whole lot of love.
-                </p>
+                <div className="mt-4 space-y-3 text-xs sm:text-sm text-[#4a242a]/90 leading-relaxed max-w-xl">
+                  <p>
+                    At Namma Ada, we bring the soul of Kerala into the homes of Bangalore. Every bowl of Palada Payasam, every Unniyappam, every bottle of pure coconut oil, and every delicacy we create is handcrafted with tradition and a whole lot of love.
+                  </p>
+                  <p>
+                    We don&apos;t just serve food. We serve memories, festivals, and the comforting taste of home.
+                  </p>
+                </div>
 
-                <div className="mt-6 flex flex-wrap items-center gap-3">
+                {/* Buttons */}
+                <div className="mt-5 flex flex-wrap items-center gap-3">
                   <Link
-                    className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full bg-[#5c111a] hover:bg-[#480d14] px-6 sm:px-7 text-xs sm:text-sm font-semibold text-white shadow-md transition-all duration-150 active:scale-95"
+                    className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full bg-[#711e2c] hover:bg-[#5a1723] px-6 sm:px-7 text-xs sm:text-sm font-semibold text-white shadow-md transition-all duration-150 active:scale-95"
                     href="/products"
                   >
-                    Explore Our Products <ArrowRight size={15} />
+                    Explore Now <ArrowRight size={15} />
                   </Link>
 
                   <Link
-                    className="inline-flex min-h-11 items-center justify-center rounded-full border border-[#5c111a]/25 bg-white/40 hover:bg-white/70 px-6 sm:px-7 text-xs sm:text-sm font-semibold text-[#5c111a] backdrop-blur-xs transition-all duration-150 active:scale-95"
+                    className="inline-flex min-h-11 items-center justify-center rounded-full border border-[#711e2c]/20 bg-white/25 hover:bg-white/45 px-6 sm:px-7 text-xs sm:text-sm font-semibold text-[#711e2c] backdrop-blur-xs transition-all duration-150 active:scale-95"
                     href="/contact"
                   >
                     Bulk Orders
                   </Link>
                 </div>
 
-                <div className="mt-7 pt-5 border-t border-[#5c111a]/15 grid grid-cols-3 gap-2">
+                {/* Feature highlights */}
+                <div className="mt-6 pt-4 border-t border-[#711e2c]/15 grid grid-cols-3 gap-2">
                   <div className="flex items-center gap-2">
-                    <Leaf className="text-[#5c111a] shrink-0" size={17} strokeWidth={2} />
+                    <Leaf className="text-[#711e2c] shrink-0" size={16} strokeWidth={2} />
                     <span className="text-[10px] sm:text-[11px] font-semibold text-[#3d0b13]">Authentic Taste</span>
                   </div>
-                  <div className="flex items-center gap-2 border-l border-[#5c111a]/15 pl-2 sm:pl-3">
-                    <Heart className="text-[#5c111a] shrink-0" size={17} strokeWidth={2} />
+                  <div className="flex items-center gap-2 border-l border-[#711e2c]/15 pl-2 sm:pl-3">
+                    <Heart className="text-[#711e2c] shrink-0" size={16} strokeWidth={2} />
                     <span className="text-[10px] sm:text-[11px] font-semibold text-[#3d0b13]">Made With Love</span>
                   </div>
-                  <div className="flex items-center gap-2 border-l border-[#5c111a]/15 pl-2 sm:pl-3">
-                    <Gift className="text-[#5c111a] shrink-0" size={17} strokeWidth={2} />
+                  <div className="flex items-center gap-2 border-l border-[#711e2c]/15 pl-2 sm:pl-3">
+                    <Gift className="text-[#711e2c] shrink-0" size={16} strokeWidth={2} />
                     <span className="text-[10px] sm:text-[11px] font-semibold text-[#3d0b13]">Bulk Orders</span>
                   </div>
                 </div>
@@ -307,74 +314,57 @@ export function HeroSlider({ banners }: HeroSliderProps) {
           <div className="lg:col-span-7 xl:col-span-6">
             <div
               key={currentIndex}
-              className="relative w-full rounded-3xl sm:rounded-[2.5rem] border border-white/75 bg-gradient-to-br from-white/80 via-white/60 to-white/45 backdrop-blur-xl p-6 sm:p-9 lg:p-10 shadow-2xl shadow-amber-950/10 animate-in fade-in duration-300"
+              className="relative w-full rounded-3xl sm:rounded-[2.5rem] border border-white/40 bg-gradient-to-br from-white/50 via-[#fcf6ed]/32 to-[#f5e8d6]/22 backdrop-blur-xl p-6 sm:p-8 lg:p-9 shadow-[0_20px_50px_-12px_rgba(43,23,25,0.12),inset_0_1px_1.5px_0_rgba(255,255,255,0.75)] animate-in fade-in duration-300"
             >
               {/* Eyebrow */}
               <div className="flex items-center gap-3">
-                <span className="text-[11px] sm:text-xs font-bold uppercase tracking-[0.22em] text-[#6b1e28]">
-                  {currentBanner.mobile_headline ? (
-                    <span className="sm:hidden">{currentBanner.mobile_headline}</span>
-                  ) : null}
-                  <span className={currentBanner.mobile_headline ? "hidden sm:inline" : "inline"}>
-                    {currentBanner.eyebrow}
-                  </span>
+                <span className="text-[11px] sm:text-xs font-bold uppercase tracking-[0.22em] text-[#711e2c]">
+                  {currentBanner.eyebrow || "A TASTE OF HOME"}
                 </span>
-                <span className="h-[1.5px] w-10 sm:w-14 bg-[#6b1e28]/35 rounded-full" />
+                <span className="h-[1.5px] w-10 sm:w-14 bg-[#711e2c]/35 rounded-full" />
               </div>
 
               {/* Headline */}
-              <h1 className="mt-3 font-display text-3xl sm:text-4xl lg:text-[44px] font-bold tracking-tight text-[#3d0b13] leading-[1.12]">
-                {currentBanner.headline}
+              <h1 className="mt-3 font-display text-2xl sm:text-3xl lg:text-4xl font-bold tracking-tight text-[#2b1719] leading-[1.2]">
+                {currentBanner.headline || "Every celebration begins with a little sweetness."}
               </h1>
 
-              {/* Description */}
-              <p className="mt-3 text-xs sm:text-sm text-[#4a242a]/85 leading-relaxed max-w-md">
-                {currentBanner.mobile_description ? (
-                  <span className="sm:hidden">{currentBanner.mobile_description}</span>
-                ) : null}
-                <span className={currentBanner.mobile_description ? "hidden sm:inline" : "inline"}>
-                  {currentBanner.description}
-                </span>
-              </p>
-
-              {/* Action Buttons */}
-              <div className="mt-6 flex flex-wrap items-center gap-3">
-                <Link
-                  className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full bg-[#5c111a] hover:bg-[#480d14] px-6 sm:px-7 text-xs sm:text-sm font-semibold text-white shadow-md transition-all duration-150 active:scale-95"
-                  href={currentBanner.primary_cta_href}
-                >
-                  {currentBanner.primary_cta_label} <ArrowRight size={15} />
-                </Link>
-
-                {currentBanner.is_secondary_cta_enabled && currentBanner.secondary_cta_label && currentBanner.secondary_cta_href ? (
-                  <Link
-                    className="inline-flex min-h-11 items-center justify-center rounded-full border border-[#5c111a]/25 bg-white/40 hover:bg-white/70 px-6 sm:px-7 text-xs sm:text-sm font-semibold text-[#5c111a] backdrop-blur-xs transition-all duration-150 active:scale-95"
-                    href={currentBanner.secondary_cta_href}
-                  >
-                    {currentBanner.secondary_cta_label}
-                  </Link>
-                ) : (
-                  <Link
-                    className="inline-flex min-h-11 items-center justify-center rounded-full border border-[#5c111a]/25 bg-white/40 hover:bg-white/70 px-6 sm:px-7 text-xs sm:text-sm font-semibold text-[#5c111a] backdrop-blur-xs transition-all duration-150 active:scale-95"
-                    href="/contact"
-                  >
-                    Bulk Orders
-                  </Link>
-                )}
+              {/* Description Paragraphs */}
+              <div className="mt-4 space-y-3 text-xs sm:text-sm text-[#4a242a]/90 leading-relaxed max-w-xl">
+                {(currentBanner.description || "At Namma Ada, we bring the soul of Kerala into the homes of Bangalore. Every bowl of Palada Payasam, every Unniyappam, every bottle of pure coconut oil, and every delicacy we create is handcrafted with tradition and a whole lot of love.\n\nWe don't just serve food. We serve memories, festivals, and the comforting taste of home.").split("\n\n").map((para, idx) => (
+                  <p key={idx}>{para}</p>
+                ))}
               </div>
 
-              {/* Bottom Features inside Glass Box matching Reference 2 */}
-              <div className="mt-7 pt-5 border-t border-[#5c111a]/15 grid grid-cols-3 gap-2">
+              {/* Action Buttons */}
+              <div className="mt-5 flex flex-wrap items-center gap-3">
+                <Link
+                  className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full bg-[#711e2c] hover:bg-[#5a1723] px-6 sm:px-7 text-xs sm:text-sm font-semibold text-white shadow-md transition-all duration-150 active:scale-95"
+                  href={currentBanner.primary_cta_href || "/products"}
+                >
+                  {currentBanner.primary_cta_label || "Explore Now"} <ArrowRight size={15} />
+                </Link>
+
+                <Link
+                  className="inline-flex min-h-11 items-center justify-center rounded-full border border-[#711e2c]/20 bg-white/25 hover:bg-white/45 px-6 sm:px-7 text-xs sm:text-sm font-semibold text-[#711e2c] backdrop-blur-xs transition-all duration-150 active:scale-95"
+                  href={currentBanner.secondary_cta_href || "/contact"}
+                >
+                  {currentBanner.secondary_cta_label || "Bulk Orders"}
+                </Link>
+              </div>
+
+              {/* Feature Highlights */}
+              <div className="mt-6 pt-4 border-t border-[#711e2c]/15 grid grid-cols-3 gap-2">
                 <div className="flex items-center gap-2">
-                  <Leaf className="text-[#5c111a] shrink-0" size={17} strokeWidth={2} />
+                  <Leaf className="text-[#711e2c] shrink-0" size={16} strokeWidth={2} />
                   <span className="text-[10px] sm:text-[11px] font-semibold text-[#3d0b13]">Authentic Taste</span>
                 </div>
-                <div className="flex items-center gap-2 border-l border-[#5c111a]/15 pl-2 sm:pl-3">
-                  <Heart className="text-[#5c111a] shrink-0" size={17} strokeWidth={2} />
+                <div className="flex items-center gap-2 border-l border-[#711e2c]/15 pl-2 sm:pl-3">
+                  <Heart className="text-[#711e2c] shrink-0" size={16} strokeWidth={2} />
                   <span className="text-[10px] sm:text-[11px] font-semibold text-[#3d0b13]">Made With Love</span>
                 </div>
-                <div className="flex items-center gap-2 border-l border-[#5c111a]/15 pl-2 sm:pl-3">
-                  <Gift className="text-[#5c111a] shrink-0" size={17} strokeWidth={2} />
+                <div className="flex items-center gap-2 border-l border-[#711e2c]/15 pl-2 sm:pl-3">
+                  <Gift className="text-[#711e2c] shrink-0" size={16} strokeWidth={2} />
                   <span className="text-[10px] sm:text-[11px] font-semibold text-[#3d0b13]">Bulk Orders</span>
                 </div>
               </div>

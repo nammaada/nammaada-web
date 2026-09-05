@@ -79,7 +79,7 @@ function OrderSummary({ items, subtotalPaise }: { items: CartItem[]; subtotalPai
             </div>
             <div className="min-w-0 flex-1">
               <Link
-                className="text-xs sm:text-sm font-semibold text-[#2b1719] hover:text-[#4a0e17] transition-colors"
+                className="text-xs sm:text-sm font-semibold text-[#2b1719] hover:text-[#711e2c] transition-colors"
                 href={`/products/${item.slug}`}
               >
                 {item.name}
@@ -89,7 +89,7 @@ function OrderSummary({ items, subtotalPaise }: { items: CartItem[]; subtotalPai
                 {item.quantity} × {formatPrice(item.unitPricePaise)}
               </p>
             </div>
-            <span className="shrink-0 text-xs sm:text-sm font-bold text-[#4a0e17]">
+            <span className="shrink-0 text-xs sm:text-sm font-bold text-[#711e2c]">
               {formatPrice(item.unitPricePaise * item.quantity)}
             </span>
           </div>
@@ -98,7 +98,7 @@ function OrderSummary({ items, subtotalPaise }: { items: CartItem[]; subtotalPai
 
       <div className="flex items-center justify-between text-sm pt-1">
         <span className="text-[#6e5b55]">Cart Subtotal</span>
-        <span className="font-bold text-[#4a0e17]">{formatPrice(subtotalPaise)}</span>
+        <span className="font-bold text-[#711e2c]">{formatPrice(subtotalPaise)}</span>
       </div>
 
       <div className="text-xs text-[#6e5b55] leading-relaxed pt-1">
@@ -117,7 +117,7 @@ function EmptyCheckout() {
         <p className="text-xs sm:text-sm text-[#6e5b55]">Add a Namma Ada selection before continuing to checkout.</p>
         <div className="pt-2">
           <Link
-            className="inline-flex min-h-12 items-center justify-center rounded-full bg-[#4a0e17] px-6 text-xs sm:text-sm font-semibold text-white shadow-sm transition-all hover:bg-[#380a11]"
+            className="inline-flex min-h-12 items-center justify-center rounded-full bg-[#711e2c] px-6 text-xs sm:text-sm font-semibold text-white shadow-sm transition-all hover:bg-[#5a1723]"
             href="/products"
           >
             Browse delicacies
@@ -140,11 +140,11 @@ function PendingOrderState({ orderNumber }: { orderNumber: string }) {
 
         <div className="my-6 rounded-xl border border-[#e5d8c6] bg-[#f4efeb] p-4">
           <p className="text-xs uppercase tracking-wider font-semibold text-[#6e5b55]">Order Reference</p>
-          <p className="font-display text-2xl font-bold text-[#4a0e17] mt-1">{orderNumber}</p>
+          <p className="font-display text-2xl font-bold text-[#711e2c] mt-1">{orderNumber}</p>
         </div>
 
         <Link
-          className="inline-flex min-h-12 items-center justify-center rounded-full bg-[#4a0e17] px-6 text-xs sm:text-sm font-semibold text-white shadow-sm hover:bg-[#380a11]"
+          className="inline-flex min-h-12 items-center justify-center rounded-full bg-[#711e2c] px-6 text-xs sm:text-sm font-semibold text-white shadow-sm hover:bg-[#5a1723]"
           href="/products"
         >
           Continue browsing
@@ -320,7 +320,7 @@ export function CheckoutPage() {
                   <textarea
                     {...fieldProps("address", errors.address)}
                     autoComplete="street-address"
-                    className={`min-h-24 w-full resize-y rounded-xl border bg-[#fffdf8] px-3.5 py-3 text-sm sm:text-base text-[#2b1719] outline-none placeholder:text-[#6e5b55]/60 transition-all focus-visible:border-[#4a0e17] focus-visible:ring-2 focus-visible:ring-[#4a0e17]/20 ${
+                    className={`min-h-24 w-full resize-y rounded-xl border bg-[#fffdf8] px-3.5 py-3 text-sm sm:text-base text-[#2b1719] outline-none placeholder:text-[#6e5b55]/60 transition-all focus-visible:border-[#711e2c] focus-visible:ring-2 focus-visible:ring-[#711e2c]/20 ${
                       errors.address ? "border-red-700" : "border-[#dfd0bd]"
                     }`}
                     onChange={(event) => updateValue("address", event.target.value)}

@@ -50,7 +50,7 @@ export const DEFAULT_WHO_WE_ARE: WhoWeAreContent = {
   label: "WHO WE ARE",
   heading: "A little taste of home, made with a whole lot of love.",
   description:
-    "Namma Ada is a Bangalore-based Kerala delicacy brand inspired by recipes passed down through generations. Rooted in authenticity and made fresh for every order, we bring Kerala's timeless taste to your table.",
+    "Namma Ada is a Bangalore-based Kerala delicacy brand inspired by recipes passed down through generations. We bring Kerala's timeless taste to your table through fresh, handcrafted delicacies made with authentic flavours and a whole lot of love.",
   buttonText: "Read our story",
   buttonUrl: "/about",
   images: [],

@@ -14,7 +14,7 @@ function formatPrice(pricePaise: number) {
 function Availability({ available }: { available: boolean }) {
   return (
     <p className="text-xs sm:text-sm text-[#6e5b55] flex items-center gap-2">
-      <span className={`inline-block size-2 rounded-full ${available ? "bg-emerald-600" : "bg-[#4a0e17]/35"}`} />
+      <span className={`inline-block size-2 rounded-full ${available ? "bg-emerald-600" : "bg-[#711e2c]/35"}`} />
       {available ? "Available to order" : "Currently unavailable"}
     </p>
   );
@@ -48,7 +48,7 @@ export function ProductOptions({ product, variants }: { product: StorefrontProdu
     <div className="space-y-6">
       {/* Price & Availability */}
       <div className="flex flex-wrap items-baseline justify-between gap-2 border-b border-[#e5d8c6] pb-4">
-        <p className="font-display text-2xl sm:text-3xl font-bold text-[#4a0e17]" aria-live="polite">
+        <p className="font-display text-2xl sm:text-3xl font-bold text-[#711e2c]" aria-live="polite">
           {selectedVariant || variants.length === 0
             ? formatPrice(selectedVariant?.price_paise ?? product.price_paise)
             : "Select an option"}
@@ -68,10 +68,10 @@ export function ProductOptions({ product, variants }: { product: StorefrontProdu
               return (
                 <label
                   key={variant.id}
-                  className={`flex min-h-12 cursor-pointer items-center justify-between gap-3 rounded-xl border px-4 py-3 text-xs sm:text-sm font-semibold transition-all focus-within:ring-2 focus-within:ring-[#4a0e17] ${
+                  className={`flex min-h-12 cursor-pointer items-center justify-between gap-3 rounded-xl border px-4 py-3 text-xs sm:text-sm font-semibold transition-all focus-within:ring-2 focus-within:ring-[#711e2c] ${
                     selected
-                      ? "border-[#4a0e17] bg-[#4a0e17] text-white shadow-xs"
-                      : "border-[#e5d8c6] bg-[#fffdf8] text-[#2b1719] hover:border-[#4a0e17]/50"
+                      ? "border-[#711e2c] bg-[#711e2c] text-white shadow-xs"
+                      : "border-[#e5d8c6] bg-[#fffdf8] text-[#2b1719] hover:border-[#711e2c]/50"
                   }`}
                 >
                   <span className="flex items-center gap-2.5">
@@ -85,7 +85,7 @@ export function ProductOptions({ product, variants }: { product: StorefrontProdu
                     />
                     <span>{variant.name}</span>
                   </span>
-                  <span className={selected ? "text-white/90" : "text-[#4a0e17]"}>
+                  <span className={selected ? "text-white/90" : "text-[#711e2c]"}>
                     {formatPrice(variant.price_paise)}
                   </span>
                 </label>
@@ -98,7 +98,7 @@ export function ProductOptions({ product, variants }: { product: StorefrontProdu
       {/* Delivery scope badges */}
       {product.delivery_scope ? (
         <div className="flex flex-wrap gap-2 pt-1">
-          <Badge variant="default" className="bg-[#f4efeb] text-[#4a0e17] border border-[#e5d8c6] px-3 py-1 text-xs">
+          <Badge variant="default" className="bg-[#f4efeb] text-[#711e2c] border border-[#e5d8c6] px-3 py-1 text-xs">
             {product.delivery_scope === "bangalore_only" ? "Available in Bangalore" : "Delivery across India"}
           </Badge>
           {product.is_free_shipping ? (
