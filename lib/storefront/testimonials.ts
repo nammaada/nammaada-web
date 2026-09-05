@@ -17,7 +17,8 @@ export async function getTestimonials(): Promise<StorefrontTestimonial[]> {
       .from("testimonials")
       .select("id,display_name,location,content")
       .eq("is_active", true)
-      .order("display_order", { ascending: true });
+      .order("display_order", { ascending: true })
+      .order("created_at", { ascending: false });
 
     if (!error && data) {
       return data as StorefrontTestimonial[];
@@ -32,7 +33,8 @@ export async function getTestimonials(): Promise<StorefrontTestimonial[]> {
       .from("testimonials")
       .select("id,display_name,location,content")
       .eq("is_active", true)
-      .order("display_order", { ascending: true });
+      .order("display_order", { ascending: true })
+      .order("created_at", { ascending: false });
 
     if (!error && data) {
       return data as StorefrontTestimonial[];

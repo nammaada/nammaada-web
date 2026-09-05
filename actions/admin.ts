@@ -115,8 +115,84 @@ export async function deleteShippingRule(form: FormData) { await requireAdmin();
 export async function saveCourier(form: FormData) { await requireAdmin(); const id = uuid(form, "id"); const name = required(form, "name", "Name", 120); const template = text(form, "tracking_url_template"); if (template && !template.startsWith("https://")) fail("/admin/couriers", "Tracking URL templates must use HTTPS."); const values = { name, tracking_url_template: template || null, is_active: bool(form, "is_active") }; const client = createSupabaseAdminClient(); const result = id ? await client.from("courier_partners").update(values).eq("id", id) : await client.from("courier_partners").insert(values); if (result.error) fail("/admin/couriers", "Unable to save courier partner."); ok("/admin/couriers"); }
 export async function deleteCourier(form: FormData) { await requireAdmin(); const id = uuid(form, "id"); if (!id) fail("/admin/couriers", "Invalid courier."); const result = await createSupabaseAdminClient().from("courier_partners").delete().eq("id", id); if (result.error) fail("/admin/couriers", "This courier cannot be deleted while orders reference it."); ok("/admin/couriers"); }
 
-export async function saveTestimonial(form: FormData) { await requireAdmin(); const id = uuid(form, "id"); const displayName = required(form, "display_name", "Name", 120); const content = required(form, "content", "Content", 1000); const values = { display_name: displayName, location: text(form, "location") || null, content, is_active: bool(form, "is_active"), display_order: integer(form, "display_order") }; const client = createSupabaseAdminClient(); const result = id ? await client.from("testimonials").update(values).eq("id", id) : await client.from("testimonials").insert(values); if (result.error) fail("/admin/testimonials", dbMessage()); ok("/admin/testimonials"); }
-export async function deleteTestimonial(form: FormData) { await requireAdmin(); const id = uuid(form, "id"); if (!id) fail("/admin/testimonials", "Invalid testimonial."); const result = await createSupabaseAdminClient().from("testimonials").delete().eq("id", id); if (result.error) fail("/admin/testimonials", "Unable to delete testimonial."); ok("/admin/testimonials"); }
+export async function saveTestimonial(form: FormData) {
+  await requireAdmin();
+  const id = uuid(form, "id");
+  const displayName = required(form, "display_name", "Name", 120, "/admin/testimonials");
+  const content = required(form, "content", "Content", 1000, "/admin/testimonials");
+  const values = {
+    display_name: displayName,
+    location: text(form, "location") || null,
+    content,
+    is_active: bool(form, "is_active"),
+    display_order: integer(form, "display_order"),
+    updated_at: new Date().toISOString()
+  };
+  const client = createSupabaseAdminClient();
+  const result = id
+    ? await client.from("testimonials").update(values).eq("id", id)
+    : await client.from("testimonials").insert(values);
+  if (result.error) fail("/admin/testimonials", dbMessage());
+  revalidatePath("/");
+  ok("/admin/testimonials");
+}
+
+export async function deleteTestimonial(form: FormData) {
+  await requireAdmin();
+  const id = uuid(form, "id");
+  if (!id) fail("/admin/testimonials", "Invalid testimonial.");
+  const result = await createSupabaseAdminClient().from("testimonials").delete().eq("id", id);
+  if (result.error) fail("/admin/testimonials", "Unable to delete testimonial.");
+  revalidatePath("/");
+  ok("/admin/testimonials");
+}
+
+export async function toggleTestimonialActive(form: FormData) {
+  await requireAdmin();
+  const id = uuid(form, "id");
+  const isActive = bool(form, "is_active");
+  if (!id) fail("/admin/testimonials", "Invalid testimonial.");
+
+  const result = await createSupabaseAdminClient()
+    .from("testimonials")
+    .update({ is_active: isActive, updated_at: new Date().toISOString() })
+    .eq("id", id);
+  if (result.error) fail("/admin/testimonials", "Unable to update testimonial status.");
+
+  revalidatePath("/");
+  ok("/admin/testimonials");
+}
+
+export async function moveTestimonial(form: FormData) {
+  await requireAdmin();
+  const id = uuid(form, "id");
+  const direction = text(form, "direction");
+  if (!id || !["up", "down"].includes(direction)) fail("/admin/testimonials", "Invalid testimonial order.");
+
+  const client = createSupabaseAdminClient();
+  const { data: current } = await client
+    .from("testimonials")
+    .select("id,display_order")
+    .eq("id", id)
+    .maybeSingle();
+  if (!current) fail("/admin/testimonials", "Testimonial not found.");
+
+  const query = direction === "up"
+    ? client.from("testimonials").select("id,display_order").lt("display_order", current.display_order).order("display_order", { ascending: false }).limit(1)
+    : client.from("testimonials").select("id,display_order").gt("display_order", current.display_order).order("display_order", { ascending: true }).limit(1);
+
+  const { data: sibling } = await query.maybeSingle();
+  if (!sibling) ok("/admin/testimonials");
+
+  const first = await client.from("testimonials").update({ display_order: -1 }).eq("id", current.id);
+  const second = await client.from("testimonials").update({ display_order: current.display_order }).eq("id", sibling.id);
+  const third = await client.from("testimonials").update({ display_order: sibling.display_order }).eq("id", current.id);
+
+  if (first.error || second.error || third.error) fail("/admin/testimonials", "Unable to reorder testimonial.");
+
+  revalidatePath("/");
+  ok("/admin/testimonials");
+}
 
 export async function updateOrder(form: FormData) { await requireAdmin(); const id = uuid(form, "id"); const status = text(form, "order_status"); const allowed = ["pending", "paid", "processing", "shipped", "delivered", "cancelled", "refunded"]; if (!id || !allowed.includes(status)) fail("/admin/orders", "Invalid order status."); const values = { order_status: status }; const result = await createSupabaseAdminClient().from("orders").update(values).eq("id", id); if (result.error) fail("/admin/orders", "Unable to update order status."); ok("/admin/orders"); }
 export async function updateEnquiry(form: FormData) { await requireAdmin(); const id = uuid(form, "id"); const status = text(form, "status"); const allowed = ["new", "in_progress", "resolved", "closed"]; if (!id || !allowed.includes(status)) fail("/admin/enquiries", "Invalid enquiry status."); const result = await createSupabaseAdminClient().from("bulk_enquiries").update({ status }).eq("id", id); if (result.error) fail("/admin/enquiries", "Unable to update enquiry."); ok("/admin/enquiries"); }
