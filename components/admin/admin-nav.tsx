@@ -14,6 +14,7 @@ import {
   Inbox,
   Building2,
   Film,
+  Video,
 } from "lucide-react";
 
 type NavGroup = {
@@ -53,6 +54,8 @@ const navGroups: NavGroup[] = [
       { label: "Hero Banners", href: "/admin/hero-banners", icon: Film },
       { label: "Testimonials", href: "/admin/testimonials", icon: MessageSquareQuote },
       { label: "Enquiries", href: "/admin/enquiries", icon: Inbox },
+      { label: "Our Story", href: "/admin/our-story", icon: Users },
+      { label: "Kitchen Reels", href: "/admin/kitchen-reels", icon: Video },
     ],
   },
 ];

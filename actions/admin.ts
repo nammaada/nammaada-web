@@ -9,8 +9,14 @@ import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 function text(form: FormData, key: string) { return String(form.get(key) ?? "").trim(); }
 function bool(form: FormData, key: string) { return form.get(key) === "on" || form.get(key) === "true"; }
 function integer(form: FormData, key: string, fallback = 0) { const value = Number.parseInt(text(form, key), 10); return Number.isSafeInteger(value) && value >= 0 ? value : fallback; }
-function moneyPaise(form: FormData, key: string) { const value = Number.parseInt(text(form, key).replace(/,/g, ""), 10); return Number.isSafeInteger(value) && value >= 0 ? value : -1; }
 function uuid(form: FormData, key: string) { const value = text(form, key); return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value) ? value : null; }
+function moneyPaise(form: FormData, key: string) {
+  const raw = text(form, key).replace(/,/g, "").trim();
+  if (!raw) return 0;
+  const rupees = Number.parseFloat(raw);
+  if (Number.isNaN(rupees) || rupees < 0) return -1;
+  return Math.round(rupees * 100);
+}
 function fail(path: string, message: string): never { redirect(`${path}?error=${encodeURIComponent(message)}`); }
 function ok(path: string): never { revalidatePath(path); redirect(path); }
 function required(form: FormData, key: string, label: string, max: number, failPath = "/admin") { const value = text(form, key); if (!value || value.length > max) return fail(failPath, `${label} is required and must be ${max} characters or fewer.`); return value; }
@@ -19,7 +25,86 @@ function dbMessage() { return "Unable to save this change. Check the values and 
 export async function saveCategory(form: FormData) { await requireAdmin(); const id = uuid(form, "id"); const name = required(form, "name", "Name", 120); const slug = text(form, "slug").toLowerCase(); if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)) fail("/admin/categories", "Enter a valid lowercase slug."); const client = createSupabaseAdminClient(); const values = { name, slug, description: text(form, "description") || null, is_active: bool(form, "is_active"), display_order: integer(form, "display_order") }; const result = id ? await client.from("categories").update(values).eq("id", id) : await client.from("categories").insert(values); if (result.error) fail("/admin/categories", dbMessage()); ok("/admin/categories"); }
 export async function deleteCategory(form: FormData) { await requireAdmin(); const id = uuid(form, "id"); if (!id) fail("/admin/categories", "Invalid category."); const client = createSupabaseAdminClient(); const result = await client.from("categories").delete().eq("id", id); if (result.error) fail("/admin/categories", "This category cannot be deleted while products still reference it."); ok("/admin/categories"); }
 
-export async function saveProduct(form: FormData) { await requireAdmin(); const id = uuid(form, "id"); const name = required(form, "name", "Name", 160); const slug = text(form, "slug").toLowerCase(); if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)) fail("/admin/products", "Enter a valid lowercase slug."); const price = moneyPaise(form, "price"); if (price < 0) fail("/admin/products", "Enter a valid INR price."); const client = createSupabaseAdminClient(); const values = { category_id: uuid(form, "category_id"), name, slug, short_description: text(form, "short_description") || null, description: text(form, "description") || null, price_paise: price, stock_quantity: integer(form, "stock_quantity"), delivery_scope: text(form, "delivery_scope") === "bangalore_only" ? "bangalore_only" : "all_india", is_free_shipping: bool(form, "is_free_shipping"), is_active: bool(form, "is_active"), is_featured: bool(form, "is_featured"), display_order: integer(form, "display_order") }; const result = id ? await client.from("products").update(values).eq("id", id) : await client.from("products").insert(values); if (result.error) fail(id ? `/admin/products/${id}` : "/admin/products/new", dbMessage()); ok(id ? `/admin/products/${id}` : "/admin/products"); }
+export async function saveProduct(form: FormData) {
+  await requireAdmin();
+  const id = uuid(form, "id");
+  const failPath = id ? `/admin/products/${id}` : "/admin/products/new";
+  const name = required(form, "name", "Name", 160, failPath);
+  const slug = text(form, "slug").toLowerCase();
+  if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)) fail(failPath, "Enter a valid lowercase slug.");
+  const price = moneyPaise(form, "price");
+  if (price < 0) fail(failPath, "Enter a valid INR price.");
+  const client = createSupabaseAdminClient();
+  const values = {
+    category_id: uuid(form, "category_id"),
+    name,
+    slug,
+    short_description: text(form, "short_description") || null,
+    description: text(form, "description") || null,
+    price_paise: price,
+    stock_quantity: integer(form, "stock_quantity"),
+    delivery_scope: text(form, "delivery_scope") === "bangalore_only" ? "bangalore_only" : "all_india",
+    is_free_shipping: bool(form, "is_free_shipping"),
+    is_active: bool(form, "is_active"),
+    is_featured: bool(form, "is_featured"),
+    display_order: integer(form, "display_order"),
+  };
+
+  let newId: string | null = null;
+  if (id) {
+    const result = await client.from("products").update(values).eq("id", id);
+    if (result.error) fail(failPath, dbMessage());
+  } else {
+    const result = await client.from("products").insert(values).select("id").single();
+    if (result.error) fail(failPath, dbMessage());
+    newId = (result.data as { id: string } | null)?.id ?? null;
+  }
+
+  const targetProductId = id || newId;
+
+  // If an image file was provided, upload to Cloudinary & insert into product_images
+  const file = form.get("image_file") || form.get("file");
+  if (targetProductId && file instanceof File && file.size > 0) {
+    const alt = text(form, "image_alt") || text(form, "alt_text") || name;
+    const validation = validateImage(file);
+    if (validation) fail(`/admin/products/${targetProductId}`, validation);
+    try {
+      const uploaded = await uploadCloudinaryImage(file);
+      if (uploaded.width > 6000 || uploaded.height > 6000) {
+        await deleteCloudinaryImage(uploaded.public_id);
+        fail(`/admin/products/${targetProductId}`, "Images must not exceed 6000 pixels on either side.");
+      }
+      const { count } = await client
+        .from("product_images")
+        .select("id", { count: "exact", head: true })
+        .eq("product_id", targetProductId);
+      const imgResult = await client.from("product_images").insert({
+        product_id: targetProductId,
+        cloudinary_public_id: uploaded.public_id,
+        secure_url: uploaded.secure_url,
+        alt_text: alt,
+        display_order: count ?? 0,
+        is_primary: (count ?? 0) === 0,
+      });
+      if (imgResult.error) {
+        await deleteCloudinaryImage(uploaded.public_id);
+      }
+    } catch (err) {
+      if (err instanceof Error && err.message === "NEXT_REDIRECT") throw err;
+      fail(`/admin/products/${targetProductId}`, "Image upload failed. The product was created, please upload the image from the imagery section.");
+    }
+  }
+
+  revalidatePath("/");
+  revalidatePath("/products");
+  revalidatePath("/admin/products");
+  if (targetProductId) {
+    revalidatePath(`/admin/products/${targetProductId}`);
+    ok(`/admin/products/${targetProductId}`);
+  } else {
+    ok("/admin/products");
+  }
+}
 export async function deleteProduct(form: FormData) { await requireAdmin(); const id = uuid(form, "id"); if (!id) fail("/admin/products", "Invalid product."); const result = await createSupabaseAdminClient().from("products").delete().eq("id", id); if (result.error) fail("/admin/products", "This product cannot be deleted while related records reference it."); ok("/admin/products"); }
 export async function saveVariant(form: FormData) { await requireAdmin(); const id = uuid(form, "id"); const productId = uuid(form, "product_id"); const name = required(form, "name", "Variant name", 120); const price = moneyPaise(form, "price"); if (!productId || price < 0) fail(`/admin/products/${productId ?? ""}`, "Enter valid variant values."); const values = { product_id: productId, name, sku: text(form, "sku") || null, price_paise: price, stock_quantity: integer(form, "stock_quantity"), is_active: bool(form, "is_active"), display_order: integer(form, "display_order") }; const client = createSupabaseAdminClient(); const result = id ? await client.from("product_variants").update(values).eq("id", id) : await client.from("product_variants").insert(values); if (result.error) fail(`/admin/products/${productId}`, "Unable to save variant. Check that its SKU and name are unique."); ok(`/admin/products/${productId}`); }
 export async function deleteVariant(form: FormData) { await requireAdmin(); const productId = uuid(form, "product_id"); const id = uuid(form, "id"); if (!productId || !id) fail("/admin/products", "Invalid variant."); const result = await createSupabaseAdminClient().from("product_variants").delete().eq("id", id); if (result.error) fail(`/admin/products/${productId}`, "Unable to remove this variant."); ok(`/admin/products/${productId}`); }
@@ -220,7 +305,7 @@ export async function deleteHeroBanner(form: FormData) {
   if (existing?.cloudinary_public_id) {
     await deleteCloudinaryMedia(existing.cloudinary_public_id, existing.media_type === "video" ? "video" : "image").catch(() => undefined);
   }
-  if (existing?.poster_public_id) {
+  if (existing?.poster_public_id && existing.poster_public_id !== existing.cloudinary_public_id) {
     await deleteCloudinaryMedia(existing.poster_public_id, "image").catch(() => undefined);
   }
 

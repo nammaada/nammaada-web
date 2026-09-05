@@ -7,7 +7,7 @@ import { PageHeader } from "@/components/admin/page-header";
 import { StatusBadge } from "@/components/admin/status-badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { getHeroImageUrl } from "@/lib/cloudinary/delivery";
+import { getHeroImageUrl, getHeroVideoPosterUrl } from "@/lib/cloudinary/delivery";
 import { getAdminHeroBanners } from "@/lib/storefront/hero";
 
 export default async function HeroBannersPage({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
@@ -51,7 +51,13 @@ export default async function HeroBannersPage({ searchParams }: { searchParams: 
             </thead>
             <tbody className="divide-y divide-border">
               {banners.map((banner, index) => {
-                const thumbnailUrl = banner.poster_public_id
+                const isPosterFromVideo =
+                  banner.media_type === "video" &&
+                  (!banner.poster_public_id || banner.poster_public_id === banner.cloudinary_public_id);
+
+                const thumbnailUrl = isPosterFromVideo
+                  ? getHeroVideoPosterUrl(banner.cloudinary_public_id, "thumbnail")
+                  : banner.poster_public_id
                   ? getHeroImageUrl(banner.poster_public_id, "thumbnail")
                   : banner.media_type === "image"
                   ? getHeroImageUrl(banner.cloudinary_public_id, "thumbnail")

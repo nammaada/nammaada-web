@@ -10,6 +10,96 @@ type HeroSliderProps = {
   banners: HeroBanner[];
 };
 
+function HeroVideoSlide({
+  banner,
+  isActive,
+  isReducedMotion,
+}: {
+  banner: HeroBanner;
+  isActive: boolean;
+  isReducedMotion: boolean;
+}) {
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const [hasError, setHasError] = useState(false);
+
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!video || !isActive || isReducedMotion || hasError) return;
+
+    // Strict browser autoplay compliance
+    video.defaultMuted = true;
+    video.muted = true;
+
+    const tryPlay = () => {
+      if (video && video.paused) {
+        const playPromise = video.play();
+        if (playPromise !== undefined) {
+          playPromise.catch(() => {
+            // Browser autoplay restrictions will unlock on first user gesture
+          });
+        }
+      }
+    };
+
+    tryPlay();
+
+    video.addEventListener("canplay", tryPlay);
+    video.addEventListener("loadeddata", tryPlay);
+    video.addEventListener("loadedmetadata", tryPlay);
+
+    // Fallback: unlock playback on first touch/click/scroll/hover if browser blocked initial autoplay
+    const handleFirstGesture = () => {
+      tryPlay();
+      window.removeEventListener("click", handleFirstGesture);
+      window.removeEventListener("touchstart", handleFirstGesture);
+      window.removeEventListener("scroll", handleFirstGesture);
+      window.removeEventListener("pointerdown", handleFirstGesture);
+    };
+
+    window.addEventListener("click", handleFirstGesture, { passive: true });
+    window.addEventListener("touchstart", handleFirstGesture, { passive: true });
+    window.addEventListener("scroll", handleFirstGesture, { passive: true });
+    window.addEventListener("pointerdown", handleFirstGesture, { passive: true });
+
+    return () => {
+      video.removeEventListener("canplay", tryPlay);
+      video.removeEventListener("loadeddata", tryPlay);
+      video.removeEventListener("loadedmetadata", tryPlay);
+      window.removeEventListener("click", handleFirstGesture);
+      window.removeEventListener("touchstart", handleFirstGesture);
+      window.removeEventListener("scroll", handleFirstGesture);
+      window.removeEventListener("pointerdown", handleFirstGesture);
+    };
+  }, [isActive, isReducedMotion, hasError, banner.media_url]);
+
+  // If video errored out or has no video URL, display fallback poster image
+  if (hasError || !banner.media_url) {
+    return banner.poster_url ? (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        alt={banner.alt_text || banner.headline}
+        className="absolute inset-0 h-full w-full object-cover pointer-events-none"
+        src={banner.poster_url}
+      />
+    ) : null;
+  }
+
+  return (
+    <video
+      ref={videoRef}
+      autoPlay
+      aria-hidden="true"
+      className="absolute inset-0 h-full w-full object-cover pointer-events-none"
+      loop
+      muted
+      onError={() => setHasError(true)}
+      playsInline
+      preload="auto"
+      src={banner.media_url}
+    />
+  );
+}
+
 export function HeroSlider({ banners }: HeroSliderProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isHovered, setIsHovered] = useState(false);
@@ -145,7 +235,7 @@ export function HeroSlider({ banners }: HeroSliderProps) {
   return (
     <section
       aria-label="Storefront Hero Banner Slider"
-      className="relative w-full overflow-hidden bg-black text-white min-h-[560px] sm:min-h-[580px] lg:h-[640px] flex items-center"
+      className="relative w-full overflow-hidden bg-[#2b1719] min-h-[660px] sm:min-h-[720px] lg:h-[780px] flex items-center"
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
       onTouchStart={handleTouchStart}
@@ -165,107 +255,114 @@ export function HeroSlider({ banners }: HeroSliderProps) {
               isActive ? "opacity-100 z-10" : "opacity-0 z-0 pointer-events-none"
             }`}
           >
-            {/* Display Background Media */}
             {isVideo ? (
-              <>
-                {/* Poster Image Always Present as Fallback */}
-                {banner.poster_url && (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    alt={banner.alt_text || banner.headline}
-                    className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-500 ${
-                      isActive && !isReducedMotion ? "opacity-30" : "opacity-100"
-                    }`}
-                    src={banner.poster_url}
-                  />
-                )}
-
-                {/* Video Element: Lazy Loaded & Mounted ONLY when Active */}
-                {isActive && !isReducedMotion && banner.media_url && (
-                  <video
-                    autoPlay
-                    aria-hidden="true"
-                    className="absolute inset-0 h-full w-full object-cover"
-                    loop
-                    muted
-                    playsInline
-                    poster={banner.poster_url || undefined}
-                    src={banner.media_url}
-                  />
-                )}
-              </>
+              <HeroVideoSlide
+                banner={banner}
+                isActive={isActive}
+                isReducedMotion={isReducedMotion}
+              />
             ) : (
               /* Image Background Slide */
               // eslint-disable-next-line @next/next/no-img-element
               <img
                 alt={banner.alt_text || banner.headline}
-                className="absolute inset-0 h-full w-full object-cover"
+                className="absolute inset-0 h-full w-full object-cover pointer-events-none"
                 loading={index === 0 ? "eager" : "lazy"}
                 src={banner.media_url}
               />
             )}
-
-            {/* Subtle Dark Warm Vignette/Gradient Overlay for Readable Text */}
-            <div className="absolute inset-0 bg-gradient-to-t from-[rgb(25,4,8)]/95 via-[rgb(35,6,12)]/65 to-[rgb(25,4,8)]/45" />
-            <div className="absolute inset-0 bg-gradient-to-r from-[rgb(25,4,8)]/90 via-transparent to-transparent" />
           </div>
         );
       })}
 
       {/* CONTENT OVERLAY */}
-      <Container className="relative z-20 w-full py-16 sm:py-20 lg:py-24">
-        <div key={currentIndex} className="max-w-2xl space-y-5 animate-in fade-in slide-in-from-bottom-4 duration-500">
-          {/* Eyebrow */}
-          <p className="text-xs sm:text-sm font-semibold uppercase tracking-[0.22em] text-amber-300/90">
-            {currentBanner.mobile_headline && typeof window !== "undefined" && window.innerWidth < 640
-              ? currentBanner.mobile_headline
-              : currentBanner.eyebrow}
-          </p>
-
-          {/* Headline */}
-          <h1 className="font-display text-3xl sm:text-5xl lg:text-6xl font-bold tracking-tight text-white leading-[1.05] whitespace-pre-line">
-            {currentBanner.headline}
-          </h1>
-
-          {/* Description */}
-          <p className="text-sm sm:text-base text-white/85 max-w-xl leading-relaxed">
-            {currentBanner.mobile_description && typeof window !== "undefined" && window.innerWidth < 640
-              ? currentBanner.mobile_description
-              : currentBanner.description}
-          </p>
-
-          {/* CTAs */}
-          <div className="flex flex-wrap items-center gap-3 pt-3">
-            <Link
-              className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full bg-primary px-6 text-sm font-semibold text-primary-foreground shadow-lifted transition-all hover:bg-primary/90 active:scale-95"
-              href={currentBanner.primary_cta_href}
+      <Container className="relative z-20 w-full pt-28 pb-14 sm:pt-32 sm:pb-16 lg:pt-36 lg:pb-20">
+        <div className="grid lg:grid-cols-12 gap-8 items-center">
+          {/* LEFT: Translucent Whitish Glass Content Box */}
+          <div className="lg:col-span-7 xl:col-span-6">
+            <div
+              key={currentIndex}
+              className="relative w-full rounded-3xl sm:rounded-[2.5rem] border border-white/70 bg-gradient-to-br from-white/75 via-white/55 to-white/40 backdrop-blur-xl p-6 sm:p-9 lg:p-10 shadow-2xl shadow-amber-950/15 animate-in fade-in slide-in-from-bottom-4 duration-500"
             >
-              {currentBanner.primary_cta_label} <ArrowRight size={16} />
-            </Link>
+              {/* Eyebrow tag with horizontal line divider matching reference image */}
+              <div className="flex items-center gap-3">
+                <span className="text-[11px] sm:text-xs font-bold uppercase tracking-[0.22em] text-[#6b1e28]">
+                  {currentBanner.mobile_headline && typeof window !== "undefined" && window.innerWidth < 640
+                    ? currentBanner.mobile_headline
+                    : currentBanner.eyebrow}
+                </span>
+                <span className="h-[1.5px] w-12 bg-[#6b1e28]/35 rounded-full" />
+              </div>
 
-            {currentBanner.is_secondary_cta_enabled && currentBanner.secondary_cta_label && currentBanner.secondary_cta_href && (
-              <Link
-                className="inline-flex min-h-11 items-center justify-center rounded-full border border-white/35 bg-white/10 px-6 text-sm font-semibold text-white transition-all hover:bg-white/20 active:scale-95 backdrop-blur-sm"
-                href={currentBanner.secondary_cta_href}
-              >
-                {currentBanner.secondary_cta_label}
-              </Link>
-            )}
+              {/* Headline in serif display font */}
+              <h1 className="mt-3.5 font-display text-3xl sm:text-4xl lg:text-[42px] font-bold tracking-tight text-[#3d0b13] leading-[1.12] whitespace-pre-line">
+                {currentBanner.headline}
+              </h1>
+
+              {/* Description */}
+              <p className="mt-3.5 text-xs sm:text-sm text-[#4a242a]/85 leading-relaxed max-w-md">
+                {currentBanner.mobile_description && typeof window !== "undefined" && window.innerWidth < 640
+                  ? currentBanner.mobile_description
+                  : currentBanner.description}
+              </p>
+
+              {/* Buttons Row */}
+              <div className="mt-6 flex flex-wrap items-center gap-3">
+                <Link
+                  className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full bg-[#5c111a] hover:bg-[#480d14] px-6 sm:px-7 text-xs sm:text-sm font-semibold text-white shadow-md transition-all duration-200 active:scale-95"
+                  href={currentBanner.primary_cta_href}
+                >
+                  {currentBanner.primary_cta_label} <ArrowRight size={15} />
+                </Link>
+
+                {currentBanner.is_secondary_cta_enabled && currentBanner.secondary_cta_label && currentBanner.secondary_cta_href ? (
+                  <Link
+                    className="inline-flex min-h-11 items-center justify-center rounded-full border border-[#5c111a]/25 bg-white/40 hover:bg-white/70 px-6 sm:px-7 text-xs sm:text-sm font-semibold text-[#5c111a] backdrop-blur-xs transition-all duration-200 active:scale-95"
+                    href={currentBanner.secondary_cta_href}
+                  >
+                    {currentBanner.secondary_cta_label}
+                  </Link>
+                ) : (
+                  <Link
+                    className="inline-flex min-h-11 items-center justify-center rounded-full border border-[#5c111a]/25 bg-white/40 hover:bg-white/70 px-6 sm:px-7 text-xs sm:text-sm font-semibold text-[#5c111a] backdrop-blur-xs transition-all duration-200 active:scale-95"
+                    href="/contact"
+                  >
+                    Bulk Orders
+                  </Link>
+                )}
+              </div>
+
+              {/* Feature Items inside the card at the bottom matching reference image */}
+              <div className="mt-7 pt-5 border-t border-[#5c111a]/15 grid grid-cols-3 gap-2">
+                <div className="flex items-center gap-2 sm:gap-2.5">
+                  <Leaf className="text-[#5c111a] shrink-0" size={18} strokeWidth={2} />
+                  <div className="text-[10px] sm:text-[11px] font-semibold text-[#3d0b13] leading-tight">
+                    Authentic<br className="hidden sm:block" /> Kerala Taste
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 sm:gap-2.5 border-l border-[#5c111a]/15 pl-2 sm:pl-3">
+                  <Heart className="text-[#5c111a] shrink-0" size={18} strokeWidth={2} />
+                  <div className="text-[10px] sm:text-[11px] font-semibold text-[#3d0b13] leading-tight">
+                    Made<br className="hidden sm:block" /> With Love
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 sm:gap-2.5 border-l border-[#5c111a]/15 pl-2 sm:pl-3">
+                  <Gift className="text-[#5c111a] shrink-0" size={18} strokeWidth={2} />
+                  <div className="text-[10px] sm:text-[11px] font-semibold text-[#3d0b13] leading-tight">
+                    Bulk Orders<br className="hidden sm:block" /> Welcome
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
 
-          {/* Trust Highlights */}
-          <div className="mt-6 grid grid-cols-3 gap-2 border-t border-white/15 pt-4 max-w-md">
-            <div className="flex items-center gap-2 text-xs text-white/80">
-              <Leaf className="text-amber-400 shrink-0" size={16} />
-              <span>Authentic Kerala Taste</span>
-            </div>
-            <div className="flex items-center gap-2 border-l border-white/15 pl-3 text-xs text-white/80">
-              <Heart className="text-amber-400 shrink-0" size={16} />
-              <span>Made with Love</span>
-            </div>
-            <div className="flex items-center gap-2 border-l border-white/15 pl-3 text-xs text-white/80">
-              <Gift className="text-amber-400 shrink-0" size={16} />
-              <span>Bulk Orders</span>
+          {/* RIGHT: Floating "Premium Quality" Glass Badge matching Reference Image */}
+          <div className="hidden lg:flex lg:col-span-5 xl:col-span-6 justify-end items-center pr-4">
+            <div className="flex items-center gap-3 rounded-2xl border border-white/65 bg-white/25 backdrop-blur-md px-5 py-3.5 text-white shadow-xl shadow-black/15 transition-all hover:bg-white/30">
+              <Leaf className="text-amber-300 shrink-0" size={22} strokeWidth={2} />
+              <div className="text-xs font-semibold leading-tight text-white drop-shadow-sm">
+                Premium<br />Quality
+              </div>
             </div>
           </div>
         </div>

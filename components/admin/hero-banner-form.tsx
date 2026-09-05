@@ -5,14 +5,15 @@ import Link from "next/link";
 import { Image as ImageIcon, Video, UploadCloud, AlertTriangle, ArrowLeft, Loader2 } from "lucide-react";
 import { getCloudinaryUploadSignatureAction, saveHeroBanner } from "@/actions/admin";
 import { AdminField, CheckField, FormSection, Submit } from "@/components/admin/admin-form";
-import { getHeroImageUrl, getHeroVideoUrl } from "@/lib/cloudinary/delivery";
+import { getHeroImageUrl, getHeroVideoPosterUrl, getHeroVideoUrl } from "@/lib/cloudinary/delivery";
 import type { HeroBanner } from "@/lib/storefront/hero";
 
 type HeroBannerFormProps = {
   banner?: HeroBanner | null;
+  cloudName?: string;
 };
 
-export function HeroBannerForm({ banner }: HeroBannerFormProps) {
+export function HeroBannerForm({ banner, cloudName: initialCloudName }: HeroBannerFormProps) {
   const [mediaType, setMediaType] = useState<"image" | "video">(banner?.media_type || "image");
   const [isSecondaryEnabled, setIsSecondaryEnabled] = useState(banner?.is_secondary_cta_enabled ?? false);
   
@@ -34,7 +35,9 @@ export function HeroBannerForm({ banner }: HeroBannerFormProps) {
     error: null,
   });
 
-  const [cloudName, setCloudName] = useState("");
+  const [cloudName, setCloudName] = useState(
+    initialCloudName || process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME || ""
+  );
 
   // Client direct Cloudinary upload function (Zero binary bytes pass through Vercel!)
   async function handleDirectCloudinaryUpload(
@@ -114,13 +117,22 @@ export function HeroBannerForm({ banner }: HeroBannerFormProps) {
     }
   }
 
+  const effectiveCloudName = cloudName || process.env.NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME || "";
+
+  const isPosterFromVideo =
+    mediaType === "video" && (!posterPublicId || posterPublicId === cloudinaryPublicId);
+
   const activeMediaUrl = cloudinaryPublicId
     ? mediaType === "video"
-      ? getHeroVideoUrl(cloudinaryPublicId, cloudName)
-      : getHeroImageUrl(cloudinaryPublicId, "desktop", cloudName)
+      ? getHeroVideoUrl(cloudinaryPublicId, effectiveCloudName)
+      : getHeroImageUrl(cloudinaryPublicId, "desktop", effectiveCloudName)
     : null;
 
-  const activePosterUrl = posterPublicId ? getHeroImageUrl(posterPublicId, "desktop", cloudName) : null;
+  const activePosterUrl = isPosterFromVideo
+    ? getHeroVideoPosterUrl(cloudinaryPublicId, "desktop", effectiveCloudName)
+    : posterPublicId
+    ? getHeroImageUrl(posterPublicId, "desktop", effectiveCloudName)
+    : null;
 
   return (
     <form action={saveHeroBanner} className="grid gap-8">
@@ -207,67 +219,49 @@ export function HeroBannerForm({ banner }: HeroBannerFormProps) {
             />
 
             {cloudinaryPublicId && (
-              <div className="mt-2 rounded-lg border border-border bg-card p-3 flex items-center justify-between text-xs">
-                <span className="font-semibold text-emerald-900 bg-emerald-900/10 px-2 py-0.5 rounded">
-                  ✓ Canonical Public ID: {cloudinaryPublicId}
-                </span>
+              <div className="mt-2 grid gap-3">
+                <div className="rounded-lg border border-border bg-card p-3 flex items-center justify-between text-xs">
+                  <span className="font-semibold text-emerald-900 bg-emerald-900/10 px-2 py-0.5 rounded">
+                    ✓ Canonical Public ID: {cloudinaryPublicId}
+                  </span>
+                  {activeMediaUrl && (
+                    <a
+                      className="text-primary underline font-medium"
+                      href={activeMediaUrl}
+                      rel="noreferrer"
+                      target="_blank"
+                    >
+                      Preview Media
+                    </a>
+                  )}
+                </div>
+
                 {activeMediaUrl && (
-                  <a
-                    className="text-primary underline font-medium"
-                    href={activeMediaUrl}
-                    rel="noreferrer"
-                    target="_blank"
-                  >
-                    Preview Media
-                  </a>
+                  <div className="overflow-hidden rounded-xl border border-border bg-black/90 max-h-72 aspect-video flex items-center justify-center">
+                    {mediaType === "video" ? (
+                      <video
+                        controls
+                        muted
+                        playsInline
+                        poster={activePosterUrl || undefined}
+                        src={activeMediaUrl}
+                        className="h-full w-full object-contain"
+                      />
+                    ) : (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        alt="Hero Media Preview"
+                        className="h-full w-full object-contain"
+                        src={activeMediaUrl}
+                      />
+                    )}
+                  </div>
                 )}
               </div>
             )}
           </div>
 
-          {/* Video Poster Image Upload Area (Mandatory for Video) */}
-          {mediaType === "video" && (
-            <div className="rounded-xl border border-amber-500/30 p-5 bg-amber-500/5 grid gap-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2 text-foreground font-semibold text-sm">
-                  <ImageIcon className="text-amber-800" size={18} />
-                  <span>Required Video Poster Image</span>
-                </div>
-                {uploadingState.poster && (
-                  <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-amber-900">
-                    <Loader2 className="animate-spin" size={14} /> Uploading poster...
-                  </span>
-                )}
-              </div>
 
-              <p className="text-xs text-muted-foreground">
-                Displayed instantly before video buffers, on mobile fallback mode, and when users have reduced motion enabled.
-              </p>
-
-              <input
-                accept="image/jpeg,image/png,image/webp,image/avif"
-                className="block w-full text-xs text-muted-foreground file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-amber-800 file:text-white hover:file:bg-amber-900 cursor-pointer"
-                onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  if (file) handleDirectCloudinaryUpload(file, "image", "poster");
-                }}
-                type="file"
-              />
-
-              {posterPublicId && (
-                <div className="rounded-lg border border-amber-200 bg-white p-2.5 flex items-center justify-between text-xs">
-                  <span className="font-semibold text-emerald-900 bg-emerald-900/10 px-2 py-0.5 rounded">
-                    ✓ Poster Public ID: {posterPublicId}
-                  </span>
-                  {activePosterUrl && (
-                    <a className="text-amber-900 underline font-medium" href={activePosterUrl} target="_blank" rel="noreferrer">
-                      Preview Poster
-                    </a>
-                  )}
-                </div>
-              )}
-            </div>
-          )}
 
           <AdminField
             defaultValue={banner?.alt_text || ""}
