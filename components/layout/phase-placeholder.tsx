@@ -1,15 +1,29 @@
+import Link from "next/link";
+import { Container } from "@/components/ui/container";
+
 type PhasePlaceholderProps = { title: string; area: string };
 
 export function PhasePlaceholder({ title, area }: PhasePlaceholderProps) {
   return (
-    <main className="flex min-h-[70vh] items-center justify-center px-5 py-12 sm:px-8">
-      <section className="w-full max-w-xl rounded-3xl border border-border bg-card p-7 text-center shadow-sm sm:p-10">
-        <p className="text-sm font-semibold uppercase tracking-[0.18em] text-primary">{area}</p>
-        <h1 className="mt-3 font-display text-4xl text-foreground">{title}</h1>
-        <p className="mt-4 text-sm leading-6 text-muted-foreground">
-          This route is reserved for a future Namma Ada implementation phase.
-        </p>
-      </section>
-    </main>
+    <section className="py-12 sm:py-20 bg-[#fbf7ef] min-h-[60vh] flex items-center">
+      <Container className="max-w-xl mx-auto text-center">
+        <div className="rounded-2xl border border-[#e5d8c6] bg-[#fffdf8] p-7 sm:p-10 shadow-soft space-y-3">
+          <p className="text-xs font-bold uppercase tracking-widest text-[#4a0e17]">{area}</p>
+          <h1 className="font-display text-2xl sm:text-4xl font-semibold text-[#2b1719]">{title}</h1>
+          <p className="text-xs sm:text-sm text-[#6e5b55] leading-relaxed">
+            This section is being crafted with tradition and care. Check back soon or explore our available delicacies.
+          </p>
+          <div className="pt-4">
+            <Link
+              href="/products"
+              className="inline-flex min-h-11 items-center justify-center rounded-full bg-[#4a0e17] px-6 text-xs sm:text-sm font-semibold text-white shadow-xs hover:bg-[#380a11]"
+            >
+              Explore Products
+            </Link>
+          </div>
+        </div>
+      </Container>
+    </section>
   );
 }
+

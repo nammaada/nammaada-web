@@ -2,7 +2,6 @@ import Image from "next/image";
 import Link from "next/link";
 import { ArrowUpRight } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { Card } from "@/components/ui/card";
 import type { StorefrontProduct } from "@/lib/storefront/products";
 
 function formatPrice(pricePaise: number) {
@@ -11,48 +10,61 @@ function formatPrice(pricePaise: number) {
 
 export function ProductCard({ product, index }: { product: StorefrontProduct; index: number }) {
   return (
-    <Card className="group flex h-full flex-col overflow-hidden rounded-2xl" variant="bordered">
+    <div className="group flex h-full flex-col overflow-hidden rounded-2xl sm:rounded-3xl border border-white/70 bg-gradient-to-br from-white/80 via-white/60 to-white/40 backdrop-blur-xl shadow-xl shadow-amber-950/8 transition-all duration-300 hover:border-white hover:bg-white/75">
       <Link
-        className="flex h-full flex-col rounded-[inherit] focus-visible:outline-2 focus-visible:outline-offset-[-3px] focus-visible:outline-ring"
+        className="flex h-full flex-col focus-visible:outline-2 focus-visible:outline-offset-[-3px] focus-visible:outline-ring"
         href={`/products/${product.slug}`}
         aria-label={`View ${product.name}`}
       >
-        <div className="relative aspect-[4/3] overflow-hidden border-b border-border bg-secondary">
+        <div className="relative aspect-[4/3] overflow-hidden border-b border-[#e5d8c6] bg-[#f4efeb]">
           {product.primary_image ? (
             <Image
               src={product.primary_image.url}
-              alt={product.primary_image.alt}
+              alt={product.primary_image.alt || product.name}
               fill
-              className="object-cover transition-transform duration-500 group-hover:scale-[1.03]"
+              className="object-cover transition-transform duration-500 group-hover:scale-105"
               sizes="(min-width: 1024px) 30vw, (min-width: 640px) 45vw, 100vw"
             />
           ) : (
-            <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 px-5 text-center text-muted-foreground">
-              <span className="font-display text-2xl text-primary/60">{String(index + 1).padStart(2, "0")}</span>
-              <span className="text-[0.65rem] font-semibold uppercase tracking-[0.16em]">Approved product imagery will appear here</span>
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-1.5 px-4 text-center text-[#6e5b55]">
+              <span className="font-display text-xl text-[#4a0e17]">{String(index + 1).padStart(2, "0")}</span>
+              <span className="text-[10px] font-semibold uppercase tracking-wider">{product.name}</span>
             </div>
           )}
-          {product.is_featured ? <Badge className="absolute left-4 top-4" variant="accent">Featured</Badge> : null}
+          {product.is_featured ? (
+            <Badge className="absolute left-3 top-3 bg-[#d4af37] text-[#2b1719] font-bold border-none" variant="accent">
+              Featured
+            </Badge>
+          ) : null}
         </div>
 
-        <div className="flex flex-1 flex-col p-5 sm:p-6">
-          <div className="flex items-start justify-between gap-4">
-            <span className="text-xs font-semibold tracking-[0.12em] text-primary/55">{String(index + 1).padStart(2, "0")}</span>
-            <span className="text-sm font-semibold text-primary">{formatPrice(product.price_paise)}</span>
+        <div className="flex flex-1 flex-col p-4 sm:p-5">
+          <div className="flex items-center justify-between gap-3">
+            <span className="text-xs font-bold text-[#4a0e17] tracking-wider">{String(index + 1).padStart(2, "0")}</span>
+            <span className="text-sm font-bold text-[#4a0e17]">{formatPrice(product.price_paise)}</span>
           </div>
-          <h2 className="mt-3 font-display text-2xl leading-tight text-foreground">{product.name}</h2>
-          {product.short_description ? <p className="mt-3 text-sm leading-6 text-muted-foreground">{product.short_description}</p> : null}
 
-          <div className="mt-auto flex flex-wrap items-center gap-2 pt-6">
-            <span className="inline-flex min-h-10 items-center gap-1 rounded-full bg-primary px-4 text-xs font-semibold text-primary-foreground transition-colors group-hover:bg-primary/90">
+          <h2 className="mt-2 font-display text-xl leading-tight font-semibold text-[#2b1719] group-hover:text-[#4a0e17] transition-colors">
+            {product.name}
+          </h2>
+
+          {product.short_description ? (
+            <p className="mt-2 text-xs sm:text-sm leading-relaxed text-[#6e5b55] line-clamp-2">
+              {product.short_description}
+            </p>
+          ) : null}
+
+          <div className="mt-auto flex items-center justify-between gap-2 pt-4 border-t border-[#e5d8c6]/60">
+            <span className="inline-flex min-h-10 items-center gap-1 rounded-full bg-[#4a0e17] px-4 text-xs font-semibold text-white transition-colors group-hover:bg-[#380a11]">
               View product <ArrowUpRight aria-hidden="true" size={14} />
             </span>
-            <span className="text-xs text-muted-foreground" aria-label={product.is_in_stock ? "Available to enquire" : "Currently unavailable"}>
-              {product.is_in_stock ? "Available" : "Currently unavailable"}
+            <span className="text-xs text-[#6e5b55]">
+              {product.is_in_stock ? "Available" : "Unavailable"}
             </span>
           </div>
         </div>
       </Link>
-    </Card>
+    </div>
   );
 }
+

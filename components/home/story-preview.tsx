@@ -8,36 +8,39 @@ export function StoryPreview({ content = DEFAULT_WHO_WE_ARE }: { content?: WhoWe
   const data = content || DEFAULT_WHO_WE_ARE;
 
   return (
-    <section className="py-16 sm:py-24 overflow-hidden" id="about-preview">
-      <Container className="grid gap-10 lg:grid-cols-2 lg:items-center lg:gap-14 xl:gap-20">
-        {/* Left Column: Large clean standalone image */}
+    <section className="relative py-12 sm:py-16 lg:py-20 bg-transparent overflow-hidden" id="about-preview">
+      <Container className="grid gap-8 lg:grid-cols-2 lg:items-center lg:gap-14">
+        {/* Left Column: Visual */}
         <div className="w-full flex justify-center">
           <StoryCardVisual images={data.images || []} />
         </div>
 
-        {/* Right Content Column */}
+        {/* Right Column: Editorial Text */}
         <div className="text-left">
-          <p className="text-[11px] sm:text-xs font-bold uppercase tracking-[0.24em] text-[#6b212b]">
+          <p className="text-[10px] sm:text-xs font-bold uppercase tracking-[0.2em] text-[#4a0e17]">
             {data.label}
           </p>
 
-          <h2 className="mt-3.5 font-display text-3xl sm:text-4xl lg:text-[44px] font-normal leading-[1.12] text-foreground tracking-tight max-w-xl">
+          <h2 className="mt-2 font-display text-2xl sm:text-4xl font-semibold leading-tight text-[#2b1719] max-w-xl">
             {data.heading}
           </h2>
 
-          <p className="mt-5 max-w-lg text-xs sm:text-sm md:text-[15px] leading-relaxed text-[#5c3e41]/85">
+          <p className="mt-4 max-w-lg text-xs sm:text-sm sm:text-base leading-relaxed text-[#6e5b55]">
             {data.description}
           </p>
 
-          <Link
-            className="mt-7 inline-flex items-center gap-1.5 text-xs sm:text-sm font-semibold text-[#5c111a] hover:text-[#3d0b13] transition-colors pb-0.5 border-b border-[#5c111a]/30 hover:border-[#5c111a]"
-            href={data.buttonUrl || "/about"}
-          >
-            <span>{data.buttonText || "Read our story"}</span>
-            <ArrowUpRight aria-hidden="true" size={15} />
-          </Link>
+          <div className="pt-4 sm:pt-6">
+            <Link
+              className="inline-flex items-center gap-1.5 text-xs sm:text-sm font-semibold text-[#4a0e17] hover:text-[#380a11] transition-colors pb-0.5 border-b border-[#4a0e17]/30 hover:border-[#4a0e17]"
+              href={data.buttonUrl || "/about"}
+            >
+              <span>{data.buttonText || "Read our story"}</span>
+              <ArrowUpRight aria-hidden="true" size={15} />
+            </Link>
+          </div>
         </div>
       </Container>
     </section>
   );
 }
+

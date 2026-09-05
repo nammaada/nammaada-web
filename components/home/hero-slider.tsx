@@ -26,7 +26,6 @@ function HeroVideoSlide({
     const video = videoRef.current;
     if (!video || !isActive || isReducedMotion || hasError) return;
 
-    // Strict browser autoplay compliance
     video.defaultMuted = true;
     video.muted = true;
 
@@ -35,7 +34,7 @@ function HeroVideoSlide({
         const playPromise = video.play();
         if (playPromise !== undefined) {
           playPromise.catch(() => {
-            // Browser autoplay restrictions will unlock on first user gesture
+            // Autoplay restrictions will unlock on first user gesture
           });
         }
       }
@@ -47,7 +46,6 @@ function HeroVideoSlide({
     video.addEventListener("loadeddata", tryPlay);
     video.addEventListener("loadedmetadata", tryPlay);
 
-    // Fallback: unlock playback on first touch/click/scroll/hover if browser blocked initial autoplay
     const handleFirstGesture = () => {
       tryPlay();
       window.removeEventListener("click", handleFirstGesture);
@@ -72,7 +70,6 @@ function HeroVideoSlide({
     };
   }, [isActive, isReducedMotion, hasError, banner.media_url]);
 
-  // If video errored out or has no video URL, display fallback poster image
   if (hasError || !banner.media_url) {
     return banner.poster_url ? (
       // eslint-disable-next-line @next/next/no-img-element
@@ -109,7 +106,6 @@ export function HeroSlider({ banners }: HeroSliderProps) {
 
   const bannerCount = banners.length;
 
-  // Check prefers-reduced-motion
   useEffect(() => {
     if (typeof window !== "undefined") {
       const mediaQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
@@ -132,7 +128,6 @@ export function HeroSlider({ banners }: HeroSliderProps) {
     }
   }, [bannerCount]);
 
-  // Autoplay timer (~6 seconds per slide) when 2+ banners and not paused/reduced motion
   useEffect(() => {
     if (bannerCount <= 1 || isHovered || isReducedMotion) return;
 
@@ -143,7 +138,6 @@ export function HeroSlider({ banners }: HeroSliderProps) {
     return () => clearInterval(timer);
   }, [bannerCount, isHovered, isReducedMotion, handleNext]);
 
-  // Keyboard navigation
   useEffect(() => {
     if (bannerCount <= 1) return;
 
@@ -156,7 +150,6 @@ export function HeroSlider({ banners }: HeroSliderProps) {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [bannerCount, handleNext, handlePrev]);
 
-  // Touch Swipe Handlers for Mobile
   const handleTouchStart = (e: React.TouchEvent) => {
     touchStartX.current = e.touches[0].clientX;
   };
@@ -180,69 +173,101 @@ export function HeroSlider({ banners }: HeroSliderProps) {
     touchEndX.current = null;
   };
 
-  // ---------------------------------------------------------------------------
-  // CASE 0: NO ACTIVE BANNERS -> BRANDED FALLBACK HERO
-  // ---------------------------------------------------------------------------
+  // Fallback hero if no active banners
   if (bannerCount === 0) {
     return (
-      <section className="relative overflow-hidden bg-[radial-gradient(circle_at_78%_22%,rgb(212_175_55_/_0.2),transparent_24%),linear-gradient(120deg,rgb(74_14_23),rgb(92_17_30)_55%,rgb(55_8_17))] text-primary-foreground min-h-[560px] lg:h-[640px] flex items-center">
-        <div className="absolute -left-24 top-10 h-64 w-64 rounded-full bg-accent/10 blur-3xl" aria-hidden="true" />
+      <section className="relative w-full overflow-hidden min-h-[620px] sm:min-h-[700px] lg:h-[760px] flex items-center">
+        {/* Background Image asset matching Reference 2 mockup */}
+        <div className="absolute inset-0 z-0">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/nammaad bg image.png"
+            alt="Authentic Kerala Payasam & Delicacies"
+            className="h-full w-full object-cover object-center pointer-events-none"
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-[#2b1719]/40 via-transparent to-black/10" />
+        </div>
 
-        <Container className="relative z-10 grid gap-8 py-16 lg:grid-cols-2 lg:items-center">
-          <div className="space-y-6">
-            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-accent">
-              AUTHENTIC KERALA FLAVOURS
-            </p>
-            <h1 className="font-display text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight text-white leading-tight">
-              Soul of Kerala,<br /> served with heart.
-            </h1>
-            <p className="text-base text-white/80 max-w-xl leading-relaxed">
-              At Namma Ada, we bring the soul of Kerala into the homes of Bangalore. Every delicacy is handcrafted with tradition and a whole lot of love.
-            </p>
-            <div className="flex flex-wrap gap-4 pt-2">
-              <Link
-                className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-primary px-6 text-sm font-semibold text-primary-foreground shadow-lifted hover:bg-primary/90 transition-all"
-                href="/products"
-              >
-                Explore Now <ArrowRight size={16} />
-              </Link>
-              <Link
-                className="inline-flex min-h-12 items-center justify-center rounded-full border border-white/30 bg-white/10 px-6 text-sm font-semibold text-white hover:bg-white/20 transition-all backdrop-blur-sm"
-                href="/contact"
-              >
-                Bulk orders
-              </Link>
-            </div>
-          </div>
+        {/* Editorial Glass Panel matching Reference 2 */}
+        <Container className="relative z-20 w-full pt-20 pb-12 sm:pt-28 sm:pb-16 lg:pt-32 lg:pb-20">
+          <div className="grid lg:grid-cols-12 gap-6 items-center">
+            <div className="lg:col-span-7 xl:col-span-6">
+              <div className="relative w-full rounded-3xl sm:rounded-[2.5rem] border border-white/75 bg-gradient-to-br from-white/80 via-white/60 to-white/45 backdrop-blur-xl p-6 sm:p-9 lg:p-10 shadow-2xl shadow-amber-950/10">
+                <div className="flex items-center gap-3">
+                  <span className="text-[11px] sm:text-xs font-bold uppercase tracking-[0.22em] text-[#6b1e28]">
+                    AUTHENTIC KERALA FLAVOURS
+                  </span>
+                  <span className="h-[1.5px] w-10 sm:w-14 bg-[#6b1e28]/35 rounded-full" />
+                </div>
 
-          <div className="relative h-80 rounded-3xl border border-white/20 bg-white/5 backdrop-blur-md p-8 flex flex-col justify-center items-center text-center shadow-lifted">
-            <div className="h-16 w-16 rounded-full bg-accent/20 flex items-center justify-center mb-4">
-              <Leaf className="text-accent" size={32} />
+                <h1 className="mt-3 font-display text-3xl sm:text-4xl lg:text-[44px] font-bold tracking-tight text-[#3d0b13] leading-[1.12]">
+                  Soul Of Kerala,<br /> Served With Heart.
+                </h1>
+
+                <p className="mt-3 text-xs sm:text-sm text-[#4a242a]/85 leading-relaxed max-w-md">
+                  Craving For Ada Payasam? At Namma Ada, we bring you the timeless taste of Ada Payasam, made with a whole lot of love.
+                </p>
+
+                <div className="mt-6 flex flex-wrap items-center gap-3">
+                  <Link
+                    className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full bg-[#5c111a] hover:bg-[#480d14] px-6 sm:px-7 text-xs sm:text-sm font-semibold text-white shadow-md transition-all duration-150 active:scale-95"
+                    href="/products"
+                  >
+                    Explore Our Products <ArrowRight size={15} />
+                  </Link>
+
+                  <Link
+                    className="inline-flex min-h-11 items-center justify-center rounded-full border border-[#5c111a]/25 bg-white/40 hover:bg-white/70 px-6 sm:px-7 text-xs sm:text-sm font-semibold text-[#5c111a] backdrop-blur-xs transition-all duration-150 active:scale-95"
+                    href="/contact"
+                  >
+                    Bulk Orders
+                  </Link>
+                </div>
+
+                <div className="mt-7 pt-5 border-t border-[#5c111a]/15 grid grid-cols-3 gap-2">
+                  <div className="flex items-center gap-2">
+                    <Leaf className="text-[#5c111a] shrink-0" size={17} strokeWidth={2} />
+                    <span className="text-[10px] sm:text-[11px] font-semibold text-[#3d0b13]">Authentic Taste</span>
+                  </div>
+                  <div className="flex items-center gap-2 border-l border-[#5c111a]/15 pl-2 sm:pl-3">
+                    <Heart className="text-[#5c111a] shrink-0" size={17} strokeWidth={2} />
+                    <span className="text-[10px] sm:text-[11px] font-semibold text-[#3d0b13]">Made With Love</span>
+                  </div>
+                  <div className="flex items-center gap-2 border-l border-[#5c111a]/15 pl-2 sm:pl-3">
+                    <Gift className="text-[#5c111a] shrink-0" size={17} strokeWidth={2} />
+                    <span className="text-[10px] sm:text-[11px] font-semibold text-[#3d0b13]">Bulk Orders</span>
+                  </div>
+                </div>
+              </div>
             </div>
-            <p className="font-display text-xl font-semibold text-white">Handcrafted Delicacies</p>
-            <p className="text-xs text-white/70 mt-2 max-w-sm">
-              Fresh ingredients, traditional recipes, and authentic South Indian taste delivered straight to your door.
-            </p>
+
+            <div className="hidden lg:flex lg:col-span-5 xl:col-span-6 justify-end items-center pr-4">
+              <div className="flex items-center gap-3 rounded-2xl border border-white/65 bg-white/25 backdrop-blur-md px-5 py-3.5 text-white shadow-xl shadow-black/15">
+                <Leaf className="text-amber-300 shrink-0" size={22} strokeWidth={2} />
+                <div className="text-xs font-semibold leading-tight text-white drop-shadow-sm">
+                  Premium<br />Quality
+                </div>
+              </div>
+            </div>
           </div>
         </Container>
       </section>
     );
   }
 
-  // Active banner data for current slide
   const currentBanner = banners[currentIndex];
 
   return (
     <section
       aria-label="Storefront Hero Banner Slider"
-      className="relative w-full overflow-hidden bg-[#2b1719] min-h-[660px] sm:min-h-[720px] lg:h-[780px] flex items-center"
+      className="relative w-full overflow-hidden min-h-[620px] sm:min-h-[700px] lg:h-[760px] flex items-center"
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
     >
-      {/* FULL-BLEED BACKGROUND MEDIA SLIDES */}
+      {/* BACKGROUND MEDIA SLIDES */}
       {banners.map((banner, index) => {
         const isActive = index === currentIndex;
         const isVideo = banner.media_type === "video";
@@ -262,7 +287,6 @@ export function HeroSlider({ banners }: HeroSliderProps) {
                 isReducedMotion={isReducedMotion}
               />
             ) : (
-              /* Image Background Slide */
               // eslint-disable-next-line @next/next/no-img-element
               <img
                 alt={banner.alt_text || banner.headline}
@@ -271,45 +295,52 @@ export function HeroSlider({ banners }: HeroSliderProps) {
                 src={banner.media_url}
               />
             )}
+            <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/20 lg:bg-gradient-to-r lg:from-black/50 lg:via-transparent lg:to-transparent" />
           </div>
         );
       })}
 
-      {/* CONTENT OVERLAY */}
-      <Container className="relative z-20 w-full pt-28 pb-14 sm:pt-32 sm:pb-16 lg:pt-36 lg:pb-20">
-        <div className="grid lg:grid-cols-12 gap-8 items-center">
-          {/* LEFT: Translucent Whitish Glass Content Box */}
+      {/* CONTENT REGION: EDITORIAL GLASS PANEL MATCHING REFERENCE 2 */}
+      <Container className="relative z-20 w-full pt-20 pb-12 sm:pt-28 sm:pb-16 lg:pt-32 lg:pb-20">
+        <div className="grid lg:grid-cols-12 gap-6 items-center">
+          {/* LEFT: GLASS CONTENT PANEL */}
           <div className="lg:col-span-7 xl:col-span-6">
             <div
               key={currentIndex}
-              className="relative w-full rounded-3xl sm:rounded-[2.5rem] border border-white/70 bg-gradient-to-br from-white/75 via-white/55 to-white/40 backdrop-blur-xl p-6 sm:p-9 lg:p-10 shadow-2xl shadow-amber-950/15 animate-in fade-in slide-in-from-bottom-4 duration-500"
+              className="relative w-full rounded-3xl sm:rounded-[2.5rem] border border-white/75 bg-gradient-to-br from-white/80 via-white/60 to-white/45 backdrop-blur-xl p-6 sm:p-9 lg:p-10 shadow-2xl shadow-amber-950/10 animate-in fade-in duration-300"
             >
-              {/* Eyebrow tag with horizontal line divider matching reference image */}
+              {/* Eyebrow */}
               <div className="flex items-center gap-3">
                 <span className="text-[11px] sm:text-xs font-bold uppercase tracking-[0.22em] text-[#6b1e28]">
-                  {currentBanner.mobile_headline && typeof window !== "undefined" && window.innerWidth < 640
-                    ? currentBanner.mobile_headline
-                    : currentBanner.eyebrow}
+                  {currentBanner.mobile_headline ? (
+                    <span className="sm:hidden">{currentBanner.mobile_headline}</span>
+                  ) : null}
+                  <span className={currentBanner.mobile_headline ? "hidden sm:inline" : "inline"}>
+                    {currentBanner.eyebrow}
+                  </span>
                 </span>
-                <span className="h-[1.5px] w-12 bg-[#6b1e28]/35 rounded-full" />
+                <span className="h-[1.5px] w-10 sm:w-14 bg-[#6b1e28]/35 rounded-full" />
               </div>
 
-              {/* Headline in serif display font */}
-              <h1 className="mt-3.5 font-display text-3xl sm:text-4xl lg:text-[42px] font-bold tracking-tight text-[#3d0b13] leading-[1.12] whitespace-pre-line">
+              {/* Headline */}
+              <h1 className="mt-3 font-display text-3xl sm:text-4xl lg:text-[44px] font-bold tracking-tight text-[#3d0b13] leading-[1.12]">
                 {currentBanner.headline}
               </h1>
 
               {/* Description */}
-              <p className="mt-3.5 text-xs sm:text-sm text-[#4a242a]/85 leading-relaxed max-w-md">
-                {currentBanner.mobile_description && typeof window !== "undefined" && window.innerWidth < 640
-                  ? currentBanner.mobile_description
-                  : currentBanner.description}
+              <p className="mt-3 text-xs sm:text-sm text-[#4a242a]/85 leading-relaxed max-w-md">
+                {currentBanner.mobile_description ? (
+                  <span className="sm:hidden">{currentBanner.mobile_description}</span>
+                ) : null}
+                <span className={currentBanner.mobile_description ? "hidden sm:inline" : "inline"}>
+                  {currentBanner.description}
+                </span>
               </p>
 
-              {/* Buttons Row */}
+              {/* Action Buttons */}
               <div className="mt-6 flex flex-wrap items-center gap-3">
                 <Link
-                  className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full bg-[#5c111a] hover:bg-[#480d14] px-6 sm:px-7 text-xs sm:text-sm font-semibold text-white shadow-md transition-all duration-200 active:scale-95"
+                  className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full bg-[#5c111a] hover:bg-[#480d14] px-6 sm:px-7 text-xs sm:text-sm font-semibold text-white shadow-md transition-all duration-150 active:scale-95"
                   href={currentBanner.primary_cta_href}
                 >
                   {currentBanner.primary_cta_label} <ArrowRight size={15} />
@@ -317,14 +348,14 @@ export function HeroSlider({ banners }: HeroSliderProps) {
 
                 {currentBanner.is_secondary_cta_enabled && currentBanner.secondary_cta_label && currentBanner.secondary_cta_href ? (
                   <Link
-                    className="inline-flex min-h-11 items-center justify-center rounded-full border border-[#5c111a]/25 bg-white/40 hover:bg-white/70 px-6 sm:px-7 text-xs sm:text-sm font-semibold text-[#5c111a] backdrop-blur-xs transition-all duration-200 active:scale-95"
+                    className="inline-flex min-h-11 items-center justify-center rounded-full border border-[#5c111a]/25 bg-white/40 hover:bg-white/70 px-6 sm:px-7 text-xs sm:text-sm font-semibold text-[#5c111a] backdrop-blur-xs transition-all duration-150 active:scale-95"
                     href={currentBanner.secondary_cta_href}
                   >
                     {currentBanner.secondary_cta_label}
                   </Link>
                 ) : (
                   <Link
-                    className="inline-flex min-h-11 items-center justify-center rounded-full border border-[#5c111a]/25 bg-white/40 hover:bg-white/70 px-6 sm:px-7 text-xs sm:text-sm font-semibold text-[#5c111a] backdrop-blur-xs transition-all duration-200 active:scale-95"
+                    className="inline-flex min-h-11 items-center justify-center rounded-full border border-[#5c111a]/25 bg-white/40 hover:bg-white/70 px-6 sm:px-7 text-xs sm:text-sm font-semibold text-[#5c111a] backdrop-blur-xs transition-all duration-150 active:scale-95"
                     href="/contact"
                   >
                     Bulk Orders
@@ -332,31 +363,25 @@ export function HeroSlider({ banners }: HeroSliderProps) {
                 )}
               </div>
 
-              {/* Feature Items inside the card at the bottom matching reference image */}
+              {/* Bottom Features inside Glass Box matching Reference 2 */}
               <div className="mt-7 pt-5 border-t border-[#5c111a]/15 grid grid-cols-3 gap-2">
-                <div className="flex items-center gap-2 sm:gap-2.5">
-                  <Leaf className="text-[#5c111a] shrink-0" size={18} strokeWidth={2} />
-                  <div className="text-[10px] sm:text-[11px] font-semibold text-[#3d0b13] leading-tight">
-                    Authentic<br className="hidden sm:block" /> Kerala Taste
-                  </div>
+                <div className="flex items-center gap-2">
+                  <Leaf className="text-[#5c111a] shrink-0" size={17} strokeWidth={2} />
+                  <span className="text-[10px] sm:text-[11px] font-semibold text-[#3d0b13]">Authentic Taste</span>
                 </div>
-                <div className="flex items-center gap-2 sm:gap-2.5 border-l border-[#5c111a]/15 pl-2 sm:pl-3">
-                  <Heart className="text-[#5c111a] shrink-0" size={18} strokeWidth={2} />
-                  <div className="text-[10px] sm:text-[11px] font-semibold text-[#3d0b13] leading-tight">
-                    Made<br className="hidden sm:block" /> With Love
-                  </div>
+                <div className="flex items-center gap-2 border-l border-[#5c111a]/15 pl-2 sm:pl-3">
+                  <Heart className="text-[#5c111a] shrink-0" size={17} strokeWidth={2} />
+                  <span className="text-[10px] sm:text-[11px] font-semibold text-[#3d0b13]">Made With Love</span>
                 </div>
-                <div className="flex items-center gap-2 sm:gap-2.5 border-l border-[#5c111a]/15 pl-2 sm:pl-3">
-                  <Gift className="text-[#5c111a] shrink-0" size={18} strokeWidth={2} />
-                  <div className="text-[10px] sm:text-[11px] font-semibold text-[#3d0b13] leading-tight">
-                    Bulk Orders<br className="hidden sm:block" /> Welcome
-                  </div>
+                <div className="flex items-center gap-2 border-l border-[#5c111a]/15 pl-2 sm:pl-3">
+                  <Gift className="text-[#5c111a] shrink-0" size={17} strokeWidth={2} />
+                  <span className="text-[10px] sm:text-[11px] font-semibold text-[#3d0b13]">Bulk Orders</span>
                 </div>
               </div>
             </div>
           </div>
 
-          {/* RIGHT: Floating "Premium Quality" Glass Badge matching Reference Image */}
+          {/* RIGHT: Floating "Premium Quality" Glass Badge matching Reference 2 */}
           <div className="hidden lg:flex lg:col-span-5 xl:col-span-6 justify-end items-center pr-4">
             <div className="flex items-center gap-3 rounded-2xl border border-white/65 bg-white/25 backdrop-blur-md px-5 py-3.5 text-white shadow-xl shadow-black/15 transition-all hover:bg-white/30">
               <Leaf className="text-amber-300 shrink-0" size={22} strokeWidth={2} />
@@ -368,13 +393,12 @@ export function HeroSlider({ banners }: HeroSliderProps) {
         </div>
       </Container>
 
-      {/* SLIDER CONTROLS (Only visible when 2+ active banners) */}
+      {/* CONTROLS (When 2+ active banners) */}
       {bannerCount > 1 && (
         <>
-          {/* Previous / Next Edge Buttons */}
           <button
             aria-label="Previous hero banner"
-            className="absolute left-4 top-1/2 -translate-y-1/2 z-30 flex h-11 w-11 items-center justify-center rounded-full border border-white/25 bg-black/40 text-white backdrop-blur-md transition-all hover:bg-black/70 hover:scale-110 active:scale-95"
+            className="hidden sm:flex absolute left-4 top-1/2 -translate-y-1/2 z-30 h-11 w-11 items-center justify-center rounded-full border border-white/30 bg-black/40 text-white backdrop-blur-xs transition-all hover:bg-black/60 active:scale-95"
             onClick={handlePrev}
             type="button"
           >
@@ -383,7 +407,7 @@ export function HeroSlider({ banners }: HeroSliderProps) {
 
           <button
             aria-label="Next hero banner"
-            className="absolute right-4 top-1/2 -translate-y-1/2 z-30 flex h-11 w-11 items-center justify-center rounded-full border border-white/25 bg-black/40 text-white backdrop-blur-md transition-all hover:bg-black/70 hover:scale-110 active:scale-95"
+            className="hidden sm:flex absolute right-4 top-1/2 -translate-y-1/2 z-30 h-11 w-11 items-center justify-center rounded-full border border-white/30 bg-black/40 text-white backdrop-blur-xs transition-all hover:bg-black/60 active:scale-95"
             onClick={handleNext}
             type="button"
           >
@@ -391,7 +415,7 @@ export function HeroSlider({ banners }: HeroSliderProps) {
           </button>
 
           {/* Dot Indicators */}
-          <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-30 flex items-center gap-2 rounded-full border border-white/20 bg-black/40 px-3 py-1.5 backdrop-blur-md">
+          <div className="absolute bottom-5 left-1/2 -translate-x-1/2 z-30 flex items-center gap-2 rounded-full border border-white/20 bg-black/40 px-3 py-1.5 backdrop-blur-md">
             {banners.map((b, idx) => (
               <button
                 key={b.id}
@@ -410,3 +434,4 @@ export function HeroSlider({ banners }: HeroSliderProps) {
     </section>
   );
 }
+
