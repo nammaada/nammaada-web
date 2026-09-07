@@ -189,7 +189,7 @@ export function HeroSlider({ banners }: HeroSliderProps) {
         <div className="absolute inset-0 z-0">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src="/nammaad bg image.png"
+            src="/bg-image-aada.png"
             alt="Authentic Kerala Payasam & Delicacies"
             className="h-full w-full object-cover object-center pointer-events-none"
           />
