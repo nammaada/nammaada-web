@@ -146,11 +146,10 @@ export function FeaturedProducts({ products }: { products: StorefrontProduct[] }
                     type="button"
                     aria-label={`Go to product ${idx + 1}`}
                     onClick={() => scrollToSlide(idx)}
-                    className={`h-2 transition-all duration-300 rounded-full cursor-pointer ${
-                      activeIndex === idx
+                    className={`h-2 transition-all duration-300 rounded-full cursor-pointer ${activeIndex === idx
                         ? "w-6 bg-[#711e2c]"
                         : "w-2 bg-[#711e2c]/25 hover:bg-[#711e2c]/50"
-                    }`}
+                      }`}
                   />
                 ))}
               </div>
