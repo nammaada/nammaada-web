@@ -107,7 +107,7 @@ async function attachPrimaryImages(
 
     for (const image of images) {
       const productImages = imagesByProduct.get(image.product_id) ?? [];
-      productImages.push({ id: image.id, url: getCloudinaryImageUrl({ publicId: image.cloudinary_public_id, width: 960, height: 720, crop: "fill" }), alt: image.alt_text, display_order: image.display_order });
+      productImages.push({ id: image.id, url: getCloudinaryImageUrl({ publicId: image.cloudinary_public_id, width: 960, crop: "limit" }), alt: image.alt_text, display_order: image.display_order });
       imagesByProduct.set(image.product_id, productImages);
     }
 

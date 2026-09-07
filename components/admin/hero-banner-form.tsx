@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Image as ImageIcon, Video, UploadCloud, AlertTriangle, ArrowLeft, Loader2 } from "lucide-react";
+import { Image as ImageIcon, Video, UploadCloud, AlertTriangle, ArrowLeft, Loader2, Smartphone, Monitor, Trash2 } from "lucide-react";
 import { getCloudinaryUploadSignatureAction, saveHeroBanner } from "@/actions/admin";
 import { AdminField, CheckField, FormSection, Submit } from "@/components/admin/admin-form";
 import { getHeroImageUrl, getHeroVideoPosterUrl, getHeroVideoUrl } from "@/lib/cloudinary/delivery";
@@ -15,6 +15,7 @@ type HeroBannerFormProps = {
 
 export function HeroBannerForm({ banner, cloudName: initialCloudName }: HeroBannerFormProps) {
   const [mediaType, setMediaType] = useState<"image" | "video">(banner?.media_type || "image");
+  const [mobileMediaType, setMobileMediaType] = useState<"image" | "video">(banner?.mobile_media_type || "image");
   const [isSecondaryEnabled, setIsSecondaryEnabled] = useState(banner?.is_secondary_cta_enabled ?? false);
   
   // Cloudinary public IDs state
@@ -46,8 +47,12 @@ export function HeroBannerForm({ banner, cloudName: initialCloudName }: HeroBann
     target: "media" | "poster" | "mobile"
   ) {
     const actualResourceType =
-      target === "poster" || target === "mobile"
+      target === "poster"
         ? "image"
+        : target === "mobile"
+        ? file.type.startsWith("video/") || mobileMediaType === "video"
+          ? "video"
+          : "image"
         : file.type.startsWith("video/") || resourceType === "video"
         ? "video"
         : "image";
@@ -134,6 +139,12 @@ export function HeroBannerForm({ banner, cloudName: initialCloudName }: HeroBann
     ? getHeroImageUrl(posterPublicId, "desktop", effectiveCloudName)
     : null;
 
+  const activeMobileMediaUrl = mobileMediaPublicId
+    ? mobileMediaType === "video"
+      ? getHeroVideoUrl(mobileMediaPublicId, effectiveCloudName)
+      : getHeroImageUrl(mobileMediaPublicId, "mobile", effectiveCloudName)
+    : null;
+
   return (
     <form action={saveHeroBanner} className="grid gap-8">
       <input name="id" type="hidden" value={banner?.id || ""} />
@@ -142,6 +153,7 @@ export function HeroBannerForm({ banner, cloudName: initialCloudName }: HeroBann
       <input name="cloudinary_public_id" type="hidden" value={cloudinaryPublicId} />
       <input name="poster_public_id" type="hidden" value={posterPublicId} />
       <input name="mobile_media_public_id" type="hidden" value={mobileMediaPublicId} />
+      <input name="mobile_media_type" type="hidden" value={mobileMediaType} />
       <input name="media_type" type="hidden" value={mediaType} />
 
       {uploadingState.error && (
@@ -153,9 +165,21 @@ export function HeroBannerForm({ banner, cloudName: initialCloudName }: HeroBann
 
       {/* 1. BANNER MEDIA SECTION */}
       <FormSection
-        description="Select media format and upload directly to Cloudinary CDN. Video binaries are strictly limited to <=25MB & <=20s."
+        description="Select media format and upload directly to Cloudinary CDN. Recommended: 1920×1080 px (16:9 widescreen), max 10MB image or 25MB video (<=20s)."
         title="1. Banner Media"
       >
+        {/* Recommended Size Note */}
+        <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border/80 bg-secondary/30 px-3.5 py-2.5 text-xs text-muted-foreground mb-1">
+          <Monitor size={15} className="text-primary shrink-0" />
+          <span className="font-semibold text-foreground">Recommended Desktop Size:</span>
+          <span className="rounded bg-card px-2 py-0.5 font-medium text-foreground border border-border/60">
+            1920 × 1080 px (16:9 Widescreen)
+          </span>
+          <span className="text-[11px] text-muted-foreground">
+            • Image ≤ 10MB (JPG, WebP, PNG) • Video ≤ 25MB (≤20s, MP4/1080p)
+          </span>
+        </div>
+
         <div className="grid gap-4">
           <div>
             <label className="text-sm font-semibold text-foreground mb-2 block">Select Hero Media Type</label>
@@ -163,7 +187,7 @@ export function HeroBannerForm({ banner, cloudName: initialCloudName }: HeroBann
               <button
                 type="button"
                 onClick={() => setMediaType("image")}
-                className={`flex items-center justify-center gap-2 rounded-xl border p-3 text-sm font-semibold transition-all ${
+                className={`flex items-center justify-center gap-2 rounded-xl border p-3 text-sm font-semibold transition-all cursor-pointer ${
                   mediaType === "image"
                     ? "border-primary bg-primary text-primary-foreground shadow-xs"
                     : "border-border bg-card text-foreground/80 hover:bg-secondary"
@@ -176,7 +200,7 @@ export function HeroBannerForm({ banner, cloudName: initialCloudName }: HeroBann
               <button
                 type="button"
                 onClick={() => setMediaType("video")}
-                className={`flex items-center justify-center gap-2 rounded-xl border p-3 text-sm font-semibold transition-all ${
+                className={`flex items-center justify-center gap-2 rounded-xl border p-3 text-sm font-semibold transition-all cursor-pointer ${
                   mediaType === "video"
                     ? "border-primary bg-primary text-primary-foreground shadow-xs"
                     : "border-border bg-card text-foreground/80 hover:bg-secondary"
@@ -204,8 +228,8 @@ export function HeroBannerForm({ banner, cloudName: initialCloudName }: HeroBann
 
             <p className="text-xs text-muted-foreground leading-relaxed">
               {mediaType === "video"
-                ? "Hero video limit: Max 25 MB, Max 20s duration (1080p). Video uploads directly from your browser to Cloudinary CDN."
-                : "Hero image limit: Max 10 MB (JPG, PNG, WebP, AVIF). Delivered automatically in optimized dimensions."}
+                ? "Hero video limit: Max 25 MB, Max 20s duration. 1920×1080 (16:9 widescreen) recommended. Video uploads directly from your browser to Cloudinary CDN."
+                : "Hero image limit: Max 10 MB (JPG, PNG, WebP, AVIF). 1920×1080 (16:9 widescreen) recommended. Delivered automatically in optimized dimensions."}
             </p>
 
             <input
@@ -383,40 +407,155 @@ export function HeroBannerForm({ banner, cloudName: initialCloudName }: HeroBann
         </div>
       </FormSection>
 
-      {/* 5. MOBILE OVERRIDES (OPTIONAL) */}
+      {/* 5. MOBILE HERO BANNER (IMAGE & VIDEO) */}
       <FormSection
-        description="Optional custom text or static mobile image to save bandwidth on mobile devices."
-        title="5. Mobile Experience (Optional)"
+        description="Configure an optimized portrait media asset specifically for mobile phone screens. Overrides desktop media on smaller viewports."
+        title="5. Mobile Hero Banner (Image & Video)"
       >
-        <div className="grid gap-4 sm:grid-cols-2">
+        {/* Recommended Size Note */}
+        <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border/80 bg-secondary/30 px-3.5 py-2.5 text-xs text-muted-foreground">
+          <Smartphone size={15} className="text-primary shrink-0" />
+          <span className="font-semibold text-foreground">Recommended Mobile Size:</span>
+          <span className="rounded bg-card px-2 py-0.5 font-medium text-foreground border border-border/60">
+            1080 × 1920 px (9:16 Portrait)
+          </span>
+          <span className="text-[11px] text-muted-foreground">
+            • Image ≤ 10MB (JPG, WebP, PNG) • Video ≤ 25MB (≤20s, MP4)
+          </span>
+        </div>
+
+        {/* Mobile Media Type Selector */}
+        <div className="grid gap-2 pt-1">
+          <label className="text-sm font-semibold text-foreground">Select Mobile Media Type</label>
+          <div className="grid grid-cols-2 gap-3 max-w-sm">
+            <button
+              type="button"
+              onClick={() => setMobileMediaType("image")}
+              className={`flex items-center justify-center gap-2 rounded-xl border p-2.5 text-xs sm:text-sm font-semibold transition-all cursor-pointer ${
+                mobileMediaType === "image"
+                  ? "border-primary bg-primary text-primary-foreground shadow-xs"
+                  : "border-border bg-card text-foreground/80 hover:bg-secondary"
+              }`}
+            >
+              <ImageIcon size={16} />
+              <span>Mobile Image</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setMobileMediaType("video")}
+              className={`flex items-center justify-center gap-2 rounded-xl border p-2.5 text-xs sm:text-sm font-semibold transition-all cursor-pointer ${
+                mobileMediaType === "video"
+                  ? "border-primary bg-primary text-primary-foreground shadow-xs"
+                  : "border-border bg-card text-foreground/80 hover:bg-secondary"
+              }`}
+            >
+              <Video size={16} />
+              <span>Mobile Video</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Mobile Direct Upload Container */}
+        <div className="rounded-xl border border-dashed border-border p-5 bg-secondary/20 grid gap-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2 text-foreground font-semibold text-sm">
+              <UploadCloud className="text-primary" size={20} />
+              <span>{mobileMediaType === "video" ? "Upload Mobile Hero Video" : "Upload Mobile Hero Image"}</span>
+            </div>
+            {uploadingState.mobile && (
+              <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-primary">
+                <Loader2 className="animate-spin" size={14} /> Uploading directly to Cloudinary...
+              </span>
+            )}
+          </div>
+
+          <p className="text-xs text-muted-foreground leading-relaxed">
+            {mobileMediaType === "video"
+              ? "Mobile video limit: Max 25 MB, Max 20s duration. 1080×1920 (9:16 portrait) recommended."
+              : "Mobile image limit: Max 10 MB (JPG, PNG, WebP, AVIF). 1080×1920 (9:16 portrait) recommended."}
+          </p>
+
+          <input
+            accept={
+              mobileMediaType === "video"
+                ? "video/mp4,video/webm,video/quicktime,video/*"
+                : "image/jpeg,image/png,image/webp,image/avif,image/*"
+            }
+            className="block w-full text-xs text-muted-foreground file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-primary file:text-primary-foreground hover:file:bg-primary/90 cursor-pointer"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) handleDirectCloudinaryUpload(file, mobileMediaType, "mobile");
+            }}
+            type="file"
+          />
+
+          {mobileMediaPublicId && (
+            <div className="mt-2 grid gap-3">
+              <div className="rounded-lg border border-border bg-card p-3 flex items-center justify-between text-xs">
+                <span className="font-semibold text-emerald-900 bg-emerald-900/10 px-2 py-0.5 rounded truncate max-w-xs">
+                  ✓ Mobile Public ID: {mobileMediaPublicId}
+                </span>
+                <div className="flex items-center gap-2">
+                  {activeMobileMediaUrl && (
+                    <a
+                      className="text-primary underline font-medium"
+                      href={activeMobileMediaUrl}
+                      rel="noreferrer"
+                      target="_blank"
+                    >
+                      Preview
+                    </a>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setMobileMediaPublicId("")}
+                    className="inline-flex items-center gap-1 text-red-700 hover:text-red-800 text-xs font-semibold ml-2 cursor-pointer"
+                  >
+                    <Trash2 size={13} />
+                    <span>Remove</span>
+                  </button>
+                </div>
+              </div>
+
+              {activeMobileMediaUrl && (
+                <div className="overflow-hidden rounded-xl border border-border bg-black/90 max-h-80 aspect-[9/16] max-w-[180px] flex items-center justify-center shadow-md">
+                  {mobileMediaType === "video" ? (
+                    <video
+                      controls
+                      muted
+                      playsInline
+                      src={activeMobileMediaUrl}
+                      className="h-full w-full object-cover"
+                    />
+                  ) : (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      alt="Mobile Hero Preview"
+                      className="h-full w-full object-cover"
+                      src={activeMobileMediaUrl}
+                    />
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Optional Mobile Text Overrides */}
+        <div className="grid gap-4 sm:grid-cols-2 pt-2 border-t border-border/60">
           <AdminField
             defaultValue={banner?.mobile_headline || ""}
             helperText="Shortened headline for mobile screens (optional)."
-            label="Mobile Headline"
+            label="Mobile Headline (Optional)"
             name="mobile_headline"
             placeholder="Soul of Kerala"
           />
           <AdminField
             defaultValue={banner?.mobile_description || ""}
             helperText="Shorter mobile description (optional)."
-            label="Mobile Description"
+            label="Mobile Description (Optional)"
             name="mobile_description"
-          />
-        </div>
-
-        <div className="rounded-xl border border-border p-4 bg-card grid gap-2">
-          <span className="text-xs font-semibold text-foreground">Optional Mobile Poster/Image</span>
-          <p className="text-xs text-muted-foreground">
-            On mobile connections, this image will be served instead of downloading a desktop video.
-          </p>
-          <input
-            accept="image/jpeg,image/png,image/webp,image/avif"
-            className="block w-full text-xs text-muted-foreground file:mr-3 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-secondary file:text-primary cursor-pointer"
-            onChange={(e) => {
-              const file = e.target.files?.[0];
-              if (file) handleDirectCloudinaryUpload(file, "image", "mobile");
-            }}
-            type="file"
           />
         </div>
       </FormSection>

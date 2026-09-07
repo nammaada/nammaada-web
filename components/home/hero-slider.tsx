@@ -14,13 +14,21 @@ function HeroVideoSlide({
   banner,
   isActive,
   isReducedMotion,
+  videoSrc,
+  posterSrc,
+  className,
 }: {
   banner: HeroBanner;
   isActive: boolean;
   isReducedMotion: boolean;
+  videoSrc?: string;
+  posterSrc?: string | null;
+  className?: string;
 }) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const [hasError, setHasError] = useState(false);
+  const activeSrc = videoSrc || banner.media_url;
+  const activePoster = posterSrc !== undefined ? posterSrc : banner.poster_url;
 
   useEffect(() => {
     const video = videoRef.current;
@@ -68,15 +76,15 @@ function HeroVideoSlide({
       window.removeEventListener("scroll", handleFirstGesture);
       window.removeEventListener("pointerdown", handleFirstGesture);
     };
-  }, [isActive, isReducedMotion, hasError, banner.media_url]);
+  }, [isActive, isReducedMotion, hasError, activeSrc]);
 
-  if (hasError || !banner.media_url) {
-    return banner.poster_url ? (
+  if (hasError || !activeSrc) {
+    return activePoster ? (
       // eslint-disable-next-line @next/next/no-img-element
       <img
         alt={banner.alt_text || banner.headline}
-        className="absolute inset-0 h-full w-full object-cover pointer-events-none"
-        src={banner.poster_url}
+        className={`absolute inset-0 h-full w-full object-cover pointer-events-none ${className || ""}`}
+        src={activePoster}
       />
     ) : null;
   }
@@ -86,13 +94,13 @@ function HeroVideoSlide({
       ref={videoRef}
       autoPlay
       aria-hidden="true"
-      className="absolute inset-0 h-full w-full object-cover pointer-events-none"
+      className={`absolute inset-0 h-full w-full object-cover pointer-events-none ${className || ""}`}
       loop
       muted
       onError={() => setHasError(true)}
       playsInline
       preload="auto"
-      src={banner.media_url}
+      src={activeSrc}
     />
   );
 }
@@ -287,20 +295,65 @@ export function HeroSlider({ banners }: HeroSliderProps) {
               isActive ? "opacity-100 z-10" : "opacity-0 z-0 pointer-events-none"
             }`}
           >
-            {isVideo ? (
-              <HeroVideoSlide
-                banner={banner}
-                isActive={isActive}
-                isReducedMotion={isReducedMotion}
-              />
+            {/* If banner has dedicated mobile media */}
+            {banner.mobile_media_url ? (
+              <>
+                {/* Mobile Viewport Media */}
+                {banner.mobile_media_type === "video" ? (
+                  <HeroVideoSlide
+                    banner={banner}
+                    className="sm:hidden"
+                    isActive={isActive}
+                    isReducedMotion={isReducedMotion}
+                    videoSrc={banner.mobile_media_url}
+                  />
+                ) : (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    alt={banner.alt_text || banner.headline}
+                    className="absolute inset-0 h-full w-full object-cover pointer-events-none sm:hidden"
+                    loading={index === 0 ? "eager" : "lazy"}
+                    src={banner.mobile_media_url}
+                  />
+                )}
+
+                {/* Desktop / Tablet Viewport Media */}
+                {isVideo ? (
+                  <HeroVideoSlide
+                    banner={banner}
+                    className="hidden sm:block"
+                    isActive={isActive}
+                    isReducedMotion={isReducedMotion}
+                  />
+                ) : (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    alt={banner.alt_text || banner.headline}
+                    className="hidden sm:block absolute inset-0 h-full w-full object-cover pointer-events-none"
+                    loading={index === 0 ? "eager" : "lazy"}
+                    src={banner.media_url}
+                  />
+                )}
+              </>
             ) : (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                alt={banner.alt_text || banner.headline}
-                className="absolute inset-0 h-full w-full object-cover pointer-events-none"
-                loading={index === 0 ? "eager" : "lazy"}
-                src={banner.media_url}
-              />
+              /* Fallback to desktop media across all viewports */
+              <>
+                {isVideo ? (
+                  <HeroVideoSlide
+                    banner={banner}
+                    isActive={isActive}
+                    isReducedMotion={isReducedMotion}
+                  />
+                ) : (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    alt={banner.alt_text || banner.headline}
+                    className="absolute inset-0 h-full w-full object-cover pointer-events-none"
+                    loading={index === 0 ? "eager" : "lazy"}
+                    src={banner.media_url}
+                  />
+                )}
+              </>
             )}
             <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/20 lg:bg-gradient-to-r lg:from-black/50 lg:via-transparent lg:to-transparent" />
           </div>
@@ -326,7 +379,14 @@ export function HeroSlider({ banners }: HeroSliderProps) {
 
               {/* Headline */}
               <h1 className="mt-3 font-display text-2xl sm:text-3xl lg:text-4xl font-bold tracking-tight text-[#2b1719] leading-[1.2]">
-                {currentBanner.headline || "Every celebration begins with a little sweetness."}
+                {currentBanner.mobile_headline ? (
+                  <>
+                    <span className="sm:hidden">{currentBanner.mobile_headline}</span>
+                    <span className="hidden sm:inline">{currentBanner.headline}</span>
+                  </>
+                ) : (
+                  currentBanner.headline || "Every celebration begins with a little sweetness."
+                )}
               </h1>
 
               {/* Description Paragraphs */}
