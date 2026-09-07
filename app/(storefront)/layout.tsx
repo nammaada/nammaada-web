@@ -14,7 +14,7 @@ export default function StorefrontLayout({ children }: Readonly<{ children: Reac
         >
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src="/nammaad bg image.png"
+            src="/bg-image-aada.png"
             alt=""
             className="h-full w-full object-cover object-top opacity-95 transition-opacity duration-500"
           />
