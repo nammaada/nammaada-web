@@ -24,7 +24,7 @@ const sizes = {
 export function Button({ className = "", variant = "primary", size = "md", isLoading = false, disabled, children, ...props }: ButtonProps) {
   return (
     <button
-      className={`inline-flex items-center justify-center rounded-full font-semibold tracking-wide transition-all duration-150 focus-visible:outline-none disabled:pointer-events-none disabled:opacity-50 ${sizes[size]} ${variants[variant]} ${className}`}
+      className={`inline-flex items-center justify-center rounded-full font-semibold tracking-wide transition-all duration-150 focus-visible:outline-none cursor-pointer disabled:pointer-events-none disabled:opacity-50 ${sizes[size]} ${variants[variant]} ${className}`}
       disabled={disabled || isLoading}
       {...props}
     >

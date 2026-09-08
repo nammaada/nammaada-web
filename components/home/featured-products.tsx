@@ -41,20 +41,20 @@ export function FeaturedProducts({ products }: { products: StorefrontProduct[] }
     >
       <Container className="relative z-10">
         {/* Section Heading matching Reference 2 */}
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-          <div className="max-w-2xl">
+        <div className="flex flex-col items-center text-center gap-3 sm:flex-row sm:items-end sm:justify-between sm:text-left">
+          <div className="max-w-2xl text-center sm:text-left">
             <p className="eyebrow">OUR PRODUCTS</p>
             <h2 className="mt-2 font-display text-3xl sm:text-4xl lg:text-5xl font-semibold leading-tight text-[#2b1719]">
               Crafted fresh, served with love.
             </h2>
-            <p className="mt-2 max-w-xl text-xs sm:text-base leading-relaxed text-[#6e5b55]">
+            <p className="mt-2 max-w-xl text-xs sm:text-base leading-relaxed text-[#6e5b55] mx-auto sm:mx-0">
               Every order is prepared fresh, never rushed.
             </p>
           </div>
 
           <Link
             href="/products"
-            className="inline-flex min-h-11 shrink-0 items-center gap-1.5 self-start text-xs sm:text-sm font-semibold text-[#711e2c] underline decoration-[#711e2c]/30 underline-offset-4 transition-colors hover:decoration-[#711e2c] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring sm:self-auto"
+            className="inline-flex min-h-11 shrink-0 items-center gap-1.5 self-center text-xs sm:text-sm font-semibold text-[#711e2c] underline decoration-[#711e2c]/30 underline-offset-4 transition-colors hover:decoration-[#711e2c] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring sm:self-auto"
           >
             View All Products <ArrowUpRight aria-hidden="true" size={16} />
           </Link>

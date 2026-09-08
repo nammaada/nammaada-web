@@ -140,6 +140,20 @@ export async function getFeaturedProducts(): Promise<StorefrontProduct[]> {
   return attachPrimaryImages(products);
 }
 
+export async function searchStorefrontProducts(query: string): Promise<StorefrontProduct[]> {
+  const trimmed = query.trim();
+  if (!trimmed) return [];
+  const products = await executeProductQuery((client) =>
+    client
+      .from("storefront_products")
+      .select(productFields)
+      .ilike("name", `%${trimmed}%`)
+      .order("display_order", { ascending: true })
+      .limit(12)
+  );
+  return attachPrimaryImages(products);
+}
+
 export async function getProductBySlug(slug: string): Promise<StorefrontProduct | null> {
   let productData: unknown = null;
 

@@ -24,14 +24,14 @@ export function InstagramPreview({ content = DEFAULT_FROM_OUR_KITCHEN }: { conte
 
   return (
     <section className="relative py-12 sm:py-6 bg-transparent" id="kitchen-preview">
-      <Container className="max-w-4xl mx-auto text-center">
-        <p className="text-[10px] sm:text-xs font-bold uppercase tracking-[0.2em] text-[#711e2c]">
+      <Container className="max-w-4xl mx-auto text-center flex flex-col items-center">
+        <p className="text-[10px] sm:text-xs font-bold uppercase tracking-[0.2em] text-[#711e2c] text-center">
           {data.label}
         </p>
-        <h2 className="mt-2 font-display text-2xl sm:text-4xl font-semibold leading-tight text-[#2b1719]">
+        <h2 className="mt-2 font-display text-2xl sm:text-4xl font-semibold leading-tight text-[#2b1719] text-center">
           {data.heading}
         </h2>
-        <p className="mx-auto mt-2 max-w-md text-xs sm:text-sm leading-relaxed text-[#6e5b55]">
+        <p className="mx-auto mt-2 max-w-md text-xs sm:text-sm leading-relaxed text-[#6e5b55] text-center">
           {data.description}
         </p>
 
@@ -64,7 +64,7 @@ export function InstagramPreview({ content = DEFAULT_FROM_OUR_KITCHEN }: { conte
           </div>
         )}
 
-        <div className="mt-4">
+        <div className="mt-4 flex justify-center">
           <Link
             className="inline-flex min-h-11 items-center gap-1.5 rounded-full border border-[#711e2c]/30 bg-[#fffdf8] px-5 text-xs sm:text-sm font-semibold text-[#711e2c] transition-all hover:bg-[#f4efeb] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring active:scale-95"
             href={data.instagramUrl || "https://www.instagram.com/namma_ada/"}

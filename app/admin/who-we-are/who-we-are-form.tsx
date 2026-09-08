@@ -226,7 +226,7 @@ export function WhoWeAreForm({ initialData }: { initialData: WhoWeAreContent }) 
                   }`}
                 >
                   {/* Image Thumbnail */}
-                  <div className="relative aspect-[4/3] w-full overflow-hidden bg-muted/40">
+                  <div className="relative aspect-[4/5] w-full overflow-hidden bg-muted/40">
                     <Image
                       alt={image.alt_text}
                       className="object-cover transition-transform duration-300 group-hover:scale-105"
