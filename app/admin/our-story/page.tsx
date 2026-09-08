@@ -21,7 +21,7 @@ export default async function OurStoryPage({
           { label: "Content" },
           { label: "Our Story" },
         ]}
-        description="Edit the homepage Our Story section content and manage up to 3 large showcase photos."
+        description="Edit the homepage Our Story section content and manage up to 3 showcase photos (Recommended size: 4:5 ratio / 1000 × 1250 px)."
         eyebrow="CONTENT"
         title="Our Story"
       />

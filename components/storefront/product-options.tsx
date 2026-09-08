@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { CheckCircle2 } from "lucide-react";
 import { useCart } from "@/components/cart/cart-provider";
 import { Badge } from "@/components/ui/badge";
@@ -21,6 +22,7 @@ function Availability({ available }: { available: boolean }) {
 }
 
 export function ProductOptions({ product, variants }: { product: StorefrontProduct; variants: StorefrontProductVariant[] }) {
+  const router = useRouter();
   const { addItem } = useCart();
   const [selectedVariantId, setSelectedVariantId] = useState("");
   const [statusMessage, setStatusMessage] = useState("");
@@ -42,6 +44,24 @@ export function ProductOptions({ product, variants }: { product: StorefrontProdu
       image: product.primary_image,
     });
     setStatusMessage(`${product.name} ${selectedVariant ? `(${selectedVariant.name})` : ""} added to your cart.`);
+  }
+
+  function handleBuyNow() {
+    if (!available || (variants.length > 0 && !selectedVariant)) {
+      return;
+    }
+
+    addItem({
+      productId: product.id,
+      slug: product.slug,
+      name: product.name,
+      variantId: selectedVariant?.id ?? null,
+      variantName: selectedVariant?.name ?? null,
+      unitPricePaise: selectedVariant?.price_paise ?? product.price_paise,
+      image: product.primary_image,
+    });
+
+    router.push("/checkout");
   }
 
   return (
@@ -77,7 +97,7 @@ export function ProductOptions({ product, variants }: { product: StorefrontProdu
                   <span className="flex items-center gap-2.5">
                     <input
                       checked={selected}
-                      className="accent-[#d4af37]"
+                      className="accent-[#711e2c]"
                       name="product-variant"
                       onChange={() => setSelectedVariantId(variant.id)}
                       type="radio"
@@ -102,23 +122,34 @@ export function ProductOptions({ product, variants }: { product: StorefrontProdu
             {product.delivery_scope === "bangalore_only" ? "Available in Bangalore" : "Delivery across India"}
           </Badge>
           {product.is_free_shipping ? (
-            <Badge variant="accent" className="bg-[#d4af37] text-[#2b1719] font-bold px-3 py-1 text-xs">
+            <Badge variant="accent" className="bg-[#711e2c] text-[#fffcf2] font-bold px-3 py-1 text-xs">
               Free shipping
             </Badge>
           ) : null}
         </div>
       ) : null}
 
-      {/* Primary Add to Cart CTA & Status Message */}
+      {/* Primary Action Buttons (Add to Cart & Buy Now) & Status Message */}
       <div className="space-y-3 pt-2">
-        <Button
-          className="w-full sm:w-auto min-h-12 px-8"
-          disabled={!available || (variants.length > 0 && !selectedVariant)}
-          onClick={handleAddToCart}
-          type="button"
-        >
-          Add to Cart
-        </Button>
+        <div className="flex flex-wrap sm:flex-nowrap items-center gap-3">
+          <Button
+            className="w-full sm:w-auto min-h-12 px-8 cursor-pointer"
+            disabled={!available || (variants.length > 0 && !selectedVariant)}
+            onClick={handleAddToCart}
+            type="button"
+          >
+            Add to Cart
+          </Button>
+
+          <Button
+            className="w-full sm:w-auto min-h-12 px-8 cursor-pointer"
+            disabled={!available || (variants.length > 0 && !selectedVariant)}
+            onClick={handleBuyNow}
+            type="button"
+          >
+            Buy Now
+          </Button>
+        </div>
 
         {statusMessage ? (
           <div className="flex items-center gap-2 text-xs sm:text-sm text-emerald-800 bg-emerald-50 border border-emerald-200 rounded-xl p-3 animate-in fade-in">

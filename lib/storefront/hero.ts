@@ -94,10 +94,23 @@ export async function getActiveHeroBanners(): Promise<HeroBanner[]> {
       .from("hero_banners")
       .select("*")
       .eq("is_active", true)
-      .order("display_order", { ascending: true });
+      .order("display_order", { ascending: true })
+      .order("created_at", { ascending: true });
 
     if (!error && data && data.length > 0) {
-      return data.map(formatBannerWithUrls);
+      // If a video banner is active:
+      // Show only that active video. Inactive or image banners should not appear.
+      const activeVideo = data.find((b) => b.media_type === "video");
+      if (activeVideo) {
+        return [formatBannerWithUrls(activeVideo)];
+      }
+
+      // If images are active:
+      // Return all active images in their defined banner order (first top banner in top, second in second).
+      const activeImages = data.filter((b) => b.media_type === "image");
+      if (activeImages.length > 0) {
+        return activeImages.map(formatBannerWithUrls);
+      }
     }
   } catch {
     // Fail safely if database table is not deployed yet
@@ -112,7 +125,9 @@ export async function getAdminHeroBanners(): Promise<HeroBanner[]> {
     const { data, error } = await supabase
       .from("hero_banners")
       .select("*")
-      .order("display_order", { ascending: true });
+      .order("is_active", { ascending: false })
+      .order("display_order", { ascending: true })
+      .order("created_at", { ascending: true });
 
     if (!error && data) {
       return data.map(formatBannerWithUrls);

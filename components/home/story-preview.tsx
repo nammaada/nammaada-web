@@ -17,7 +17,7 @@ export function StoryPreview({ content = DEFAULT_WHO_WE_ARE }: { content?: WhoWe
           </div>
 
           {/* Right Column: Short Editorial Text */}
-          <div className="flex-1 min-w-0 text-left">
+          <div className="flex-1 min-w-0 text-center lg:text-left">
             <p className="text-[11px] sm:text-xs font-bold uppercase tracking-[0.2em] text-[#711e2c]">
               WHO WE ARE
             </p>
@@ -26,11 +26,11 @@ export function StoryPreview({ content = DEFAULT_WHO_WE_ARE }: { content?: WhoWe
               A little taste of home, made with a whole lot of love.
             </h2>
 
-            <p className="mt-4 text-xs sm:text-sm lg:text-base leading-relaxed text-[#5a4843]">
+            <p className="mt-4 text-xs sm:text-sm lg:text-base leading-relaxed text-[#5a4843] max-w-xl mx-auto lg:mx-0">
               Namma Ada is a Bangalore-based Kerala delicacy brand inspired by recipes passed down through generations. We bring Kerala&apos;s timeless taste to your table through fresh, handcrafted delicacies made with authentic flavours and a whole lot of love.
             </p>
 
-            <div className="mt-6">
+            <div className="mt-6 flex justify-center lg:justify-start">
               <Link
                 className="inline-flex items-center gap-1.5 text-xs sm:text-sm font-semibold text-[#711e2c] hover:text-[#5a1723] transition-colors pb-0.5 border-b border-[#711e2c]/30 hover:border-[#711e2c]"
                 href="/about"

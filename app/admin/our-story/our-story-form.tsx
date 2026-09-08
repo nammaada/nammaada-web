@@ -135,6 +135,10 @@ export function OurStoryForm({ initialData }: { initialData: WhoWeAreContent }) 
           <p className="text-xs text-muted-foreground mt-1 max-w-xl">
             Each card represents an individual showcase image on the homepage. Edit, replace, or set primary with large visual previews.
           </p>
+          <div className="mt-2.5 inline-flex items-center gap-1.5 rounded-lg bg-amber-500/10 border border-amber-500/25 px-2.5 py-1 text-xs font-medium text-amber-900">
+            <span className="font-bold">Recommended Size:</span>
+            <span>4:5 ratio (1000 × 1250 px) — ensures the entire image fits without cropping</span>
+          </div>
         </div>
 
         <div className="flex items-center gap-3 shrink-0">
@@ -176,8 +180,8 @@ export function OurStoryForm({ initialData }: { initialData: WhoWeAreContent }) 
                   : "border-border hover:border-primary/40 hover:shadow-md"
               }`}
             >
-              {/* LARGE IMAGE PREVIEW - Edge to Edge in container */}
-              <div className="relative aspect-[4/3] w-full bg-muted/40 overflow-hidden">
+              {/* LARGE IMAGE PREVIEW - Edge to Edge in container (4:5 ratio) */}
+              <div className="relative aspect-[4/5] w-full bg-muted/40 overflow-hidden">
                 <Image
                   alt={image.alt_text}
                   className="object-cover transition-transform duration-500 group-hover:scale-105"
@@ -266,7 +270,7 @@ export function OurStoryForm({ initialData }: { initialData: WhoWeAreContent }) 
         {initialData.images.length < 3 && (
           <div
             onClick={() => setAddModalOpen(true)}
-            className="group flex flex-col items-center justify-center aspect-[4/3] rounded-2xl border-2 border-dashed border-border/90 bg-secondary/15 p-6 text-center hover:border-primary/60 hover:bg-secondary/35 transition-all cursor-pointer shadow-2xs min-h-[260px]"
+            className="group flex flex-col items-center justify-center aspect-[4/5] rounded-2xl border-2 border-dashed border-border/90 bg-secondary/15 p-6 text-center hover:border-primary/60 hover:bg-secondary/35 transition-all cursor-pointer shadow-2xs min-h-[300px]"
           >
             <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10 text-primary mb-3 transition-transform group-hover:scale-110">
               <Plus size={28} />
@@ -275,7 +279,7 @@ export function OurStoryForm({ initialData }: { initialData: WhoWeAreContent }) 
               + Add Image {initialData.images.length + 1}
             </p>
             <p className="text-xs text-muted-foreground mt-1 max-w-[200px]">
-              Upload a large showcase photo
+              Upload a 4:5 image (1000 × 1250 px)
             </p>
           </div>
         )}
@@ -443,7 +447,7 @@ export function OurStoryForm({ initialData }: { initialData: WhoWeAreContent }) 
                       Click to choose image file
                     </p>
                     <p className="text-xs text-muted-foreground mt-1">
-                      JPEG, PNG, WebP, AVIF up to 10 MB
+                      Recommended: 4:5 ratio (1000 × 1250 px) &bull; JPEG, PNG, WebP, AVIF up to 10 MB
                     </p>
                   </div>
                 )}
@@ -552,7 +556,7 @@ export function OurStoryForm({ initialData }: { initialData: WhoWeAreContent }) 
                 />
 
                 <p className="text-[11px] text-muted-foreground">
-                  {editFile ? `Selected: ${editFile.name}` : "Click preview above if you want to replace this image file."}
+                  {editFile ? `Selected: ${editFile.name}` : "Click preview above to replace file (Recommended: 4:5 ratio, 1000 × 1250 px)."}
                 </p>
               </div>
 
@@ -688,7 +692,7 @@ export function OurStoryForm({ initialData }: { initialData: WhoWeAreContent }) 
                       Click to choose replacement file
                     </p>
                     <p className="text-xs text-muted-foreground mt-1">
-                      JPEG, PNG, WebP, AVIF up to 10 MB
+                      Recommended: 4:5 ratio (1000 × 1250 px) &bull; JPEG, PNG, WebP, AVIF up to 10 MB
                     </p>
                   </div>
                 )}

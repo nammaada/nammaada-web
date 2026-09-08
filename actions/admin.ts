@@ -320,6 +320,17 @@ export async function saveHeroBanner(form: FormData) {
     }
   }
 
+  let finalDisplayOrder = displayOrder;
+  if (!id && (!finalDisplayOrder || finalDisplayOrder === 0)) {
+    const { data: maxBanner } = await client
+      .from("hero_banners")
+      .select("display_order")
+      .order("display_order", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    finalDisplayOrder = (maxBanner?.display_order || 0) + 1;
+  }
+
   const values = {
     cloudinary_public_id: cloudinaryPublicId,
     poster_public_id: posterPublicId,
@@ -332,7 +343,7 @@ export async function saveHeroBanner(form: FormData) {
     secondary_cta_label: secondaryCtaLabel,
     secondary_cta_href: secondaryCtaHref,
     is_secondary_cta_enabled: isSecondaryEnabled,
-    display_order: displayOrder,
+    display_order: finalDisplayOrder,
     is_active: isActive,
     alt_text: altText,
     mobile_headline: mobileHeadline,
@@ -341,6 +352,24 @@ export async function saveHeroBanner(form: FormData) {
     mobile_media_type: mobileMediaType,
     updated_at: new Date().toISOString(),
   };
+
+  if (isActive) {
+    if (mediaType === "video") {
+      // When activating a video: automatically make all image banners inactive
+      // and deactivate any other video banners so only this single video is active.
+      await client
+        .from("hero_banners")
+        .update({ is_active: false, updated_at: new Date().toISOString() })
+        .neq("id", id || "00000000-0000-0000-0000-000000000000");
+    } else {
+      // When activating an image: allow multiple image banners to be active at the same time!
+      // Automatically deactivate any active video banner so image mode is clean.
+      await client
+        .from("hero_banners")
+        .update({ is_active: false, updated_at: new Date().toISOString() })
+        .eq("media_type", "video");
+    }
+  }
 
   const result = id
     ? await client.from("hero_banners").update(values).eq("id", id)
@@ -363,7 +392,9 @@ export async function saveHeroBanner(form: FormData) {
     await deleteCloudinaryMedia(oldPosterPublicId, "image").catch(() => undefined);
   }
 
+  revalidatePath("/", "layout");
   revalidatePath("/");
+  revalidatePath("/admin/hero-banners");
   ok("/admin/hero-banners");
 }
 
@@ -385,7 +416,9 @@ export async function deleteHeroBanner(form: FormData) {
     await deleteCloudinaryMedia(existing.poster_public_id, "image").catch(() => undefined);
   }
 
+  revalidatePath("/", "layout");
   revalidatePath("/");
+  revalidatePath("/admin/hero-banners");
   ok("/admin/hero-banners");
 }
 
@@ -395,10 +428,62 @@ export async function toggleHeroBannerActive(form: FormData) {
   const isActive = bool(form, "is_active");
   if (!id) fail("/admin/hero-banners", "Invalid banner.");
 
-  const result = await createSupabaseAdminClient().from("hero_banners").update({ is_active: isActive, updated_at: new Date().toISOString() }).eq("id", id);
+  const client = createSupabaseAdminClient();
+
+  if (isActive) {
+    // Check media_type of the target banner
+    const { data: banner } = await client
+      .from("hero_banners")
+      .select("media_type")
+      .eq("id", id)
+      .maybeSingle();
+
+    if (banner?.media_type === "video") {
+      // When a video is activated:
+      // Automatically make all image banners inactive,
+      // and deactivate any previous video so only this single video is active.
+      await client
+        .from("hero_banners")
+        .update({ is_active: false, updated_at: new Date().toISOString() })
+        .neq("id", id);
+    } else {
+      // When an image is activated:
+      // Allow multiple image banners to be active at the same time!
+      // But automatically deactivate any active video banner.
+      await client
+        .from("hero_banners")
+        .update({ is_active: false, updated_at: new Date().toISOString() })
+        .eq("media_type", "video");
+    }
+  }
+
+  const result = await client
+    .from("hero_banners")
+    .update({ is_active: isActive, updated_at: new Date().toISOString() })
+    .eq("id", id);
+
   if (result.error) fail("/admin/hero-banners", "Unable to update banner status.");
 
+  // Re-normalize sequential display_orders: active banners stay on top (1..N) and inactive banners go to bottom
+  const { data: allBanners } = await client
+    .from("hero_banners")
+    .select("id, is_active, display_order")
+    .order("is_active", { ascending: false })
+    .order("display_order", { ascending: true })
+    .order("created_at", { ascending: true });
+
+  if (allBanners && allBanners.length > 0) {
+    for (let i = 0; i < allBanners.length; i++) {
+      await client
+        .from("hero_banners")
+        .update({ display_order: i + 1 })
+        .eq("id", allBanners[i].id);
+    }
+  }
+
+  revalidatePath("/", "layout");
   revalidatePath("/");
+  revalidatePath("/admin/hero-banners");
   ok("/admin/hero-banners");
 }
 
@@ -409,22 +494,42 @@ export async function moveHeroBanner(form: FormData) {
   if (!id || !["up", "down"].includes(direction)) fail("/admin/hero-banners", "Invalid banner order.");
 
   const client = createSupabaseAdminClient();
-  const { data: current } = await client.from("hero_banners").select("id,display_order").eq("id", id).maybeSingle();
-  if (!current) fail("/admin/hero-banners", "Banner not found.");
 
-  const query = direction === "up"
-    ? client.from("hero_banners").select("id,display_order").lt("display_order", current.display_order).order("display_order", { ascending: false }).limit(1)
-    : client.from("hero_banners").select("id,display_order").gt("display_order", current.display_order).order("display_order", { ascending: true }).limit(1);
+  // Load all banners in authoritative admin view order (active first, then display_order, then created_at)
+  const { data: allBanners, error } = await client
+    .from("hero_banners")
+    .select("id, is_active, display_order")
+    .order("is_active", { ascending: false })
+    .order("display_order", { ascending: true })
+    .order("created_at", { ascending: true });
 
-  const { data: sibling } = await query.maybeSingle();
-  if (!sibling) ok("/admin/hero-banners");
+  if (error || !allBanners || allBanners.length === 0) {
+    fail("/admin/hero-banners", "Unable to load hero banners.");
+  }
 
-  const first = await client.from("hero_banners").update({ display_order: -1 }).eq("id", current.id);
-  const second = await client.from("hero_banners").update({ display_order: current.display_order }).eq("id", sibling.id);
-  const third = await client.from("hero_banners").update({ display_order: sibling.display_order }).eq("id", current.id);
+  const currentIndex = allBanners.findIndex((b) => b.id === id);
+  if (currentIndex === -1) fail("/admin/hero-banners", "Banner not found.");
 
-  if (first.error || second.error || third.error) fail("/admin/hero-banners", "Unable to reorder banner.");
+  const targetIndex = direction === "up" ? currentIndex - 1 : currentIndex + 1;
+  if (targetIndex < 0 || targetIndex >= allBanners.length) {
+    ok("/admin/hero-banners");
+  }
 
+  // Swap the two banners in the array
+  const temp = allBanners[currentIndex];
+  allBanners[currentIndex] = allBanners[targetIndex];
+  allBanners[targetIndex] = temp;
+
+  // Persist sequential display_orders (1, 2, 3...)
+  for (let i = 0; i < allBanners.length; i++) {
+    await client
+      .from("hero_banners")
+      .update({ display_order: i + 1, updated_at: new Date().toISOString() })
+      .eq("id", allBanners[i].id);
+  }
+
+  revalidatePath("/", "layout");
   revalidatePath("/");
+  revalidatePath("/admin/hero-banners");
   ok("/admin/hero-banners");
 }

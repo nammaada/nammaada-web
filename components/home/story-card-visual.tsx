@@ -47,10 +47,10 @@ export function StoryCardVisual({ images }: { images: WhoWeAreImage[] }) {
 
   if (images.length === 0) {
     return (
-      <div className="relative w-full max-w-[280px] sm:max-w-[320px] lg:max-w-[340px] aspect-[4/5] sm:aspect-[3/4] overflow-hidden rounded-3xl sm:rounded-[2rem] border border-white/80 bg-gradient-to-br from-white/75 via-[#f9f3ea]/65 to-[#f2e6d6]/65 p-6 backdrop-blur-xl shadow-lg flex flex-col items-center justify-between">
+      <div className="relative w-full max-w-[280px] sm:max-w-[320px] lg:max-w-[340px] aspect-[4/5] overflow-hidden rounded-3xl sm:rounded-[2rem] border border-white/80 bg-gradient-to-br from-white/75 via-[#f9f3ea]/65 to-[#f2e6d6]/65 p-6 backdrop-blur-xl shadow-lg flex flex-col items-center justify-between">
         <div className="relative flex flex-1 items-center justify-center">
           <div className="relative flex h-40 w-40 items-center justify-center rotate-45 rounded-[2rem] border border-white/95 bg-white/85 shadow-md">
-            <div className="h-20 w-20 rounded-2xl border border-amber-300/40 bg-gradient-to-br from-[#dfbe96]/45 via-[#d4af37]/25 to-[#c99863]/35" />
+            <div className="h-20 w-20 rounded-2xl border border-[#e5d8c6] bg-gradient-to-br from-[#f4efeb] via-[#e5d8c6] to-[#711e2c]/15" />
           </div>
         </div>
         <p className="font-display text-lg font-normal text-[#711e2c] text-center">
@@ -64,7 +64,7 @@ export function StoryCardVisual({ images }: { images: WhoWeAreImage[] }) {
     <div className="w-full flex flex-col items-center">
       {/* Product image slider frame with smooth transform */}
       <div
-        className="relative w-full max-w-[280px] sm:max-w-[320px] lg:max-w-[340px] aspect-[4/5] sm:aspect-[3/4] rounded-3xl sm:rounded-[2rem] overflow-hidden shadow-2xl shadow-[#2b1719]/12 select-none touch-pan-y"
+        className="relative w-full max-w-[280px] sm:max-w-[320px] lg:max-w-[340px] aspect-[4/5] rounded-3xl sm:rounded-[2rem] overflow-hidden shadow-2xl shadow-[#2b1719]/12 select-none touch-pan-y"
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}

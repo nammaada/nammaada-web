@@ -2,22 +2,25 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { Menu, ShoppingBag, X } from "lucide-react";
+import { Menu, Search, ShoppingBag, X } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { siteConfig, storefrontRoutes } from "@/lib/constants/site";
 import { Container } from "@/components/ui/container";
 import { useCart } from "@/components/cart/cart-provider";
+import { ProductSearchModal } from "@/components/storefront/product-search-modal";
 
 function isActivePath(pathname: string, href: string) {
   return href === "/" ? pathname === href : pathname.startsWith(href);
 }
 
-export function StorefrontNavbar() {
+export function StorefrontNavbar({ isVideoHero = false }: { isVideoHero?: boolean }) {
   const pathname = usePathname();
   const isHome = pathname === "/";
+  const isCreamNavbar = isHome && isVideoHero;
   const { itemCount } = useCart();
   const [menuOpen, setMenuOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
   const menuButtonRef = useRef<HTMLButtonElement>(null);
 
   function closeMenu() {
@@ -55,7 +58,13 @@ export function StorefrontNavbar() {
     <>
       <header className={isHome ? "absolute inset-x-0 top-0 z-50 bg-transparent" : "sticky top-0 z-40 bg-transparent transition-colors"}>
         <Container className="py-3 sm:py-3.5">
-          <div className="flex min-h-14 sm:min-h-16 items-center justify-between gap-3 sm:gap-4 rounded-full border border-white/50 bg-gradient-to-br from-white/55 via-[#fcf7ee]/32 to-[#f5e8d5]/22 backdrop-blur-xl px-3.5 sm:px-6 shadow-[0_10px_30px_-8px_rgba(43,23,25,0.06),inset_0_1px_1.5px_0_rgba(255,255,255,0.75)] transition-all">
+          <div
+            className={`flex min-h-14 sm:min-h-16 items-center justify-between gap-3 sm:gap-4 rounded-full px-3.5 sm:px-6 transition-all duration-300 ${
+              isCreamNavbar
+                ? "border border-[#e5d8c6] bg-[#fbf7ef] shadow-[0_10px_30px_-8px_rgba(43,23,25,0.14),0_2px_8px_rgba(0,0,0,0.06)]"
+                : "border border-white/50 bg-gradient-to-br from-white/55 via-[#fcf7ee]/32 to-[#f5e8d5]/22 backdrop-blur-xl shadow-[0_10px_30px_-8px_rgba(43,23,25,0.06),inset_0_1px_1.5px_0_rgba(255,255,255,0.75)]"
+            }`}
+          >
             {/* LOGO */}
             <Link
               className="shrink-0 rounded-lg focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring"
@@ -97,8 +106,22 @@ export function StorefrontNavbar() {
               })}
             </nav>
 
-            {/* ACTIONS: CART + ORDER NOW (Desktop) / MENU TOGGLE (Mobile) */}
+            {/* ACTIONS: SEARCH + CART + ORDER NOW (Desktop) / MENU TOGGLE (Mobile) */}
             <div className="flex items-center gap-2 sm:gap-3">
+              {/* Search Button (Desktop & Mobile) */}
+              <button
+                aria-label="Search delicacies"
+                className={`inline-flex min-h-11 min-w-11 items-center justify-center rounded-full text-[#711e2c] transition-all focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring active:scale-95 cursor-pointer ${
+                  isCreamNavbar
+                    ? "border border-[#e5d8c6] bg-white/80 shadow-xs hover:bg-white"
+                    : "border border-white/60 bg-white/40 backdrop-blur-xs shadow-xs hover:bg-white/65 hover:border-white/80"
+                }`}
+                onClick={() => setSearchOpen(true)}
+                type="button"
+              >
+                <Search aria-hidden="true" size={18} />
+              </button>
+
               {/* Cart Link (Always visible, touch friendly) */}
               <Link
                 aria-label={
@@ -106,20 +129,26 @@ export function StorefrontNavbar() {
                     ? `Cart with ${itemCount} ${itemCount === 1 ? "item" : "items"}`
                     : "Cart, empty"
                 }
-                className="inline-flex min-h-11 min-w-11 items-center justify-center gap-2 rounded-full px-3.5 text-xs sm:text-sm font-semibold text-[#711e2c] transition-all focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring active:scale-95 border border-white/60 bg-white/40 backdrop-blur-xs shadow-xs hover:bg-white/65 hover:border-white/80"
+                className={`inline-flex min-h-11 min-w-11 items-center justify-center gap-2 rounded-full px-3.5 sm:px-4 text-xs sm:text-sm font-semibold text-[#711e2c] transition-all focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring active:scale-95 ${
+                  isCreamNavbar
+                    ? "border border-[#e5d8c6] bg-white/80 shadow-xs hover:bg-white"
+                    : "border border-white/60 bg-white/40 backdrop-blur-xs shadow-xs hover:bg-white/65 hover:border-white/80"
+                }`}
                 href="/cart"
                 onClick={closeMenu}
               >
-                <ShoppingBag aria-hidden="true" size={18} />
+                <div className="relative inline-flex items-center justify-center">
+                  <ShoppingBag aria-hidden="true" size={18} />
+                  {itemCount > 0 ? (
+                    <span
+                      aria-live="polite"
+                      className="absolute -top-1.5 -right-2 flex h-4 min-w-4 items-center justify-center rounded-full bg-[#711e2c] px-1 text-[10px] font-bold text-white shadow-xs leading-none"
+                    >
+                      {itemCount}
+                    </span>
+                  ) : null}
+                </div>
                 <span className="hidden sm:inline">Cart</span>
-                {itemCount > 0 ? (
-                  <span
-                    aria-live="polite"
-                    className="inline-flex min-w-5 items-center justify-center rounded-full bg-[#d4af37] px-1.5 py-0.5 text-xs text-[#2b1719] font-bold"
-                  >
-                    {itemCount}
-                  </span>
-                ) : null}
               </Link>
 
               {/* Order Now CTA (Desktop only) */}
@@ -130,13 +159,17 @@ export function StorefrontNavbar() {
                 Order Now
               </Link>
 
-              {/* Mobile Menu Toggle Button [Logo] [Cart] [Menu] */}
+              {/* Mobile Menu Toggle Button [Logo] [Search] [Cart] [Menu] */}
               <button
                 ref={menuButtonRef}
                 aria-controls="mobile-storefront-drawer"
                 aria-expanded={menuOpen}
                 aria-label={menuOpen ? "Close navigation menu" : "Open navigation menu"}
-                className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-full text-[#711e2c] transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring lg:hidden active:scale-95 border border-white/60 bg-white/40 hover:bg-white/70 backdrop-blur-xs shadow-xs"
+                className={`inline-flex min-h-11 min-w-11 items-center justify-center rounded-full text-[#711e2c] transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring lg:hidden active:scale-95 ${
+                  isCreamNavbar
+                    ? "border border-[#e5d8c6] bg-white/80 hover:bg-white shadow-xs"
+                    : "border border-white/60 bg-white/40 hover:bg-white/70 backdrop-blur-xs shadow-xs"
+                }`}
                 onClick={() => setMenuOpen((open) => !open)}
                 type="button"
               >
@@ -180,46 +213,67 @@ export function StorefrontNavbar() {
           {/* Drawer Content */}
           <div className="flex-1 overflow-y-auto py-6">
             <Container className="flex flex-col h-full justify-between gap-8">
-              <nav className="flex flex-col gap-2" aria-label="Mobile menu navigation">
-                {storefrontRoutes.map((route) => {
-                  const active = isActivePath(pathname, route.href);
-                  return (
-                    <Link
-                      className={`flex min-h-12 items-center rounded-2xl px-5 text-base font-semibold transition-colors ${
-                        active
-                          ? "bg-[#711e2c] text-white"
-                          : "text-[#2b1719] hover:bg-[#f4efeb] active:bg-[#e5d8c6]/50"
-                      }`}
-                      href={route.href}
-                      key={route.href}
-                      onClick={closeMenu}
-                      aria-current={active ? "page" : undefined}
-                    >
-                      {route.label}
-                    </Link>
-                  );
-                })}
-
-                <Link
-                  className={`flex min-h-12 items-center justify-between rounded-2xl px-5 text-base font-semibold transition-colors ${
-                    pathname === "/cart"
-                      ? "bg-[#711e2c] text-white"
-                      : "text-[#2b1719] hover:bg-[#f4efeb]"
-                  }`}
-                  href="/cart"
-                  onClick={closeMenu}
+              <div className="space-y-4">
+                {/* Search Bar in Mobile Menu */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    closeMenu();
+                    setSearchOpen(true);
+                  }}
+                  className="flex min-h-12 w-full items-center gap-3 rounded-2xl border border-[#e5d8c6] bg-white px-5 text-sm font-medium text-[#2b1719]/60 shadow-xs active:scale-98 cursor-pointer"
                 >
-                  <span className="flex items-center gap-2.5">
-                    <ShoppingBag size={19} />
-                    Cart
-                  </span>
-                  {itemCount > 0 && (
-                    <span className="rounded-full bg-[#d4af37] px-2.5 py-0.5 text-xs text-[#2b1719] font-bold">
-                      {itemCount} {itemCount === 1 ? "item" : "items"}
+                  <Search size={18} className="text-[#711e2c]" />
+                  <span>Search delicacies...</span>
+                </button>
+
+                <nav className="flex flex-col gap-2" aria-label="Mobile menu navigation">
+                  {storefrontRoutes.map((route) => {
+                    const active = isActivePath(pathname, route.href);
+                    return (
+                      <Link
+                        className={`flex min-h-12 items-center rounded-2xl px-5 text-base font-semibold transition-colors ${
+                          active
+                            ? "bg-[#711e2c] text-white"
+                            : "text-[#2b1719] hover:bg-[#f4efeb] active:bg-[#e5d8c6]/50"
+                        }`}
+                        href={route.href}
+                        key={route.href}
+                        onClick={closeMenu}
+                        aria-current={active ? "page" : undefined}
+                      >
+                        {route.label}
+                      </Link>
+                    );
+                  })}
+
+                  <Link
+                    className={`flex min-h-12 items-center justify-between rounded-2xl px-5 text-base font-semibold transition-colors ${
+                      pathname === "/cart"
+                        ? "bg-[#711e2c] text-white"
+                        : "text-[#2b1719] hover:bg-[#f4efeb]"
+                    }`}
+                    href="/cart"
+                    onClick={closeMenu}
+                  >
+                    <span className="flex items-center gap-2.5">
+                      <ShoppingBag size={19} />
+                      Cart
                     </span>
-                  )}
-                </Link>
-              </nav>
+                    {itemCount > 0 && (
+                      <span
+                        className={`rounded-full px-2.5 py-0.5 text-xs font-bold ${
+                          pathname === "/cart"
+                            ? "bg-white text-[#711e2c]"
+                            : "bg-[#711e2c] text-[#fffcf2]"
+                        }`}
+                      >
+                        {itemCount} {itemCount === 1 ? "item" : "items"}
+                      </span>
+                    )}
+                  </Link>
+                </nav>
+              </div>
 
               {/* Bottom Drawer CTA */}
               <div className="pt-4 border-t border-[#e5d8c6] space-y-3">
@@ -238,6 +292,12 @@ export function StorefrontNavbar() {
           </div>
         </div>
       )}
+
+      {/* PRODUCT SEARCH MODAL */}
+      <ProductSearchModal
+        isOpen={searchOpen}
+        onClose={() => setSearchOpen(false)}
+      />
     </>
   );
 }

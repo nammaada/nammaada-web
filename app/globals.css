@@ -7,15 +7,15 @@
   --primary-foreground: #fffcf2;
   --secondary: #f4efeb;
   --secondary-foreground: #711e2c;
-  --accent: #d4af37;
-  --accent-foreground: #2b1719;
+  --accent: #711e2c;
+  --accent-foreground: #fffcf2;
   --muted: #f1e8d9;
   --muted-foreground: #6e5b55;
   --border: #e5d8c6;
   --input: #dfd0bd;
   --card: #fffdf8;
   --card-foreground: #2b1719;
-  --ring: #a57b24;
+  --ring: #711e2c;
   --font-namma-sans: "Avenir Next", Avenir, "Segoe UI", system-ui, -apple-system, sans-serif;
   --font-namma-display: Georgia, "Times New Roman", serif;
 }
@@ -64,8 +64,13 @@ body {
 }
 
 ::selection {
-  background: var(--accent);
-  color: var(--accent-foreground);
+  background: #eedec8;
+  color: #2b1719;
+}
+
+::-moz-selection {
+  background: #eedec8;
+  color: #2b1719;
 }
 
 button,

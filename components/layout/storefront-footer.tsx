@@ -7,42 +7,71 @@ import { siteConfig, storefrontRoutes } from "@/lib/constants/site";
 export function StorefrontFooter() {
   return (
     <footer className="relative overflow-hidden bg-[#711e2c] text-[#fffcf2]">
-      {/* Full floral background image across the entire footer */}
-      <div className="pointer-events-none absolute inset-0 z-0 select-none">
-        <Image
-          src="/footer-bg.png"
-          alt=""
-          fill
-          priority={false}
-          className="object-cover object-bottom"
-        />
+      {/* Decorative floral background: desktop uses full footer-bg.png; mobile uses subtle corner leaves */}
+      <div className="pointer-events-none absolute inset-0 z-0 select-none overflow-hidden">
+        {/* Desktop / tablet: full panoramic decorative background */}
+        <div className="relative h-full w-full hidden sm:block">
+          <Image
+            src="/footer-bg.png"
+            alt=""
+            fill
+            priority={false}
+            className="object-cover object-bottom"
+          />
+        </div>
+
+        {/* Mobile: clean continuous maroon with small decorative leaves in the bottom corners */}
+        <div className="relative h-full w-full block sm:hidden">
+          {/* Left corner leaves (small, subtle, positioned at bottom corner) */}
+          <div className="absolute bottom-0 left-0 w-40 pointer-events-none select-none z-0">
+            <Image
+              src="/footer-leaf-left.png"
+              alt=""
+              width={235}
+              height={271}
+              className="w-full h-auto object-contain object-left-bottom"
+            />
+          </div>
+          {/* Right corner leaves (small, subtle, positioned at bottom corner) */}
+          <div className="absolute bottom-0 right-0 w-40 pointer-events-none select-none z-0">
+            <Image
+              src="/footer-leaf-right.png"
+              alt=""
+              width={224}
+              height={291}
+              className="w-full h-auto object-contain object-right-bottom"
+            />
+          </div>
+        </div>
       </div>
 
-      <Container className="relative z-10 py-10 sm:py-14 grid gap-8 sm:grid-cols-2 lg:grid-cols-[1.4fr_1fr_1fr] lg:gap-12 text-center sm:text-left">
+      <Container className="relative z-10 pt-7 pb-4 sm:pt-7 sm:pb-5 lg:pt-8 lg:pb-5 sm:max-w-3xl lg:max-w-[860px] mx-auto grid gap-6 sm:gap-8 sm:grid-cols-3 lg:grid-cols-[1.5fr_1fr_1fr] lg:gap-8 text-center sm:text-left items-start">
         {/* Brand statement */}
-        <div className="space-y-3 flex flex-col items-center sm:items-start text-center sm:text-left">
-          <Link href="/" aria-label={`${siteConfig.name} home`} className="inline-block">
-            <Image
-              src="/namma-ada-logo.png"
-              alt="Namma Ada"
-              width={140}
-              height={90}
-              className="h-12 w-auto object-contain brightness-0 invert mx-auto sm:mx-0"
-            />
+        <div className="space-y-3 flex flex-col items-center sm:items-start text-center sm:text-left w-full">
+          <Link href="/" aria-label={`${siteConfig.name} home`} className="inline-flex items-center justify-center">
+            <div className="size-22 sm:size-20 rounded-full bg-white flex items-center justify-center p-3 sm:p-3.5 shrink-0">
+              <Image
+                src="/namma-ada-logo.png"
+                alt="Namma Ada"
+                width={140}
+                height={90}
+                className="w-auto h-auto max-w-[210%] max-h-[82%] object-contain"
+              />
+            </div>
           </Link>
-          <p className="max-w-xs text-xs sm:text-sm leading-relaxed text-[#fffcf2]/90 mx-auto sm:mx-0">
+          <p className="max-w-xs text-xs sm:text-sm leading-relaxed text-[#fffcf2]/90 text-center sm:text-left mx-auto sm:mx-0">
             {siteConfig.tagline}
           </p>
         </div>
 
         {/* Explore Links */}
-        <div className="flex flex-col items-center sm:items-start">
-          <h3 className="text-xs font-bold uppercase tracking-wider text-[#d4af37]">Explore</h3>
-          <nav className="mt-3 flex flex-col items-center sm:items-start gap-2.5" aria-label="Footer navigation">
+        <div className="flex flex-col items-center sm:items-start w-full">
+          <h3 className="text-xs font-bold uppercase tracking-wider text-[#fbf7ef] text-center sm:text-left">Explore</h3>
+          <nav className="mt-2.5 flex flex-col items-center sm:items-start gap-2 w-full" aria-label="Footer navigation">
             {storefrontRoutes.map((route) => (
               <Link
                 key={route.href}
-                className="text-xs sm:text-sm text-[#fffcf2]/90 transition-colors hover:text-white"
+                className="text-xs sm:text-sm text-[#fffcf2]/90 transition-colors hover:text-white text-center sm:text-left"
                 href={route.href}
               >
                 {route.label}
@@ -52,33 +81,40 @@ export function StorefrontFooter() {
         </div>
 
         {/* Social */}
-        <div className="flex flex-col items-center sm:items-start">
-          <h3 className="text-xs font-bold uppercase tracking-wider text-[#d4af37]">Stay Connected</h3>
-          <div className="mt-3 flex justify-center sm:justify-start">
+        <div className="flex flex-col items-center sm:items-start w-full">
+          <h3 className="text-xs font-bold uppercase tracking-wider text-[#fbf7ef] text-center sm:text-left">Stay Connected</h3>
+          <div className="mt-2.5 flex justify-center sm:justify-start w-full">
             <Link
-              className="inline-flex min-h-11 items-center gap-2 rounded-full border border-[#fffcf2]/30 bg-white/10 px-4 text-xs sm:text-sm font-semibold transition-colors hover:bg-white/20 active:scale-95 text-[#fffcf2]"
+              className="inline-flex min-h-10 items-center gap-2 rounded-full border border-[#fffcf2]/30 bg-white/10 px-4 text-xs sm:text-sm font-semibold transition-colors hover:bg-white/20 active:scale-95 text-[#fffcf2]"
               href={siteConfig.instagramUrl}
               target="_blank"
               rel="noreferrer"
               aria-label="Visit Namma Ada on Instagram"
             >
-              <ArrowUpRight aria-hidden="true" size={16} />
+              <ArrowUpRight aria-hidden="true" size={15} />
               Instagram
             </Link>
           </div>
         </div>
       </Container>
 
-      {/* Copyright & Company Credit */}
-      <div className="relative z-10 border-t border-[#fffcf2]/20 py-6 pb-8">
-        <Container className="flex flex-col gap-3">
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between text-xs sm:text-sm text-[#fffcf2] font-normal text-center sm:text-left">
-            <p>© {new Date().getFullYear()} {siteConfig.name}. All rights reserved.</p>
-            <p>Made with tradition. Shared with love.</p>
-          </div>
-          <div className="pt-2 text-center">
-            <p className="text-[11px] sm:text-xs font-medium tracking-widest text-[#fffcf2]/90 uppercase">
+      {/* Copyright & Company Credit - Balanced, Compact Bottom Bar */}
+      <div className="relative z-10 border-t border-[#fffcf2]/15 py-3 sm:py-20.5">
+        <Container className="relative sm:max-w-3xl lg:max-w-[860px] mx-auto">
+          <div className="relative flex flex-col items-center gap-1.5 text-center sm:flex-row sm:items-center sm:justify-between text-xs sm:text-sm text-[#fffcf2] font-normal">
+            {/* Left: Copyright */}
+            <p className="text-center sm:text-left sm:flex-1">
+              © {new Date().getFullYear()} {siteConfig.name}. All rights reserved.
+            </p>
+
+            {/* Center: CRAFTED BY EKODRIX (exact horizontal center on desktop) */}
+            <p className="text-[10px] sm:text-xs font-semibold tracking-widest text-[#fffcf2]/95 uppercase text-center sm:absolute sm:left-1/2 sm:-translate-x-1/2 sm:top-1/2 sm:-translate-y-1/2 whitespace-nowrap">
               CRAFTED BY EKODRIX
+            </p>
+
+            {/* Right: Tradition text */}
+            <p className="text-center sm:text-right sm:flex-1">
+              Made with tradition. Shared with love.
             </p>
           </div>
         </Container>
