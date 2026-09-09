@@ -136,7 +136,7 @@ export function ReelCardPlayer({
           aria-label="View fullscreen"
           title="Fullscreen"
           onClick={handleFullscreen}
-          className={`flex h-8 w-8 items-center justify-center rounded-full bg-black/60 text-white backdrop-blur-xs transition-all duration-200 hover:bg-black/80 hover:scale-105 active:scale-95 shadow-md cursor-pointer ${
+          className={`flex h-8 w-8 items-center justify-center rounded-full bg-black/65 border border-white/20 text-white transition-all duration-200 hover:bg-black/85 hover:scale-105 active:scale-95 shadow-md cursor-pointer ${
             isHovered ? "opacity-100 scale-100" : "opacity-0 scale-90 pointer-events-none"
           }`}
         >
@@ -150,7 +150,7 @@ export function ReelCardPlayer({
             aria-label={isMuted ? "Unmute audio" : "Mute audio"}
             title={isMuted ? "Unmute" : "Mute"}
             onClick={handleToggleMute}
-            className="flex h-8 w-8 items-center justify-center rounded-full bg-black/60 text-white backdrop-blur-xs transition-all duration-200 hover:bg-black/80 hover:scale-105 active:scale-95 shadow-md cursor-pointer animate-in fade-in zoom-in-90 duration-150"
+            className="flex h-8 w-8 items-center justify-center rounded-full bg-black/65 border border-white/20 text-white transition-all duration-200 hover:bg-black/85 hover:scale-105 active:scale-95 shadow-md cursor-pointer animate-in fade-in zoom-in-90 duration-150"
           >
             {isMuted ? <VolumeX size={15} /> : <Volume2 size={15} />}
           </button>
@@ -163,7 +163,7 @@ export function ReelCardPlayer({
           isPlaying ? "bg-transparent opacity-0" : "bg-black/25 opacity-100"
         }`}
       >
-        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-black/60 text-white shadow-lg backdrop-blur-xs transition-transform duration-200 group-hover:scale-110">
+        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-black/65 border border-white/20 text-white shadow-lg transition-transform duration-200 group-hover:scale-110">
           <Play size={20} className="translate-x-0.5 fill-white" />
         </div>
       </div>

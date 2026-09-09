@@ -28,7 +28,7 @@ export function BrandValues() {
   return (
     <section className="relative overflow-hidden bg-transparent py-10 sm:py-2">
       <Container className="relative z-10">
-        <div className="rounded-2xl sm:rounded-3xl border border-white/45 bg-gradient-to-br from-white/50 via-[#fcf7ee]/28 to-[#f5e8d5]/18 p-5 sm:p-8 md:p-10 backdrop-blur-xl shadow-[0_16px_36px_-10px_rgba(43,23,25,0.08),inset_0_1px_1.5px_0_rgba(255,255,255,0.75)]">
+        <div className="rounded-2xl sm:rounded-3xl border border-white/45 bg-gradient-to-br from-white/50 via-[#fcf7ee]/28 to-[#f5e8d5]/18 p-5 sm:p-8 md:p-10 backdrop-blur-xl [transform:translateZ(0)] shadow-[0_16px_36px_-10px_rgba(43,23,25,0.08),inset_0_1px_1.5px_0_rgba(255,255,255,0.75)]">
           {/* Header matching client instructions */}
           <div className="text-center mb-6 sm:mb-8">
             <p className="text-[10px] sm:text-xs font-bold uppercase tracking-[0.2em] text-[#711e2c]">
@@ -47,7 +47,7 @@ export function BrandValues() {
                   index > 0 ? "lg:border-l lg:border-[#711e2c]/10" : ""
                 } ${index === 4 ? "col-span-2 sm:col-span-1" : ""}`}
               >
-                <div className="flex h-10 w-10 sm:h-12 sm:w-12 items-center justify-center rounded-full bg-white/50 border border-white/70 text-[#711e2c] shrink-0 shadow-xs backdrop-blur-xs">
+                <div className="flex h-10 w-10 sm:h-12 sm:w-12 items-center justify-center rounded-full bg-white/50 border border-white/70 text-[#711e2c] shrink-0 shadow-xs">
                   <Icon aria-hidden="true" className="h-5 w-5 sm:h-6 sm:w-6" strokeWidth={1.8} />
                 </div>
                 <p className="mt-2.5 max-w-[170px] sm:max-w-[190px] text-xs sm:text-sm font-semibold leading-snug text-[#2b1719]">

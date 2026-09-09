@@ -3,6 +3,7 @@ import { ArrowUpRight } from "lucide-react";
 import { Container } from "@/components/ui/container";
 import { DEFAULT_FROM_OUR_KITCHEN, type FromOurKitchenContent } from "@/lib/storefront/content";
 import { ReelCardPlayer } from "./reel-card-player";
+import { ReelsCarousel } from "./reels-carousel";
 
 export function InstagramPreview({ content = DEFAULT_FROM_OUR_KITCHEN }: { content?: FromOurKitchenContent }) {
   const data = content || DEFAULT_FROM_OUR_KITCHEN;
@@ -47,21 +48,10 @@ export function InstagramPreview({ content = DEFAULT_FROM_OUR_KITCHEN }: { conte
         )}
 
         {publishedReels.length > 1 && (
-          <div className="my-6 flex items-center justify-center gap-4 overflow-x-auto pb-2 pt-1 max-w-full mx-auto snap-x scrollbar-none">
-            {publishedReels.map((reel) => (
-              <div
-                key={reel.id}
-                className="w-[180px] sm:w-[210px] aspect-[9/16] shrink-0 rounded-2xl overflow-hidden shadow-soft border border-[#e5d8c6] bg-black relative snap-center"
-              >
-                <ReelCardPlayer
-                  src={reel.video_url}
-                  title={reel.alt_text}
-                  instagramUrl={reel.instagram_url || data.instagramUrl}
-                  className="h-full w-full"
-                />
-              </div>
-            ))}
-          </div>
+          <ReelsCarousel
+            reels={publishedReels}
+            fallbackInstagramUrl={data.instagramUrl}
+          />
         )}
 
         <div className="mt-4 flex justify-center">
@@ -79,4 +69,3 @@ export function InstagramPreview({ content = DEFAULT_FROM_OUR_KITCHEN }: { conte
     </section>
   );
 }
-

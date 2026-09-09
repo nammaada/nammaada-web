@@ -14,7 +14,7 @@ export default function AboutPage() {
     <div className="py-8 sm:py-14 lg:py-16">
       <Container className="max-w-3xl mx-auto">
         {/* Main Editorial Glass Card */}
-        <div className="rounded-3xl border border-white/50 bg-gradient-to-br from-white/60 via-[#fcf7ee]/35 to-[#f5e8d5]/25 p-6 sm:p-10 lg:p-12 backdrop-blur-xl shadow-[0_16px_36px_-10px_rgba(43,23,25,0.08),inset_0_1px_1.5px_0_rgba(255,255,255,0.75)] text-center space-y-8">
+        <div className="rounded-3xl border border-white/50 bg-gradient-to-br from-white/60 via-[#fcf7ee]/35 to-[#f5e8d5]/25 p-6 sm:p-10 lg:p-12 backdrop-blur-xl [transform:translateZ(0)] shadow-[0_16px_36px_-10px_rgba(43,23,25,0.08),inset_0_1px_1.5px_0_rgba(255,255,255,0.75)] text-center space-y-8">
           
           {/* WHO WE ARE */}
           <div className="space-y-3">
@@ -36,7 +36,7 @@ export default function AboutPage() {
 
           {/* OUR MISSION & OUR VISION */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-6 border-t border-[#711e2c]/15 text-left">
-            <div className="rounded-2xl border border-white/60 bg-white/40 p-5 sm:p-6 backdrop-blur-xs shadow-xs space-y-2 text-center sm:text-left">
+            <div className="rounded-2xl border border-white/60 bg-white/40 p-5 sm:p-6 shadow-xs space-y-2 text-center sm:text-left">
               <div className="flex items-center justify-center sm:justify-start gap-2 text-[#711e2c]">
                 <Leaf size={18} strokeWidth={2} />
                 <h2 className="text-xs font-bold uppercase tracking-wider">OUR MISSION</h2>
@@ -46,7 +46,7 @@ export default function AboutPage() {
               </p>
             </div>
 
-            <div className="rounded-2xl border border-white/60 bg-white/40 p-5 sm:p-6 backdrop-blur-xs shadow-xs space-y-2 text-center sm:text-left">
+            <div className="rounded-2xl border border-white/60 bg-white/40 p-5 sm:p-6 shadow-xs space-y-2 text-center sm:text-left">
               <div className="flex items-center justify-center sm:justify-start gap-2 text-[#711e2c]">
                 <Heart size={18} strokeWidth={2} />
                 <h2 className="text-xs font-bold uppercase tracking-wider">OUR VISION</h2>
@@ -59,7 +59,7 @@ export default function AboutPage() {
 
           {/* WHAT WE OFFER */}
           <div className="pt-6 border-t border-[#711e2c]/15 text-left">
-            <div className="rounded-2xl border border-white/60 bg-white/40 p-5 sm:p-7 backdrop-blur-xs shadow-xs space-y-3">
+            <div className="rounded-2xl border border-white/60 bg-white/40 p-5 sm:p-7 shadow-xs space-y-3">
               <div className="flex items-center justify-center sm:justify-start gap-2 text-[#711e2c]">
                 <UtensilsCrossed size={18} strokeWidth={2} />
                 <h2 className="text-xs font-bold uppercase tracking-[0.2em]">WHAT WE OFFER</h2>

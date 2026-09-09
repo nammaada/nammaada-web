@@ -207,12 +207,21 @@ export function HeroSlider({ banners }: HeroSliderProps) {
             className="h-full w-full object-cover object-center pointer-events-none"
           />
           <div className="absolute inset-0 bg-gradient-to-t from-[#2b1719]/40 via-transparent to-black/10" />
+          {/* Mobile top-left cream fade: free-flowing unboxed natural spread from top-left */}
+          <div
+            aria-hidden="true"
+            className="absolute inset-0 pointer-events-none sm:hidden z-10"
+            style={{
+              background:
+                "radial-gradient(ellipse 120% 100% at 0% 15%, rgba(251, 247, 239, 0.88) 0%, rgba(251, 247, 239, 0.35) 35%, rgba(251, 247, 239, 0.2) 60%, transparent 80%)",
+            }}
+          />
         </div>
 
         <Container className="relative z-20 w-full pt-20 pb-12 sm:pt-28 sm:pb-16 lg:pt-32 lg:pb-20 my-auto">
           <div className="grid lg:grid-cols-12 gap-6 items-center">
             <div className="lg:col-span-7 xl:col-span-6 flex flex-col justify-center">
-              <div className="relative w-full max-w-[68%] xs:max-w-[65%] sm:max-w-none pl-1 sm:pl-0 bg-transparent sm:bg-gradient-to-br sm:from-white/50 sm:via-[#fcf6ed]/32 sm:to-[#f5e8d6]/22 border-0 sm:border sm:border-white/40 shadow-none sm:shadow-[0_20px_50px_-12px_rgba(43,23,25,0.12),inset_0_1px_1.5px_0_rgba(255,255,255,0.75)] sm:rounded-[2.5rem] p-0 sm:p-8 lg:p-9 sm:backdrop-blur-xl">
+              <div className="relative w-full max-w-[68%] xs:max-w-[65%] sm:max-w-none pl-1 sm:pl-0 bg-transparent sm:bg-gradient-to-br sm:from-white/50 sm:via-[#fcf6ed]/32 sm:to-[#f5e8d6]/22 border-0 sm:border sm:border-white/40 shadow-none sm:shadow-[0_20px_50px_-12px_rgba(43,23,25,0.12),inset_0_1px_1.5px_0_rgba(255,255,255,0.75)] sm:rounded-[2.5rem] p-0 sm:p-8 lg:p-9 sm:backdrop-blur-xl [transform:translateZ(0)]">
                 <div className="flex items-center gap-2.5 sm:gap-3">
                   <span className="text-[11px] sm:text-xs font-bold uppercase tracking-[0.22em] text-[#711e2c]">
                     A TASTE OF HOME
@@ -242,7 +251,7 @@ export function HeroSlider({ banners }: HeroSliderProps) {
                     <ArrowRight size={15} />
                   </Link>
                   <Link
-                    className="inline-flex min-h-[44px] sm:min-h-11 items-center justify-center rounded-full border border-[#711e2c]/20 bg-[#f4efe8] sm:bg-white/25 hover:bg-[#ebe2d8] sm:hover:bg-white/45 px-6 sm:px-7 text-[13px] sm:text-sm font-semibold text-[#711e2c] sm:backdrop-blur-xs transition-all duration-150 active:scale-95 shadow-xs sm:shadow-none cursor-pointer"
+                    className="inline-flex min-h-[44px] sm:min-h-11 items-center justify-center rounded-full border border-[#711e2c]/20 bg-[#f4efe8] sm:bg-white/25 hover:bg-[#ebe2d8] sm:hover:bg-white/45 px-6 sm:px-7 text-[13px] sm:text-sm font-semibold text-[#711e2c] transition-all duration-150 active:scale-95 shadow-xs sm:shadow-none cursor-pointer"
                     href="/contact"
                   >
                     <span>Bulk Orders</span>
@@ -360,53 +369,64 @@ export function HeroSlider({ banners }: HeroSliderProps) {
         })}
       </div>
 
+      {/* Mobile top-left cream fade: free-flowing unboxed natural spread from top-left */}
+      {!isCurrentBannerVideo && (
+        <div
+          aria-hidden="true"
+          className="absolute inset-0 pointer-events-none sm:hidden z-10"
+          style={{
+            background:
+              "radial-gradient(ellipse 90% 70% at 0% 15%, rgba(251, 247, 239, 0.88) 0%, rgba(251, 247, 239, 0.55) 35%, rgba(251, 247, 239, 0.2) 60%, transparent 80%)",
+          }}
+        />
+      )}
+
       {/* CONTENT REGION: EDITORIAL GLASS PANEL (Hidden when video mode is active) */}
       {!isCurrentBannerVideo && currentBanner && (
-        <Container className="relative z-20 w-full pt-20 pb-12 sm:pt-28 sm:pb-16 lg:pt-32 lg:pb-20 my-auto">
+        <Container className="relative z-20 w-full pt-1 pb-12 sm:pt-28 sm:pb-16 lg:pt-32 lg:pb-20 my-auto">
           <div className="grid lg:grid-cols-12 gap-6 items-center">
             <div className="lg:col-span-7 xl:col-span-6 flex flex-col justify-center">
-              <div
-                key={activeIndex}
-                className="relative w-full max-w-[68%] xs:max-w-[65%] sm:max-w-none pl-1 sm:pl-0 bg-transparent sm:bg-gradient-to-br sm:from-white/50 sm:via-[#fcf6ed]/32 sm:to-[#f5e8d6]/22 border-0 sm:border sm:border-white/40 shadow-none sm:shadow-[0_20px_50px_-12px_rgba(43,23,25,0.12),inset_0_1px_1.5px_0_rgba(255,255,255,0.75)] sm:rounded-[2.5rem] p-0 sm:p-8 lg:p-9 sm:backdrop-blur-xl animate-in fade-in duration-300"
-              >
-                <div className="flex items-center gap-2.5 sm:gap-3">
-                  <span className="text-[11px] sm:text-xs font-bold uppercase tracking-[0.22em] text-[#711e2c]">
-                    {currentBanner.eyebrow || "A TASTE OF HOME"}
-                  </span>
-                  <span className="h-[1.5px] w-10 sm:w-14 bg-[#711e2c]/40 rounded-full" />
-                </div>
+              <div className="relative w-full max-w-[68%] xs:max-w-[65%] sm:max-w-none pl-1 sm:pl-0 bg-transparent sm:bg-gradient-to-br sm:from-white/50 sm:via-[#fcf6ed]/32 sm:to-[#f5e8d6]/22 border-0 sm:border sm:border-white/40 shadow-none sm:shadow-[0_20px_50px_-12px_rgba(43,23,25,0.12),inset_0_1px_1.5px_0_rgba(255,255,255,0.75)] sm:rounded-[2.5rem] p-0 sm:p-8 lg:p-9 sm:backdrop-blur-xl [transform:translateZ(0)]">
+                <div key={activeIndex} className="animate-in fade-in duration-300">
+                  <div className="flex items-center gap-2.5 sm:gap-3">
+                    <span className="text-[11px] sm:text-xs font-bold uppercase tracking-[0.22em] text-[#711e2c]">
+                      {currentBanner.eyebrow || "A TASTE OF HOME"}
+                    </span>
+                    <span className="h-[1.5px] w-10 sm:w-14 bg-[#711e2c]/40 rounded-full" />
+                  </div>
 
-                <h1 className="mt-2.5 sm:mt-3 font-display text-[25px] xs:text-[27px] sm:text-3xl lg:text-4xl font-bold tracking-tight text-[#2b1719] leading-[1.16] sm:leading-[1.2]">
-                  {currentBanner.mobile_headline ? (
-                    <>
-                      <span className="sm:hidden">{currentBanner.mobile_headline}</span>
-                      <span className="hidden sm:inline">{currentBanner.headline}</span>
-                    </>
-                  ) : (
-                    currentBanner.headline || "Every celebration begins with a little sweetness."
-                  )}
-                </h1>
+                  <h1 className="mt-2.5 sm:mt-3 font-display text-[25px] xs:text-[27px] sm:text-3xl lg:text-4xl font-bold tracking-tight text-[#2b1719] leading-[1.16] sm:leading-[1.2]">
+                    {currentBanner.mobile_headline ? (
+                      <>
+                        <span className="sm:hidden">{currentBanner.mobile_headline}</span>
+                        <span className="hidden sm:inline">{currentBanner.headline}</span>
+                      </>
+                    ) : (
+                      currentBanner.headline || "Every celebration begins with a little sweetness."
+                    )}
+                  </h1>
 
-                <div className="mt-3 sm:mt-4 space-y-2 sm:space-y-3 text-[12.5px] sm:text-sm text-[#381a1f] font-medium sm:font-normal leading-[1.48] sm:leading-relaxed max-w-xl">
-                  {(currentBanner.description || "At Namma Ada, we bring the soul of Kerala into the homes of Bangalore. Every bowl of Palada Payasam, every Unniyappam, every bottle of pure coconut oil, and every delicacy we create is handcrafted with tradition and a whole lot of love.\n\nWe don't just serve food. We serve memories, festivals, and the comforting taste of home.").split("\n\n").map((para, idx) => (
-                    <p key={idx} className={idx > 0 ? "hidden sm:block" : ""}>{para}</p>
-                  ))}
-                </div>
+                  <div className="mt-3 sm:mt-4 space-y-2 sm:space-y-3 text-[12.5px] sm:text-sm text-[#381a1f] font-medium sm:font-normal leading-[1.48] sm:leading-relaxed max-w-xl">
+                    {(currentBanner.description || "At Namma Ada, we bring the soul of Kerala into the homes of Bangalore. Every bowl of Palada Payasam, every Unniyappam, every bottle of pure coconut oil, and every delicacy we create is handcrafted with tradition and a whole lot of love.\n\nWe don't just serve food. We serve memories, festivals, and the comforting taste of home.").split("\n\n").map((para, idx) => (
+                      <p key={idx} className={idx > 0 ? "hidden sm:block" : ""}>{para}</p>
+                    ))}
+                  </div>
 
-                <div className="mt-4 sm:mt-5 flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 sm:gap-3 w-full max-w-[215px] sm:max-w-none">
-                  <Link
-                    className="inline-flex min-h-[44px] sm:min-h-11 items-center justify-center gap-2 rounded-full bg-[#711e2c] hover:bg-[#5a1723] px-6 sm:px-7 text-[13px] sm:text-sm font-semibold text-white shadow-md shadow-[#711e2c]/20 transition-all duration-150 active:scale-95 cursor-pointer"
-                    href={currentBanner.primary_cta_href || "/products"}
-                  >
-                    <span>Explore Now</span> <ArrowRight size={15} />
-                  </Link>
+                  <div className="mt-4 sm:mt-5 flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 sm:gap-3 w-full max-w-[215px] sm:max-w-none">
+                    <Link
+                      className="inline-flex min-h-[44px] sm:min-h-11 items-center justify-center gap-2 rounded-full bg-[#711e2c] hover:bg-[#5a1723] px-6 sm:px-7 text-[13px] sm:text-sm font-semibold text-white shadow-md shadow-[#711e2c]/20 transition-all duration-150 active:scale-95 cursor-pointer"
+                      href={currentBanner.primary_cta_href || "/products"}
+                    >
+                      <span>Explore Now</span> <ArrowRight size={15} />
+                    </Link>
 
-                  <Link
-                    className="inline-flex min-h-[44px] sm:min-h-11 items-center justify-center rounded-full border border-[#711e2c]/20 bg-[#f4efe8] sm:bg-white/25 hover:bg-[#ebe2d8] sm:hover:bg-white/45 px-6 sm:px-7 text-[13px] sm:text-sm font-semibold text-[#711e2c] sm:backdrop-blur-xs transition-all duration-150 active:scale-95 shadow-xs sm:shadow-none cursor-pointer"
-                    href={currentBanner.secondary_cta_href || "/contact"}
-                  >
-                    <span>Bulk Orders</span>
-                  </Link>
+                    <Link
+                      className="inline-flex min-h-[44px] sm:min-h-11 items-center justify-center rounded-full border border-[#711e2c]/20 bg-[#f4efe8] sm:bg-white/25 hover:bg-[#ebe2d8] sm:hover:bg-white/45 px-6 sm:px-7 text-[13px] sm:text-sm font-semibold text-[#711e2c] transition-all duration-150 active:scale-95 shadow-xs sm:shadow-none cursor-pointer"
+                      href={currentBanner.secondary_cta_href || "/contact"}
+                    >
+                      <span>Bulk Orders</span>
+                    </Link>
+                  </div>
                 </div>
 
                 <div className="hidden sm:grid sm:grid-cols-3 sm:gap-2 sm:mt-6 sm:pt-4 sm:border-t sm:border-[#711e2c]/15">
@@ -433,7 +453,7 @@ export function HeroSlider({ banners }: HeroSliderProps) {
         <>
           <button
             aria-label="Previous hero banner"
-            className="hidden sm:flex absolute left-4 top-1/2 -translate-y-1/2 z-30 h-11 w-11 items-center justify-center rounded-full border border-white/30 bg-black/40 text-white backdrop-blur-xs transition-all hover:bg-black/60 active:scale-95 cursor-pointer shadow-md"
+            className="hidden sm:flex absolute left-4 top-1/2 -translate-y-1/2 z-30 h-11 w-11 items-center justify-center rounded-full border border-white/30 bg-black/40 text-white backdrop-blur-xs [transform:translateZ(0)] transition-all hover:bg-black/60 active:scale-95 cursor-pointer shadow-md"
             onClick={handlePrev}
             type="button"
           >
@@ -442,14 +462,14 @@ export function HeroSlider({ banners }: HeroSliderProps) {
 
           <button
             aria-label="Next hero banner"
-            className="hidden sm:flex absolute right-4 top-1/2 -translate-y-1/2 z-30 h-11 w-11 items-center justify-center rounded-full border border-white/30 bg-black/40 text-white backdrop-blur-xs transition-all hover:bg-black/60 active:scale-95 cursor-pointer shadow-md"
+            className="hidden sm:flex absolute right-4 top-1/2 -translate-y-1/2 z-30 h-11 w-11 items-center justify-center rounded-full border border-white/30 bg-black/40 text-white backdrop-blur-xs [transform:translateZ(0)] transition-all hover:bg-black/60 active:scale-95 cursor-pointer shadow-md"
             onClick={handleNext}
             type="button"
           >
             <ChevronRight size={22} />
           </button>
 
-          <div className="absolute bottom-5 left-1/2 -translate-x-1/2 z-30 flex items-center gap-2 rounded-full border border-white/20 bg-black/40 px-3.5 py-1.5 backdrop-blur-md shadow-lg">
+          <div className="absolute bottom-5 left-1/2 -translate-x-1/2 z-30 flex items-center gap-2 rounded-full border border-white/20 bg-black/40 px-3.5 py-1.5 backdrop-blur-md [transform:translateZ(0)] shadow-lg">
             {banners.map((b, idx) => (
               <button
                 key={b.id}
