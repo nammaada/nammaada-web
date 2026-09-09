@@ -14,7 +14,7 @@ function TestimonialCard({ testimonial }: { testimonial: StorefrontTestimonial }
 
   return (
     <>
-      <div className="group relative flex h-[260px] sm:h-[280px] w-full flex-col justify-between rounded-2xl sm:rounded-3xl border border-white/45 bg-gradient-to-br from-white/50 via-[#fcf7ee]/28 to-[#f5e8d5]/18 p-5 sm:p-6 backdrop-blur-xl shadow-[0_16px_36px_-10px_rgba(43,23,25,0.08),inset_0_1px_1.5px_0_rgba(255,255,255,0.75)] transition-all duration-300 hover:border-white/60 hover:from-white/60 hover:via-[#fcf7ee]/38 hover:to-[#f5e8d5]/24 hover:shadow-[0_20px_40px_-10px_rgba(43,23,25,0.12),inset_0_1px_1.5px_0_rgba(255,255,255,0.85)] text-left overflow-hidden">
+      <div className="group relative flex h-[260px] sm:h-[280px] w-full flex-col justify-between rounded-2xl sm:rounded-3xl border border-white/45 bg-gradient-to-br from-white/50 via-[#fcf7ee]/28 to-[#f5e8d5]/18 p-5 sm:p-6 backdrop-blur-xl [transform:translateZ(0)] shadow-[0_16px_36px_-10px_rgba(43,23,25,0.08),inset_0_1px_1.5px_0_rgba(255,255,255,0.75)] transition-all duration-300 hover:border-white/60 hover:from-white/60 hover:via-[#fcf7ee]/38 hover:to-[#f5e8d5]/24 hover:shadow-[0_20px_40px_-10px_rgba(43,23,25,0.12),inset_0_1px_1.5px_0_rgba(255,255,255,0.85)] text-left overflow-hidden">
         <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
           <div className="flex items-center text-[#711e2c] shrink-0" aria-hidden="true">
             <span className="font-serif text-3xl sm:text-4xl leading-none font-bold select-none">“</span>

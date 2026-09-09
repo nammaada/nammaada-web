@@ -63,7 +63,7 @@ function CheckoutImage({ item }: { item: CartItem }) {
 
 function OrderSummary({ items, subtotalPaise }: { items: CartItem[]; subtotalPaise: number }) {
   return (
-    <div className="rounded-2xl sm:rounded-3xl border border-white/70 bg-gradient-to-br from-white/80 via-white/60 to-white/40 p-5 sm:p-6 backdrop-blur-xl shadow-xl shadow-amber-950/8 space-y-5 lg:sticky lg:top-28">
+    <div className="rounded-2xl sm:rounded-3xl border border-white/70 bg-gradient-to-br from-white/80 via-white/60 to-white/40 p-5 sm:p-6 backdrop-blur-xl [transform:translateZ(0)] shadow-xl shadow-amber-950/8 space-y-5 lg:sticky lg:top-28">
       <div className="flex items-center justify-between border-b border-[#e5d8c6] pb-3">
         <h2 className="font-display text-xl font-semibold text-[#2b1719]">Order Summary</h2>
         <span className="text-xs text-[#6e5b55] font-semibold">

@@ -19,7 +19,7 @@ export default async function ProductsPage() {
 
   return (
     <>
-      <section className="bg-transparent pt-8 pb-4 sm:py-14 text-center">
+      <section className="bg-transparent sm:py-5 text-center">
         <Container>
           <div className="max-w-2xl mx-auto flex flex-col items-center text-center">
             <p className="eyebrow text-center">OUR COLLECTION</p>
@@ -33,7 +33,7 @@ export default async function ProductsPage() {
         </Container>
       </section>
 
-      <section className="section-shell py-8 sm:py-12" aria-labelledby="catalog-heading">
+      <section className="section-shell sm:py-2" aria-labelledby="catalog-heading">
         <Container>
           <ProductCatalogView
             categories={categories}

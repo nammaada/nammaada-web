@@ -62,7 +62,7 @@ export function StorefrontNavbar({ isVideoHero = false }: { isVideoHero?: boolea
             className={`flex min-h-14 sm:min-h-16 items-center justify-between gap-3 sm:gap-4 rounded-full px-3.5 sm:px-6 transition-all duration-300 ${
               isCreamNavbar
                 ? "border border-[#e5d8c6] bg-[#fbf7ef] shadow-[0_10px_30px_-8px_rgba(43,23,25,0.14),0_2px_8px_rgba(0,0,0,0.06)]"
-                : "border border-white/50 bg-gradient-to-br from-white/55 via-[#fcf7ee]/32 to-[#f5e8d5]/22 backdrop-blur-xl shadow-[0_10px_30px_-8px_rgba(43,23,25,0.06),inset_0_1px_1.5px_0_rgba(255,255,255,0.75)]"
+                : "border border-white/50 bg-gradient-to-br from-white/55 via-[#fcf7ee]/32 to-[#f5e8d5]/22 backdrop-blur-xl [transform:translateZ(0)] shadow-[0_10px_30px_-8px_rgba(43,23,25,0.06),inset_0_1px_1.5px_0_rgba(255,255,255,0.75)]"
             }`}
           >
             {/* LOGO */}
@@ -114,7 +114,7 @@ export function StorefrontNavbar({ isVideoHero = false }: { isVideoHero?: boolea
                 className={`inline-flex min-h-11 min-w-11 items-center justify-center rounded-full text-[#711e2c] transition-all focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring active:scale-95 cursor-pointer ${
                   isCreamNavbar
                     ? "border border-[#e5d8c6] bg-white/80 shadow-xs hover:bg-white"
-                    : "border border-white/60 bg-white/40 backdrop-blur-xs shadow-xs hover:bg-white/65 hover:border-white/80"
+                    : "border border-white/60 bg-white/40 shadow-xs hover:bg-white/65 hover:border-white/80"
                 }`}
                 onClick={() => setSearchOpen(true)}
                 type="button"
@@ -132,7 +132,7 @@ export function StorefrontNavbar({ isVideoHero = false }: { isVideoHero?: boolea
                 className={`inline-flex min-h-11 min-w-11 items-center justify-center gap-2 rounded-full px-3.5 sm:px-4 text-xs sm:text-sm font-semibold text-[#711e2c] transition-all focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring active:scale-95 ${
                   isCreamNavbar
                     ? "border border-[#e5d8c6] bg-white/80 shadow-xs hover:bg-white"
-                    : "border border-white/60 bg-white/40 backdrop-blur-xs shadow-xs hover:bg-white/65 hover:border-white/80"
+                    : "border border-white/60 bg-white/40 shadow-xs hover:bg-white/65 hover:border-white/80"
                 }`}
                 href="/cart"
                 onClick={closeMenu}
@@ -168,7 +168,7 @@ export function StorefrontNavbar({ isVideoHero = false }: { isVideoHero?: boolea
                 className={`inline-flex min-h-11 min-w-11 items-center justify-center rounded-full text-[#711e2c] transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring lg:hidden active:scale-95 ${
                   isCreamNavbar
                     ? "border border-[#e5d8c6] bg-white/80 hover:bg-white shadow-xs"
-                    : "border border-white/60 bg-white/40 hover:bg-white/70 backdrop-blur-xs shadow-xs"
+                    : "border border-white/60 bg-white/40 hover:bg-white/70 shadow-xs"
                 }`}
                 onClick={() => setMenuOpen((open) => !open)}
                 type="button"

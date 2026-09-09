@@ -137,7 +137,7 @@ export function ProductSearchModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-start justify-center p-3 sm:p-6 md:pt-20 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200"
+      className="fixed inset-0 z-50 flex items-start justify-center p-3 sm:p-6 md:pt-20 bg-black/50 backdrop-blur-sm [transform:translateZ(0)] animate-in fade-in duration-200"
       onClick={onClose}
       role="dialog"
       aria-modal="true"
@@ -150,7 +150,7 @@ export function ProductSearchModal({
         {/* Search Header */}
         <form
           onSubmit={handleSubmit}
-          className="relative flex items-center gap-3 border-b border-[#e5d8c6] px-4 sm:px-5 py-3.5 bg-[#fbf7ef]/80 backdrop-blur-xs"
+          className="relative flex items-center gap-3 border-b border-[#e5d8c6] px-4 sm:px-5 py-3.5 bg-[#fbf7ef]"
         >
           <Search className="shrink-0 text-[#711e2c]" size={20} />
 

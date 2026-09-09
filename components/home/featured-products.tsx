@@ -77,7 +77,7 @@ export function FeaturedProducts({ products }: { products: StorefrontProduct[] }
               {products.map((product, index) => (
                 <div
                   key={product.id}
-                  className="w-full min-w-full sm:min-w-0 shrink-0 snap-center sm:w-auto sm:shrink group relative flex flex-col sm:flex-row items-stretch gap-4 rounded-3xl border border-white/45 bg-gradient-to-br from-white/50 via-[#fcf7ee]/28 to-[#f5e8d5]/18 p-4 sm:p-5 backdrop-blur-xl shadow-[0_16px_36px_-10px_rgba(43,23,25,0.08),inset_0_1px_1px_0_rgba(255,255,255,0.7)] transition-all duration-300 hover:border-white/60 hover:from-white/60 hover:via-[#fcf7ee]/38 hover:to-[#f5e8d5]/24 hover:shadow-[0_20px_40px_-10px_rgba(43,23,25,0.12),inset_0_1px_1.5px_0_rgba(255,255,255,0.85)]"
+                  className="w-full min-w-full sm:min-w-0 shrink-0 snap-center sm:w-auto sm:shrink group relative flex flex-col sm:flex-row items-stretch gap-4 rounded-3xl border border-white/45 bg-gradient-to-br from-white/50 via-[#fcf7ee]/28 to-[#f5e8d5]/18 p-4 sm:p-5 backdrop-blur-xl [transform:translateZ(0)] shadow-[0_16px_36px_-10px_rgba(43,23,25,0.08),inset_0_1px_1px_0_rgba(255,255,255,0.7)] transition-all duration-300 hover:border-white/60 hover:from-white/60 hover:via-[#fcf7ee]/38 hover:to-[#f5e8d5]/24 hover:shadow-[0_20px_40px_-10px_rgba(43,23,25,0.12),inset_0_1px_1.5px_0_rgba(255,255,255,0.85)]"
                 >
                   {/* Product Image */}
                   <div className="relative aspect-[4/3] sm:aspect-square w-full sm:w-[44%] shrink-0 overflow-hidden rounded-2xl bg-secondary">
