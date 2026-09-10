@@ -3,6 +3,8 @@ import { redirect } from "next/navigation";
 import { getAuthenticatedUser, isAdminUser } from "@/lib/auth/admin";
 import { LoginForm } from "@/components/auth/login-form";
 
+export const instant = false;
+
 export default async function LoginPage() {
   await connection();
 

@@ -1,4 +1,5 @@
 import Image from "next/image";
+import { connection } from "next/server";
 import Link from "next/link";
 import { Edit3, Plus, Image as ImageIcon } from "lucide-react";
 import { deleteProduct } from "@/actions/admin";
@@ -11,6 +12,8 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { adminRows, formatINR } from "@/lib/admin/data";
 import { getCloudinaryImageUrl } from "@/lib/cloudinary/delivery";
+
+export const instant = false;
 
 type ProductRow = {
   id: string;
@@ -29,6 +32,7 @@ type ImageRow = {
 };
 
 export default async function AdminProductsPage({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
+  await connection();
   const [rows, images] = await Promise.all([
     adminRows<ProductRow>("admin_products"),
     adminRows<ImageRow>("admin_product_images"),

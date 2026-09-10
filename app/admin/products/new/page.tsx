@@ -1,15 +1,19 @@
 import Link from "next/link";
+import { connection } from "next/server";
 import { PageHeader } from "@/components/admin/page-header";
 import { ProductForm } from "@/components/admin/product-form";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { adminRows } from "@/lib/admin/data";
 
+export const instant = false;
+
 export default async function NewProductPage({
   searchParams,
 }: {
   searchParams?: Promise<{ error?: string }>;
 }) {
+  await connection();
   const categories = await adminRows<{ id: string; name: string }>("categories");
   const query = searchParams ? await searchParams : {};
 

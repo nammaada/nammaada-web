@@ -113,7 +113,7 @@ create table public.products (
 -- stock; products with variants may use these rows as their purchasable units.
 create table public.product_variants (
   id uuid primary key default gen_random_uuid(),
-  product_id uuid not null references public.products (id) on delete restrict,
+  product_id uuid not null references public.products (id) on delete cascade,
   name text not null check (length(trim(name)) > 0),
   sku text unique,
   price_paise bigint not null check (price_paise >= 0),
@@ -128,7 +128,7 @@ create table public.product_variants (
 
 create table public.product_images (
   id uuid primary key default gen_random_uuid(),
-  product_id uuid not null references public.products (id) on delete restrict,
+  product_id uuid not null references public.products (id) on delete cascade,
   cloudinary_public_id text not null,
   secure_url text not null check (secure_url ~ '^https://'),
   alt_text text not null check (length(trim(alt_text)) > 0),

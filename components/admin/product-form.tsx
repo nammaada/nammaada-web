@@ -1,7 +1,8 @@
 "use client";
 
 import Image from "next/image";
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { Plus, UploadCloud, X, Star, RefreshCw, Trash2, ImageIcon, Check } from "lucide-react";
 import {
   saveProduct,
@@ -59,7 +60,7 @@ export function ProductForm({
 
   // Modal states
   const [modalOpen, setModalOpen] = useState(false);
-  const [replacingId, setReplacingId] = useState<string | null>(null);
+  const [replacingImage, setReplacingImage] = useState<ImageRow | null>(null);
 
   // For Create Product image staging
   const [stagedFile, setStagedFile] = useState<File | null>(null);
@@ -68,7 +69,6 @@ export function ProductForm({
 
   // Temporary staging state inside the modal (before clicking "Add Image")
   const [modalFile, setModalFile] = useState<File | null>(null);
-  const [modalAlt, setModalAlt] = useState("");
   const [modalPreview, setModalPreview] = useState<string | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -89,9 +89,6 @@ export function ProductForm({
     if (file) {
       setModalFile(file);
       setModalPreview(URL.createObjectURL(file));
-      if (!modalAlt) {
-        setModalAlt(product?.name || file.name.replace(/\.[^/.]+$/, ""));
-      }
     }
   };
 
@@ -99,7 +96,7 @@ export function ProductForm({
   const handleConfirmCreateImage = () => {
     if (modalFile) {
       setStagedFile(modalFile);
-      setStagedAlt(modalAlt);
+      setStagedAlt(product?.name || modalFile.name.replace(/\.[^/.]+$/, ""));
       setStagedPreviewUrl(modalPreview);
       // Transfer to hidden file input if possible
       if (fileInputRef.current) {
@@ -112,12 +109,17 @@ export function ProductForm({
   };
 
   // Remove staged image on Create
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   const handleRemoveStagedImage = () => {
     setStagedFile(null);
     setStagedAlt("");
     setStagedPreviewUrl(null);
     setModalFile(null);
-    setModalAlt("");
     setModalPreview(null);
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
@@ -127,6 +129,7 @@ export function ProductForm({
   return (
     <form action={saveProduct} className="w-full space-y-8">
       <input name="id" type="hidden" value={product?.id ?? ""} />
+      <input name="product_id" type="hidden" value={product?.id ?? ""} />
 
       {/* Hidden file inputs for Create Product */}
       {isNew && (
@@ -276,7 +279,6 @@ export function ProductForm({
                     variant="ghost"
                     onClick={() => {
                       setModalFile(stagedFile);
-                      setModalAlt(stagedAlt);
                       setModalPreview(stagedPreviewUrl);
                       setModalOpen(true);
                     }}
@@ -300,7 +302,6 @@ export function ProductForm({
                 type="button"
                 onClick={() => {
                   setModalFile(null);
-                  setModalAlt(product?.name || "");
                   setModalPreview(null);
                   setModalOpen(true);
                 }}
@@ -346,12 +347,12 @@ export function ProductForm({
                       {!image.is_primary && (
                         <Button
                           formAction={setPrimaryImage}
-                          name="id"
+                          name="image_id"
                           value={image.id}
                           size="sm"
                           type="submit"
                           variant="outline"
-                          className="h-7 text-[11px] px-2"
+                          className="h-7 text-[11px] px-2 hover:bg-primary/10 hover:text-primary"
                         >
                           <Star size={11} className="mr-1" />
                           Primary
@@ -364,7 +365,7 @@ export function ProductForm({
                         type="button"
                         variant="ghost"
                         className="h-7 text-[11px] px-2"
-                        onClick={() => setReplacingId(replacingId === image.id ? null : image.id)}
+                        onClick={() => setReplacingImage(image)}
                       >
                         <RefreshCw size={11} className="mr-1" />
                         Replace
@@ -399,25 +400,6 @@ export function ProductForm({
                       />
                     </div>
                   </div>
-
-                  {/* Inline Replace File Picker */}
-                  {replacingId === image.id && (
-                    <div className="absolute left-0 top-full mt-2 z-20 w-80 p-3 rounded-xl bg-card border border-border shadow-xl space-y-2 animate-in fade-in">
-                      <p className="text-xs font-semibold text-foreground">Select replacement file:</p>
-                      <input
-                        formAction={replaceProductImage}
-                        name="replace_id"
-                        type="hidden"
-                        value={image.id}
-                      />
-                      <input
-                        accept="image/jpeg,image/png,image/webp,image/avif"
-                        className="block w-full text-xs text-muted-foreground file:mr-2 file:py-1 file:px-2.5 file:rounded file:border-0 file:text-xs file:bg-secondary file:text-primary"
-                        name="file"
-                        type="file"
-                      />
-                    </div>
-                  )}
                 </div>
               ))}
 
@@ -450,7 +432,7 @@ export function ProductForm({
       </div>
 
       {/* ONE Simple Add Image Modal / Pop-up */}
-      {modalOpen && (
+      {mounted && modalOpen && createPortal(
         <div
           role="dialog"
           aria-modal="true"
@@ -493,16 +475,6 @@ export function ProductForm({
                     className="block w-full text-xs text-muted-foreground file:mr-2.5 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-secondary file:text-primary cursor-pointer"
                     type="file"
                     onChange={handleModalFileChange}
-                  />
-                </div>
-
-                <div className="space-y-1.5">
-                  <span className="text-xs font-semibold text-foreground">Alt text / Image label</span>
-                  <input
-                    className="min-h-10 w-full rounded-lg border border-input bg-card px-3 text-xs font-normal text-foreground placeholder:text-muted-foreground/60 transition-colors focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30 focus-visible:outline-none"
-                    placeholder="Describe what is visible in the photo..."
-                    value={modalAlt}
-                    onChange={(e) => setModalAlt(e.target.value)}
                   />
                 </div>
 
@@ -553,15 +525,16 @@ export function ProductForm({
                   />
                 </div>
 
-                <div className="space-y-1.5">
-                  <span className="text-xs font-semibold text-foreground">Alt text</span>
+                <label className="flex items-center gap-2.5 text-xs font-semibold text-foreground cursor-pointer pt-1">
                   <input
-                    className="min-h-10 w-full rounded-lg border border-input bg-card px-3 text-xs font-normal text-foreground placeholder:text-muted-foreground/60 transition-colors focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30 focus-visible:outline-none"
-                    name="alt_text"
-                    placeholder="Describe what is visible in the photo..."
-                    required
+                    type="checkbox"
+                    name="is_primary"
+                    value="true"
+                    defaultChecked={images.length === 0}
+                    className="accent-primary size-4 rounded"
                   />
-                </div>
+                  <span>Make this the primary product image</span>
+                </label>
 
                 <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-border">
                   <Button size="sm" type="button" variant="ghost" onClick={() => setModalOpen(false)}>
@@ -572,7 +545,65 @@ export function ProductForm({
               </form>
             )}
           </div>
-        </div>
+        </div>,
+        document.body
+      )}
+
+      {/* Dedicated Replace Image Modal */}
+      {mounted && replacingImage && createPortal(
+        <div
+          role="dialog"
+          aria-modal="true"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150"
+        >
+          <div className="fixed inset-0" onClick={() => setReplacingImage(null)} />
+          <div className="relative z-10 flex flex-col w-full max-w-lg rounded-2xl border border-border bg-card shadow-2xl overflow-hidden animate-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-card">
+              <div className="flex items-center gap-2.5">
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                  <RefreshCw size={18} />
+                </div>
+                <h3 className="font-display text-base font-semibold text-foreground">
+                  Replace Product Image
+                </h3>
+              </div>
+              <button
+                type="button"
+                aria-label="Close"
+                onClick={() => setReplacingImage(null)}
+                className="rounded-lg p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground cursor-pointer"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <form action={replaceProductImage} className="p-6 space-y-4">
+              <input name="product_id" type="hidden" value={product?.id ?? ""} />
+              <input name="id" type="hidden" value={replacingImage.id} />
+
+              <div className="rounded-xl border border-dashed border-border/80 bg-secondary/20 p-5 text-center">
+                <UploadCloud size={24} className="mx-auto text-primary mb-2" />
+                <p className="text-xs font-semibold text-foreground mb-1">Choose replacement image</p>
+                <p className="text-[11px] text-muted-foreground mb-3">JPG, PNG, WebP, or AVIF (Up to 10 MB)</p>
+                <input
+                  accept="image/jpeg,image/png,image/webp,image/avif"
+                  className="block w-full text-xs text-muted-foreground file:mr-2.5 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-secondary file:text-primary cursor-pointer"
+                  name="file"
+                  required
+                  type="file"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-border">
+                <Button size="sm" type="button" variant="ghost" onClick={() => setReplacingImage(null)}>
+                  Cancel
+                </Button>
+                <Submit label="Upload & Replace" size="sm" />
+              </div>
+            </form>
+          </div>
+        </div>,
+        document.body
       )}
     </form>
   );

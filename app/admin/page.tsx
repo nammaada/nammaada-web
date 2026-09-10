@@ -1,8 +1,11 @@
 import Link from "next/link";
+import { connection } from "next/server";
 import { Package, CheckCircle2, Star, ShoppingCart, Clock, Truck, Check, Inbox, Plus, ArrowUpRight } from "lucide-react";
 import { PageHeader } from "@/components/admin/page-header";
 import { Card } from "@/components/ui/card";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+
+export const instant = false;
 
 async function count(table: string, filters?: [string, string][]) {
   let query = (await createSupabaseServerClient()).from(table).select("id", { count: "exact", head: true });
@@ -12,6 +15,7 @@ async function count(table: string, filters?: [string, string][]) {
 }
 
 export default async function AdminPage() {
+  await connection();
   const [
     products,
     activeProducts,
