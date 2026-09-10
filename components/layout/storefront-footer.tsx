@@ -1,6 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
-import { ArrowUpRight } from "lucide-react";
+import { ArrowUpRight, Mail, Phone } from "lucide-react";
 import { Container } from "@/components/ui/container";
 import { siteConfig, storefrontRoutes } from "@/lib/constants/site";
 import { CopyrightYear } from "@/components/layout/copyright-year";
@@ -88,20 +88,41 @@ export function StorefrontFooter() {
           </nav>
         </div>
 
-        {/* Social */}
+        {/* Social & Contact */}
         <div className="flex flex-col items-center sm:items-start w-full">
           <h3 className="text-xs font-bold uppercase tracking-wider text-[#fbf7ef] text-center sm:text-left">Stay Connected</h3>
-          <div className="mt-2.5 flex justify-center sm:justify-start w-full">
+          <div className="mt-2.5 flex flex-col items-center sm:items-start gap-2.5 w-full">
             <Link
-              className="inline-flex min-h-10 items-center gap-2 rounded-full border border-[#fffcf2]/30 bg-white/10 px-4 text-xs sm:text-sm font-semibold transition-colors hover:bg-white/20 active:scale-95 text-[#fffcf2]"
+              className="inline-flex min-h-9 items-center gap-2 rounded-full border border-[#fffcf2]/30 bg-white/10 px-3.5 text-xs sm:text-sm font-semibold transition-colors hover:bg-white/20 active:scale-95 text-[#fffcf2]"
               href={siteConfig.instagramUrl}
               target="_blank"
               rel="noreferrer"
               aria-label="Visit Namma Ada on Instagram"
             >
-              <ArrowUpRight aria-hidden="true" size={15} />
+              <ArrowUpRight aria-hidden="true" size={14} />
               Instagram
             </Link>
+
+            {/* Highlighted Email & Phone */}
+            <div className="flex flex-col items-center sm:items-start gap-2 w-full pt-0.5">
+              <a
+                href="mailto:namaste@nammaada.com"
+                className="group inline-flex items-center gap-2 rounded-full border border-[#f3c87a]/40 bg-[#f3c87a]/15 px-3 py-1.5 text-xs sm:text-[13px] font-semibold text-[#ffeec9] transition-all hover:bg-[#f3c87a]/25 hover:border-[#f3c87a]/70 hover:text-white shadow-xs"
+                aria-label="Send email to namaste@nammaada.com"
+              >
+                <Mail size={13} className="shrink-0 text-[#f3c87a] group-hover:scale-110 transition-transform" />
+                <span className="tracking-wide">namaste@nammaada.com</span>
+              </a>
+
+              <a
+                href="tel:+919995811622"
+                className="group inline-flex items-center gap-2 rounded-full border border-[#f3c87a]/40 bg-[#f3c87a]/15 px-3 py-1.5 text-xs sm:text-[13px] font-semibold text-[#ffeec9] transition-all hover:bg-[#f3c87a]/25 hover:border-[#f3c87a]/70 hover:text-white shadow-xs"
+                aria-label="Call +91 9995811622"
+              >
+                <Phone size={13} className="shrink-0 text-[#f3c87a] group-hover:scale-110 transition-transform" />
+                <span className="tracking-wide">+91 9995811622</span>
+              </a>
+            </div>
           </div>
         </div>
       </Container>

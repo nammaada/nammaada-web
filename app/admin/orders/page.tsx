@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { connection } from "next/server";
 import { Eye } from "lucide-react";
 import { updateOrder } from "@/actions/admin";
 import { EmptyState } from "@/components/admin/empty-state";
@@ -8,6 +9,8 @@ import { StatusBadge } from "@/components/admin/status-badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { adminRows, formatINR } from "@/lib/admin/data";
+
+export const instant = false;
 
 type OrderRow = {
   id: string;
@@ -21,6 +24,7 @@ type OrderRow = {
 };
 
 export default async function OrdersPage() {
+  await connection();
   const rows = await adminRows<OrderRow>("admin_orders");
 
   return (
