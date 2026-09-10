@@ -31,11 +31,14 @@ export function StorefrontNavbar({ isVideoHero = false }: { isVideoHero?: boolea
   useEffect(() => {
     if (menuOpen) {
       document.body.style.overflow = "hidden";
+      document.body.style.overscrollBehavior = "none";
     } else {
       document.body.style.overflow = "";
+      document.body.style.overscrollBehavior = "";
     }
     return () => {
       document.body.style.overflow = "";
+      document.body.style.overscrollBehavior = "";
     };
   }, [menuOpen]);
 
@@ -189,7 +192,7 @@ export function StorefrontNavbar({ isVideoHero = false }: { isVideoHero?: boolea
       {/* MOBILE NAVIGATION DRAWER OVERLAY */}
       {menuOpen && (
         <div
-          className="fixed inset-0 z-50 flex flex-col bg-[#fbf7ef] lg:hidden animate-in fade-in duration-200"
+          className="fixed inset-0 top-0 left-0 right-0 bottom-0 z-50 flex flex-col bg-[#fbf7ef] lg:hidden h-[100dvh] w-screen overscroll-contain animate-in fade-in duration-200"
           id="mobile-storefront-drawer"
         >
           {/* Drawer Header */}
@@ -284,7 +287,7 @@ export function StorefrontNavbar({ isVideoHero = false }: { isVideoHero?: boolea
               </div>
 
               {/* Bottom Drawer CTA */}
-              <div className="pt-4 border-t border-[#e5d8c6] space-y-3">
+              <div className="pt-4 pb-[max(1.5rem,env(safe-area-inset-bottom,1.5rem))] border-t border-[#e5d8c6] space-y-3">
                 <Link
                   className="flex min-h-12 w-full items-center justify-center rounded-full bg-[#711e2c] px-6 text-sm font-semibold text-white shadow-md active:scale-98"
                   href="/products"

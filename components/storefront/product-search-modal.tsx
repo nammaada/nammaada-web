@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useTransition } from "react";
+import { createPortal } from "react-dom";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -32,19 +33,28 @@ export function ProductSearchModal({
   const inputRef = useRef<HTMLInputElement>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
 
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   // Focus input when opened and lock body scroll
   useEffect(() => {
     if (isOpen) {
       document.body.style.overflow = "hidden";
+      document.body.style.overscrollBehavior = "none";
       const timer = setTimeout(() => {
         inputRef.current?.focus();
       }, 50);
       return () => {
         clearTimeout(timer);
         document.body.style.overflow = "";
+        document.body.style.overscrollBehavior = "";
       };
     } else {
       document.body.style.overflow = "";
+      document.body.style.overscrollBehavior = "";
       setQuery("");
       setResults([]);
       setHasSearched(false);
@@ -133,18 +143,23 @@ export function ProductSearchModal({
     }
   }
 
-  if (!isOpen) return null;
+  if (!isOpen || !mounted) return null;
 
-  return (
+  return createPortal(
     <div
-      className="fixed inset-0 z-50 flex items-start justify-center p-3 sm:p-6 md:pt-20 bg-black/50 backdrop-blur-sm [transform:translateZ(0)] animate-in fade-in duration-200"
+      className="fixed inset-0 top-0 left-0 right-0 bottom-0 z-50 flex items-start justify-center p-3 sm:p-6 md:pt-20 bg-black/50 backdrop-blur-sm h-[100dvh] w-screen overscroll-contain animate-in fade-in duration-200"
+      style={{ touchAction: "none" }}
       onClick={onClose}
+      onTouchMove={(e) => {
+        if (e.target === e.currentTarget) e.preventDefault();
+      }}
       role="dialog"
       aria-modal="true"
       aria-label="Search products"
     >
       <div
-        className="relative w-full max-w-xl rounded-2xl sm:rounded-3xl border border-[#e5d8c6] bg-[#fffdfa] shadow-2xl overflow-hidden flex flex-col max-h-[85vh] animate-in zoom-in-95 duration-200"
+        className="relative w-full max-w-xl rounded-2xl sm:rounded-3xl border border-[#e5d8c6] bg-[#fffdfa] shadow-2xl overflow-hidden flex flex-col max-h-[85dvh] animate-in zoom-in-95 duration-200"
+        style={{ overscrollBehavior: "contain", touchAction: "auto" }}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Search Header */}
@@ -306,6 +321,7 @@ export function ProductSearchModal({
           </Link>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
