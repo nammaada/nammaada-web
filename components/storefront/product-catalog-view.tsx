@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 import { useRouter, useSearchParams } from "next/navigation";
 import { SlidersHorizontal, X, Check, RotateCcw, ChevronDown, Layers } from "lucide-react";
 import { ProductCard } from "@/components/storefront/product-card";
@@ -51,6 +52,38 @@ export function ProductCatalogView({
   // Mobile modal states
   const [isMobileFilterOpen, setIsMobileFilterOpen] = useState(false);
   const [mobileModalTab, setMobileModalTab] = useState<"category" | "filters">("category");
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  // Lock body scroll and prevent background swiping when mobile filter modal is open
+  useEffect(() => {
+    if (!isMobileFilterOpen) return;
+
+    const originalOverflow = document.body.style.overflow;
+    const originalOverscroll = document.body.style.overscrollBehavior;
+    const originalTouchAction = document.body.style.touchAction;
+
+    document.body.style.overflow = "hidden";
+    document.body.style.overscrollBehavior = "none";
+    document.body.style.touchAction = "none";
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setIsMobileFilterOpen(false);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.body.style.overflow = originalOverflow;
+      document.body.style.overscrollBehavior = originalOverscroll;
+      document.body.style.touchAction = originalTouchAction;
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [isMobileFilterOpen]);
 
   const priceRef = useRef<HTMLDivElement>(null);
   const sortRef = useRef<HTMLDivElement>(null);
@@ -514,16 +547,29 @@ export function ProductCatalogView({
       {/* ------------------------------------------------------------- */}
       {/* 5. MOBILE FILTER MODAL / BOTTOM SHEET WITH CATEGORY & FILTERS */}
       {/* ------------------------------------------------------------- */}
-      {isMobileFilterOpen && (
-        <div className="fixed inset-0 z-50 sm:hidden flex flex-col justify-end bg-black/60 backdrop-blur-xs animate-in fade-in duration-200">
+      {mounted && isMobileFilterOpen && createPortal(
+        <div
+          className="fixed inset-0 top-0 left-0 right-0 bottom-0 z-50 sm:hidden flex flex-col justify-end bg-black/60 backdrop-blur-xs h-[100dvh] w-screen overscroll-contain animate-in fade-in duration-200"
+          style={{ touchAction: "none" }}
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setIsMobileFilterOpen(false);
+          }}
+          onTouchMove={(e) => {
+            if (e.target === e.currentTarget) {
+              e.preventDefault();
+            }
+          }}
+        >
           <div
-            className="bg-[#fbf7ef] rounded-t-3xl max-h-[85vh] flex flex-col shadow-2xl border-t border-[#e5d8c6] animate-in slide-in-from-bottom-8 duration-300"
+            className="bg-[#fbf7ef] rounded-t-3xl max-h-[85dvh] flex flex-col shadow-2xl border-t border-[#e5d8c6] animate-in slide-in-from-bottom duration-300 w-full overflow-hidden"
             role="dialog"
             aria-modal="true"
             aria-label="Filter products"
+            style={{ overscrollBehavior: "contain", touchAction: "auto" }}
+            onClick={(e) => e.stopPropagation()}
           >
             {/* Header with Title & Close */}
-            <div className="flex items-center justify-between px-5 py-3.5 border-b border-[#e5d8c6]">
+            <div className="flex items-center justify-between px-5 py-3.5 border-b border-[#e5d8c6] shrink-0 bg-[#fbf7ef]">
               <div className="flex items-center gap-2">
                 <SlidersHorizontal size={16} className="text-[#711e2c]" />
                 <h3 className="font-display text-lg font-bold text-[#711e2c]">Filter Delicacies</h3>
@@ -539,7 +585,7 @@ export function ProductCatalogView({
             </div>
 
             {/* Modal Tabs: Category / Price & Sort */}
-            <div className="flex border-b border-[#e5d8c6] bg-white/60 px-5 pt-2">
+            <div className="flex border-b border-[#e5d8c6] bg-white/60 px-5 pt-2 shrink-0">
               <button
                 type="button"
                 onClick={() => setMobileModalTab("category")}
@@ -568,7 +614,14 @@ export function ProductCatalogView({
             </div>
 
             {/* Scrollable Content */}
-            <div className="overflow-y-auto p-5 space-y-5 flex-1">
+            <div
+              className="overflow-y-auto p-5 space-y-5 flex-1 overscroll-contain"
+              style={{
+                WebkitOverflowScrolling: "touch",
+                overscrollBehavior: "contain",
+                touchAction: "pan-y",
+              }}
+            >
               {mobileModalTab === "category" ? (
                 /* Category Selection Tab */
                 <div className="space-y-2.5">
@@ -687,7 +740,7 @@ export function ProductCatalogView({
             </div>
 
             {/* Footer Buttons */}
-            <div className="p-4 border-t border-[#e5d8c6] bg-white flex items-center gap-3">
+            <div className="p-4 pb-[max(1rem,env(safe-area-inset-bottom,1rem))] border-t border-[#e5d8c6] bg-white flex items-center gap-3 shrink-0">
               <button
                 type="button"
                 onClick={handleResetFilters}
@@ -704,7 +757,8 @@ export function ProductCatalogView({
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </div>
   );

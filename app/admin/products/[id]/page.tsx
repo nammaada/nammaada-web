@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { connection } from "next/server";
 import { deleteVariant, saveVariant } from "@/actions/admin";
 import { AdminField, CheckField, MoneyField, Submit } from "@/components/admin/admin-form";
 import { ConfirmDialog } from "@/components/admin/confirm-dialog";
@@ -10,6 +11,8 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { adminRow, adminRows, formatINR } from "@/lib/admin/data";
 import { getCloudinaryImageUrl } from "@/lib/cloudinary/delivery";
+
+export const instant = false;
 
 type Product = {
   id: string;
@@ -54,6 +57,7 @@ export default async function EditProductPage({
   params: Promise<{ id: string }>;
   searchParams: Promise<{ error?: string }>;
 }) {
+  await connection();
   const { id } = await params;
   const [product, categories, images, variants] = await Promise.all([
     adminRow<Product>("admin_products", id),

@@ -106,12 +106,49 @@ export async function saveProduct(form: FormData) {
   revalidatePath("/admin/products");
   if (targetProductId) {
     revalidatePath(`/admin/products/${targetProductId}`);
-    ok(`/admin/products/${targetProductId}`);
-  } else {
-    ok("/admin/products");
   }
+  ok("/admin/products");
 }
-export async function deleteProduct(form: FormData) { await requireAdmin(); const id = uuid(form, "id"); if (!id) fail("/admin/products", "Invalid product."); const result = await createSupabaseAdminClient().from("products").delete().eq("id", id); if (result.error) fail("/admin/products", "This product cannot be deleted while related records reference it."); ok("/admin/products"); }
+export async function deleteProduct(form: FormData) {
+  await requireAdmin();
+  const id = uuid(form, "id");
+  if (!id) fail("/admin/products", "Invalid product.");
+
+  const client = createSupabaseAdminClient();
+
+  // 1. Delete all Cloudinary assets associated with this product
+  try {
+    const { data: images } = await client
+      .from("product_images")
+      .select("cloudinary_public_id")
+      .eq("product_id", id);
+
+    if (images && images.length > 0) {
+      await Promise.allSettled(
+        images.map((img) => deleteCloudinaryImage(img.cloudinary_public_id))
+      );
+    }
+  } catch (err) {
+    console.error("Cloudinary cleanup error for product:", id, err);
+  }
+
+  // 2. Delete child rows from product_images and product_variants
+  await client.from("product_images").delete().eq("product_id", id);
+  await client.from("product_variants").delete().eq("product_id", id);
+
+  // 3. Delete the product
+  const result = await client.from("products").delete().eq("id", id);
+  if (result.error) {
+    console.error("Error deleting product:", result.error);
+    fail("/admin/products", `This product could not be deleted: ${result.error.message}`);
+  }
+
+  revalidatePath("/");
+  revalidatePath("/products");
+  revalidatePath("/admin/products");
+
+  ok("/admin/products");
+}
 export async function saveVariant(form: FormData) { await requireAdmin(); const id = uuid(form, "id"); const productId = uuid(form, "product_id"); const name = required(form, "name", "Variant name", 120); const price = moneyPaise(form, "price"); if (!productId || price < 0) fail(`/admin/products/${productId ?? ""}`, "Enter valid variant values."); const values = { product_id: productId, name, sku: text(form, "sku") || null, price_paise: price, stock_quantity: integer(form, "stock_quantity"), is_active: bool(form, "is_active"), display_order: integer(form, "display_order") }; const client = createSupabaseAdminClient(); const result = id ? await client.from("product_variants").update(values).eq("id", id) : await client.from("product_variants").insert(values); if (result.error) fail(`/admin/products/${productId}`, "Unable to save variant. Check that its SKU and name are unique."); ok(`/admin/products/${productId}`); }
 export async function deleteVariant(form: FormData) { await requireAdmin(); const productId = uuid(form, "product_id"); const id = uuid(form, "id"); if (!productId || !id) fail("/admin/products", "Invalid variant."); const result = await createSupabaseAdminClient().from("product_variants").delete().eq("id", id); if (result.error) fail(`/admin/products/${productId}`, "Unable to remove this variant."); ok(`/admin/products/${productId}`); }
 
@@ -203,12 +240,209 @@ export async function moveTestimonial(form: FormData) {
 export async function updateOrder(form: FormData) { await requireAdmin(); const id = uuid(form, "id"); const status = text(form, "order_status"); const allowed = ["pending", "paid", "processing", "shipped", "delivered", "cancelled", "refunded"]; if (!id || !allowed.includes(status)) fail("/admin/orders", "Invalid order status."); const values = { order_status: status }; const result = await createSupabaseAdminClient().from("orders").update(values).eq("id", id); if (result.error) fail("/admin/orders", "Unable to update order status."); ok("/admin/orders"); }
 export async function updateEnquiry(form: FormData) { await requireAdmin(); const id = uuid(form, "id"); const status = text(form, "status"); const allowed = ["new", "in_progress", "resolved", "closed"]; if (!id || !allowed.includes(status)) fail("/admin/enquiries", "Invalid enquiry status."); const result = await createSupabaseAdminClient().from("bulk_enquiries").update({ status }).eq("id", id); if (result.error) fail("/admin/enquiries", "Unable to update enquiry."); ok("/admin/enquiries"); }
 
-export async function uploadProductImage(form: FormData) { await requireAdmin(); const productId = uuid(form, "product_id"); const file = form.get("file"); const alt = text(form, "alt_text"); if (!productId || !(file instanceof File) || !file.size || !alt || alt.length > 240) fail(`/admin/products/${productId ?? ""}`, "Choose an image and provide meaningful alt text."); const validation = validateImage(file); if (validation) fail(`/admin/products/${productId}`, validation); try { const uploaded = await uploadCloudinaryImage(file); if (uploaded.width > 6000 || uploaded.height > 6000) { await deleteCloudinaryImage(uploaded.public_id); fail(`/admin/products/${productId}`, "Images must not exceed 6000 pixels on either side."); } const client = createSupabaseAdminClient(); const { count } = await client.from("product_images").select("id", { count: "exact", head: true }).eq("product_id", productId); const result = await client.from("product_images").insert({ product_id: productId, cloudinary_public_id: uploaded.public_id, secure_url: uploaded.secure_url, alt_text: alt, display_order: count ?? 0, is_primary: (count ?? 0) === 0 }); if (result.error) { await deleteCloudinaryImage(uploaded.public_id); fail(`/admin/products/${productId}`, "Image metadata could not be saved."); } } catch { fail(`/admin/products/${productId}`, "Image upload failed. Please try again."); } ok(`/admin/products/${productId}`); }
-export async function deleteProductImage(form: FormData) { await requireAdmin(); const productId = uuid(form, "product_id"); const id = uuid(form, "id"); const publicId = text(form, "public_id"); if (!productId || !id || !publicId) fail("/admin/products", "Invalid image."); try { await deleteCloudinaryImage(publicId); const result = await createSupabaseAdminClient().from("product_images").delete().eq("id", id).eq("product_id", productId); if (result.error) fail(`/admin/products/${productId}`, "Image metadata could not be deleted."); } catch { fail(`/admin/products/${productId}`, "Image deletion failed. Please try again."); } ok(`/admin/products/${productId}`); }
-export async function setPrimaryImage(form: FormData) { await requireAdmin(); const productId = uuid(form, "product_id"); const id = uuid(form, "id"); if (!productId || !id) fail("/admin/products", "Invalid image."); const client = createSupabaseAdminClient(); const clear = await client.from("product_images").update({ is_primary: false }).eq("product_id", productId); const set = await client.from("product_images").update({ is_primary: true }).eq("id", id).eq("product_id", productId); if (clear.error || set.error) fail(`/admin/products/${productId}`, "Unable to update primary image."); ok(`/admin/products/${productId}`); }
-export async function updateProductImage(form: FormData) { await requireAdmin(); const productId = uuid(form, "product_id"); const id = uuid(form, "id"); const alt = text(form, "alt_text"); if (!productId || !id || !alt || alt.length > 240) fail(`/admin/products/${productId ?? ""}`, "Provide meaningful alt text."); const displayOrder = integer(form, "display_order"); const result = await createSupabaseAdminClient().from("product_images").update({ alt_text: alt, display_order: displayOrder }).eq("id", id).eq("product_id", productId); if (result.error) fail(`/admin/products/${productId}`, "Unable to update image details."); ok(`/admin/products/${productId}`); }
-export async function moveProductImage(form: FormData) { await requireAdmin(); const productId = uuid(form, "product_id"); const id = uuid(form, "id"); const direction = text(form, "direction"); if (!productId || !id || !["up", "down"].includes(direction)) fail(`/admin/products/${productId ?? ""}`, "Invalid image order."); const client = createSupabaseAdminClient(); const { data: current } = await client.from("product_images").select("id,display_order").eq("id", id).eq("product_id", productId).maybeSingle(); if (!current) fail(`/admin/products/${productId}`, "The image could not be found."); const query = direction === "up" ? client.from("product_images").select("id,display_order").eq("product_id", productId).lt("display_order", current.display_order).order("display_order", { ascending: false }).limit(1) : client.from("product_images").select("id,display_order").eq("product_id", productId).gt("display_order", current.display_order).order("display_order", { ascending: true }).limit(1); const { data: sibling } = await query.maybeSingle(); if (!sibling) ok(`/admin/products/${productId}`); const first = await client.from("product_images").update({ display_order: -1 }).eq("id", current.id); const second = await client.from("product_images").update({ display_order: current.display_order }).eq("id", sibling.id); const third = await client.from("product_images").update({ display_order: sibling.display_order }).eq("id", current.id); if (first.error || second.error || third.error) fail(`/admin/products/${productId}`, "Unable to reorder image."); ok(`/admin/products/${productId}`); }
-export async function replaceProductImage(form: FormData) { await requireAdmin(); const productId = uuid(form, "product_id"); const id = uuid(form, "id"); const file = form.get("file"); if (!productId || !id || !(file instanceof File) || !file.size) fail(`/admin/products/${productId ?? ""}`, "Choose a replacement image."); const validation = validateImage(file); if (validation) fail(`/admin/products/${productId}`, validation); const client = createSupabaseAdminClient(); const { data: existing, error: lookupError } = await client.from("product_images").select("cloudinary_public_id").eq("id", id).eq("product_id", productId).maybeSingle(); if (lookupError || !existing) fail(`/admin/products/${productId}`, "The image could not be found."); let uploaded: Awaited<ReturnType<typeof uploadCloudinaryImage>>; try { uploaded = await uploadCloudinaryImage(file); if (uploaded.width > 6000 || uploaded.height > 6000) { await deleteCloudinaryImage(uploaded.public_id); fail(`/admin/products/${productId}`, "Images must not exceed 6000 pixels on either side."); } } catch { fail(`/admin/products/${productId}`, "Replacement upload failed. The existing image is unchanged."); } const result = await client.from("product_images").update({ cloudinary_public_id: uploaded.public_id, secure_url: uploaded.secure_url }).eq("id", id).eq("product_id", productId); if (result.error) { await deleteCloudinaryImage(uploaded.public_id).catch(() => undefined); fail(`/admin/products/${productId}`, "The replacement could not be saved. The existing image is unchanged."); } try { await deleteCloudinaryImage(existing.cloudinary_public_id); } catch { fail(`/admin/products/${productId}`, "Replacement saved, but the old Cloudinary asset could not be cleaned up."); } ok(`/admin/products/${productId}`); }
+export async function uploadProductImage(form: FormData) {
+  await requireAdmin();
+  const productId = uuid(form, "product_id");
+  const file = form.get("file");
+  if (!productId || !(file instanceof File) || !file.size) {
+    fail(`/admin/products/${productId ?? ""}`, "Please select an image file to upload.");
+  }
+
+  const validation = validateImage(file);
+  if (validation) fail(`/admin/products/${productId}`, validation);
+
+  const client = createSupabaseAdminClient();
+
+  // Alt text is no longer required in the UI; auto-generate from product name
+  let alt = text(form, "alt_text");
+  if (!alt) {
+    const { data: prod } = await client.from("products").select("name").eq("id", productId).maybeSingle();
+    alt = prod?.name || "Product image";
+  }
+
+  try {
+    const uploaded = await uploadCloudinaryImage(file);
+    if (uploaded.width > 6000 || uploaded.height > 6000) {
+      await deleteCloudinaryImage(uploaded.public_id);
+      fail(`/admin/products/${productId}`, "Images must not exceed 6000 pixels on either side.");
+    }
+
+    const { count } = await client
+      .from("product_images")
+      .select("id", { count: "exact", head: true })
+      .eq("product_id", productId);
+
+    const makePrimary = bool(form, "is_primary") || (count ?? 0) === 0;
+
+    if (makePrimary && (count ?? 0) > 0) {
+      await client.from("product_images").update({ is_primary: false }).eq("product_id", productId);
+    }
+
+    const result = await client.from("product_images").insert({
+      product_id: productId,
+      cloudinary_public_id: uploaded.public_id,
+      secure_url: uploaded.secure_url,
+      alt_text: alt,
+      display_order: count ?? 0,
+      is_primary: makePrimary,
+    });
+
+    if (result.error) {
+      await deleteCloudinaryImage(uploaded.public_id);
+      fail(`/admin/products/${productId}`, "Image metadata could not be saved.");
+    }
+  } catch (err) {
+    console.error("Image upload error:", err);
+    fail(`/admin/products/${productId}`, "Image upload failed. Please try again.");
+  }
+
+  revalidatePath("/");
+  revalidatePath("/products");
+  revalidatePath("/admin/products");
+  revalidatePath(`/admin/products/${productId}`);
+
+  ok(`/admin/products/${productId}`);
+}
+
+export async function deleteProductImage(form: FormData) {
+  await requireAdmin();
+  const productId = uuid(form, "product_id");
+  const id = uuid(form, "id");
+  const publicId = text(form, "public_id");
+  if (!productId || !id || !publicId) fail("/admin/products", "Invalid image.");
+
+  try {
+    await deleteCloudinaryImage(publicId);
+    const client = createSupabaseAdminClient();
+    const result = await client.from("product_images").delete().eq("id", id).eq("product_id", productId);
+    if (result.error) fail(`/admin/products/${productId}`, "Image metadata could not be deleted.");
+
+    // If deleted image was primary, make the first remaining image primary
+    const { data: remaining } = await client
+      .from("product_images")
+      .select("id,is_primary")
+      .eq("product_id", productId)
+      .order("display_order", { ascending: true });
+
+    if (remaining && remaining.length > 0 && !remaining.some((img) => img.is_primary)) {
+      await client.from("product_images").update({ is_primary: true }).eq("id", remaining[0].id);
+    }
+  } catch (err) {
+    console.error("Delete image error:", err);
+    fail(`/admin/products/${productId}`, "Image deletion failed. Please try again.");
+  }
+
+  revalidatePath("/");
+  revalidatePath("/products");
+  revalidatePath("/admin/products");
+  revalidatePath(`/admin/products/${productId}`);
+
+  ok(`/admin/products/${productId}`);
+}
+
+export async function setPrimaryImage(form: FormData) {
+  await requireAdmin();
+  const productId = uuid(form, "product_id") || uuid(form, "id");
+  const id = uuid(form, "image_id") || uuid(form, "id");
+  if (!productId || !id) fail("/admin/products", "Invalid image.");
+
+  const client = createSupabaseAdminClient();
+  const clear = await client.from("product_images").update({ is_primary: false }).eq("product_id", productId);
+  const set = await client.from("product_images").update({ is_primary: true }).eq("id", id).eq("product_id", productId);
+  if (clear.error || set.error) fail(`/admin/products/${productId}`, "Unable to update primary image.");
+
+  revalidatePath("/");
+  revalidatePath("/products");
+  revalidatePath("/admin/products");
+  revalidatePath(`/admin/products/${productId}`);
+
+  ok(`/admin/products/${productId}`);
+}
+
+export async function updateProductImage(form: FormData) {
+  await requireAdmin();
+  const productId = uuid(form, "product_id");
+  const id = uuid(form, "id");
+  let alt = text(form, "alt_text");
+  if (!alt) {
+    alt = "Product image";
+  }
+  const displayOrder = integer(form, "display_order");
+  const result = await createSupabaseAdminClient().from("product_images").update({ alt_text: alt, display_order: displayOrder }).eq("id", id).eq("product_id", productId);
+  if (result.error) fail(`/admin/products/${productId}`, "Unable to update image details.");
+
+  revalidatePath("/");
+  revalidatePath("/products");
+  revalidatePath("/admin/products");
+  revalidatePath(`/admin/products/${productId}`);
+
+  ok(`/admin/products/${productId}`);
+}
+
+export async function moveProductImage(form: FormData) {
+  await requireAdmin();
+  const productId = uuid(form, "product_id");
+  const id = uuid(form, "id");
+  const direction = text(form, "direction");
+  if (!productId || !id || !["up", "down"].includes(direction)) fail(`/admin/products/${productId ?? ""}`, "Invalid image order.");
+  const client = createSupabaseAdminClient();
+  const { data: current } = await client.from("product_images").select("id,display_order").eq("id", id).eq("product_id", productId).maybeSingle();
+  if (!current) fail(`/admin/products/${productId}`, "The image could not be found.");
+  const query = direction === "up" ? client.from("product_images").select("id,display_order").eq("product_id", productId).lt("display_order", current.display_order).order("display_order", { ascending: false }).limit(1) : client.from("product_images").select("id,display_order").eq("product_id", productId).gt("display_order", current.display_order).order("display_order", { ascending: true }).limit(1);
+  const { data: sibling } = await query.maybeSingle();
+  if (!sibling) ok(`/admin/products/${productId}`);
+  const first = await client.from("product_images").update({ display_order: -1 }).eq("id", current.id);
+  const second = await client.from("product_images").update({ display_order: current.display_order }).eq("id", sibling.id);
+  const third = await client.from("product_images").update({ display_order: sibling.display_order }).eq("id", current.id);
+  if (first.error || second.error || third.error) fail(`/admin/products/${productId}`, "Unable to reorder image.");
+
+  revalidatePath("/");
+  revalidatePath("/products");
+  revalidatePath("/admin/products");
+  revalidatePath(`/admin/products/${productId}`);
+
+  ok(`/admin/products/${productId}`);
+}
+
+export async function replaceProductImage(form: FormData) {
+  await requireAdmin();
+  const productId = uuid(form, "product_id");
+  const id = uuid(form, "id");
+  const file = form.get("file");
+  if (!productId || !id || !(file instanceof File) || !file.size) fail(`/admin/products/${productId ?? ""}`, "Choose a replacement image.");
+  const validation = validateImage(file);
+  if (validation) fail(`/admin/products/${productId}`, validation);
+  const client = createSupabaseAdminClient();
+  const { data: existing, error: lookupError } = await client.from("product_images").select("cloudinary_public_id").eq("id", id).eq("product_id", productId).maybeSingle();
+  if (lookupError || !existing) fail(`/admin/products/${productId}`, "The image could not be found.");
+  let uploaded: Awaited<ReturnType<typeof uploadCloudinaryImage>>;
+  try {
+    uploaded = await uploadCloudinaryImage(file);
+    if (uploaded.width > 6000 || uploaded.height > 6000) {
+      await deleteCloudinaryImage(uploaded.public_id);
+      fail(`/admin/products/${productId}`, "Images must not exceed 6000 pixels on either side.");
+    }
+  } catch {
+    fail(`/admin/products/${productId}`, "Replacement upload failed. The existing image is unchanged.");
+  }
+  const result = await client.from("product_images").update({ cloudinary_public_id: uploaded.public_id, secure_url: uploaded.secure_url }).eq("id", id).eq("product_id", productId);
+  if (result.error) {
+    await deleteCloudinaryImage(uploaded.public_id).catch(() => undefined);
+    fail(`/admin/products/${productId}`, "The replacement could not be saved. The existing image is unchanged.");
+  }
+  try {
+    await deleteCloudinaryImage(existing.cloudinary_public_id);
+  } catch {
+    // Non-fatal
+  }
+
+  revalidatePath("/");
+  revalidatePath("/products");
+  revalidatePath("/admin/products");
+  revalidatePath(`/admin/products/${productId}`);
+
+  ok(`/admin/products/${productId}`);
+}
 
 export async function saveHeroMedia(form: FormData) {
   await requireAdmin();

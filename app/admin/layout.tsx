@@ -3,6 +3,8 @@ import { connection } from "next/server";
 import { requireAdmin } from "@/lib/auth/admin";
 import { AdminShell } from "@/components/admin/admin-shell";
 
+export const instant = false;
+
 export default async function AdminLayout({ children }: Readonly<{ children: ReactNode }>) {
   // Explicitly opt this layout out of PPR prerendering.
   // The admin layout always reads cookies for auth (via requireAdmin → Supabase JWT),
