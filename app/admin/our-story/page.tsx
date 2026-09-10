@@ -2,7 +2,8 @@ import { getWhoWeAreContent } from "@/lib/storefront/content";
 import { PageHeader } from "@/components/admin/page-header";
 import { OurStoryForm } from "./our-story-form";
 
-export const dynamic = "force-dynamic";
+// searchParams (error/success flash) is URL data read at request time — block until available.
+export const instant = false;
 
 export default async function OurStoryPage({
   searchParams,

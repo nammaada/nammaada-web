@@ -14,14 +14,18 @@ export default async function StorefrontLayout({ children }: Readonly<{ children
         {/* AUTHORITATIVE SINGLE PAGE SCROLLING BACKGROUND ARTWORK MATCHING MOCKUP */}
         <div
           aria-hidden="true"
-          className="absolute inset-0 z-0 pointer-events-none overflow-hidden"
+          className="absolute inset-0 z-0 pointer-events-none overflow-hidden [transform:translateZ(0)] [contain:strict]"
         >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src="/bg-image-aada.png"
-            alt=""
-            className="h-full w-full object-cover object-top opacity-95 transition-opacity duration-500"
-          />
+          <picture>
+            <source srcSet="/bg-image-aada.webp" type="image/webp" />
+            <img
+              src="/bg-image-aada.png"
+              alt=""
+              fetchPriority="high"
+              decoding="async"
+              className="h-full w-full object-cover object-top opacity-95"
+            />
+          </picture>
         </div>
 
         {/* STOREFRONT CONTENT REGION */}

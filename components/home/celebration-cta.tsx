@@ -18,13 +18,17 @@ export function CelebrationCta() {
           {/* Background image overlay */}
           <div className="absolute inset-0 z-0 overflow-hidden">
             {bgLoaded && (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src="/cele-bg.png"
-                alt="Kerala traditional celebration"
-                className="h-full w-full object-cover object-center"
-                onError={() => setBgLoaded(false)}
-              />
+              <picture>
+                <source srcSet="/cele-bg.webp" type="image/webp" />
+                <img
+                  src="/cele-bg.png"
+                  alt="Kerala traditional celebration"
+                  loading="lazy"
+                  decoding="async"
+                  className="h-full w-full object-cover object-center"
+                  onError={() => setBgLoaded(false)}
+                />
+              </picture>
             )}
             <div className="absolute inset-0 bg-gradient-to-r from-[#1c080b]/60 via-black/20 to-[#1c080b]/50" />
           </div>

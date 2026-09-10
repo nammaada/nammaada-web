@@ -3,6 +3,7 @@ import Link from "next/link";
 import { ArrowUpRight } from "lucide-react";
 import { Container } from "@/components/ui/container";
 import { siteConfig, storefrontRoutes } from "@/lib/constants/site";
+import { CopyrightYear } from "@/components/layout/copyright-year";
 
 export function StorefrontFooter() {
   return (
@@ -12,10 +13,12 @@ export function StorefrontFooter() {
         {/* Desktop / tablet: full panoramic decorative background */}
         <div className="relative h-full w-full hidden sm:block">
           <Image
-            src="/footer-bg.png"
+            src="/footer-bg.webp"
             alt=""
             fill
             priority={false}
+            loading="lazy"
+            decoding="async"
             className="object-cover object-bottom"
           />
         </div>
@@ -25,21 +28,25 @@ export function StorefrontFooter() {
           {/* Left corner leaves (small, subtle, positioned at bottom corner) */}
           <div className="absolute bottom-0 left-0 w-40 pointer-events-none select-none z-0">
             <Image
-              src="/footer-leaf-left.png"
+              src="/footer-leaf-left.webp"
               alt=""
               width={235}
-              height={271}
-              className="w-full h-auto object-contain object-left-bottom"
+              height={170}
+              loading="lazy"
+              decoding="async"
+              className="h-auto w-full object-contain object-left-bottom opacity-40"
             />
           </div>
           {/* Right corner leaves (small, subtle, positioned at bottom corner) */}
           <div className="absolute bottom-0 right-0 w-40 pointer-events-none select-none z-0">
             <Image
-              src="/footer-leaf-right.png"
+              src="/footer-leaf-right.webp"
               alt=""
-              width={224}
-              height={291}
-              className="w-full h-auto object-contain object-right-bottom"
+              width={235}
+              height={170}
+              loading="lazy"
+              decoding="async"
+              className="h-auto w-full object-contain object-right-bottom opacity-40"
             />
           </div>
         </div>
@@ -73,6 +80,7 @@ export function StorefrontFooter() {
                 key={route.href}
                 className="text-xs sm:text-sm text-[#fffcf2]/90 transition-colors hover:text-white text-center sm:text-left"
                 href={route.href}
+                prefetch={true}
               >
                 {route.label}
               </Link>
@@ -104,7 +112,7 @@ export function StorefrontFooter() {
           <div className="relative flex flex-col items-center gap-1.5 text-center sm:flex-row sm:items-center sm:justify-between text-xs sm:text-sm text-[#fffcf2] font-normal">
             {/* Left: Copyright */}
             <p className="text-center sm:text-left sm:flex-1">
-              © {new Date().getFullYear()} {siteConfig.name}. All rights reserved.
+              © <CopyrightYear /> {siteConfig.name}. All rights reserved.
             </p>
 
             {/* Center: CRAFTED BY EKODRIX (exact horizontal center on desktop) */}

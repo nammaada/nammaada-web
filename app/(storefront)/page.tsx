@@ -9,8 +9,6 @@ import { getFromOurKitchenContent, getWhoWeAreContent } from "@/lib/storefront/c
 import { getFeaturedProducts } from "@/lib/storefront/products";
 import { getTestimonials } from "@/lib/storefront/testimonials";
 
-export const dynamic = "force-dynamic";
-
 export default async function HomePage() {
   const [featuredProducts, testimonials, whoWeAreContent, fromOurKitchenContent] = await Promise.all([
     getFeaturedProducts(),

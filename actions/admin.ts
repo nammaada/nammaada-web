@@ -18,7 +18,13 @@ function moneyPaise(form: FormData, key: string) {
   return Math.round(rupees * 100);
 }
 function fail(path: string, message: string): never { redirect(`${path}?error=${encodeURIComponent(message)}`); }
-function ok(path: string): never { revalidatePath(path); redirect(path); }
+function ok(path: string): never {
+  revalidatePath("/", "layout");
+  revalidatePath("/");
+  revalidatePath("/products");
+  revalidatePath(path);
+  redirect(path);
+}
 function required(form: FormData, key: string, label: string, max: number, failPath = "/admin") { const value = text(form, key); if (!value || value.length > max) return fail(failPath, `${label} is required and must be ${max} characters or fewer.`); return value; }
 function dbMessage() { return "Unable to save this change. Check the values and try again."; }
 

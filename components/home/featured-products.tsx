@@ -54,6 +54,7 @@ export function FeaturedProducts({ products }: { products: StorefrontProduct[] }
 
           <Link
             href="/products"
+            prefetch={true}
             className="inline-flex min-h-11 shrink-0 items-center gap-1.5 self-center text-xs sm:text-sm font-semibold text-[#711e2c] underline decoration-[#711e2c]/30 underline-offset-4 transition-colors hover:decoration-[#711e2c] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring sm:self-auto"
           >
             View All Products <ArrowUpRight aria-hidden="true" size={16} />
@@ -77,7 +78,7 @@ export function FeaturedProducts({ products }: { products: StorefrontProduct[] }
               {products.map((product, index) => (
                 <div
                   key={product.id}
-                  className="w-full min-w-full sm:min-w-0 shrink-0 snap-center sm:w-auto sm:shrink group relative flex flex-col sm:flex-row items-stretch gap-4 rounded-3xl border border-white/45 bg-gradient-to-br from-white/50 via-[#fcf7ee]/28 to-[#f5e8d5]/18 p-4 sm:p-5 backdrop-blur-xl [transform:translateZ(0)] shadow-[0_16px_36px_-10px_rgba(43,23,25,0.08),inset_0_1px_1px_0_rgba(255,255,255,0.7)] transition-all duration-300 hover:border-white/60 hover:from-white/60 hover:via-[#fcf7ee]/38 hover:to-[#f5e8d5]/24 hover:shadow-[0_20px_40px_-10px_rgba(43,23,25,0.12),inset_0_1px_1.5px_0_rgba(255,255,255,0.85)]"
+                  className="w-full min-w-full sm:min-w-0 shrink-0 snap-center sm:w-auto sm:shrink group relative flex flex-col sm:flex-row items-stretch gap-4 rounded-3xl border border-white/45 bg-gradient-to-br from-white/50 via-[#fcf7ee]/28 to-[#f5e8d5]/18 p-4 sm:p-5 backdrop-blur-xl [transform:translateZ(0)] [backface-visibility:hidden] [isolation:isolate] shadow-[0_16px_36px_-10px_rgba(43,23,25,0.08),inset_0_1px_1px_0_rgba(255,255,255,0.7)] transition-[border-color,background-color,box-shadow] duration-300 hover:border-white/60 hover:from-white/60 hover:via-[#fcf7ee]/38 hover:to-[#f5e8d5]/24 hover:shadow-[0_20px_40px_-10px_rgba(43,23,25,0.12),inset_0_1px_1.5px_0_rgba(255,255,255,0.85)]"
                 >
                   {/* Product Image */}
                   <div className="relative aspect-[4/3] sm:aspect-square w-full sm:w-[44%] shrink-0 overflow-hidden rounded-2xl bg-secondary">
@@ -86,6 +87,9 @@ export function FeaturedProducts({ products }: { products: StorefrontProduct[] }
                         src={product.primary_image.url}
                         alt={product.primary_image.alt || product.name}
                         fill
+                        priority={index === 0}
+                        loading={index < 2 ? "eager" : "lazy"}
+                        decoding="async"
                         className="object-cover transition-transform duration-500 group-hover:scale-105"
                         sizes="(min-width: 768px) 30vw, 100vw"
                       />
@@ -106,7 +110,7 @@ export function FeaturedProducts({ products }: { products: StorefrontProduct[] }
 
                       {/* Title */}
                       <h3 className="mt-1 font-display text-xl sm:text-2xl font-semibold leading-tight text-[#2b1719]">
-                        <Link href={`/products/${product.slug}`} className="transition-colors hover:text-[#711e2c]">
+                        <Link href={`/products/${product.slug}`} prefetch={true} className="transition-colors hover:text-[#711e2c]">
                           {product.name}
                         </Link>
                       </h3>
@@ -126,6 +130,7 @@ export function FeaturedProducts({ products }: { products: StorefrontProduct[] }
                       </span>
                       <Link
                         href={`/products/${product.slug}`}
+                        prefetch={true}
                         className="inline-flex min-h-10 items-center gap-1 rounded-full bg-[#711e2c] hover:bg-[#5a1723] px-4.5 py-2 text-xs font-semibold text-white shadow-md transition-all active:scale-95"
                       >
                         <span>Enquire Now</span>

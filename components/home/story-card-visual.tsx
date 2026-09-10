@@ -82,6 +82,8 @@ export function StoryCardVisual({ images }: { images: WhoWeAreImage[] }) {
                 sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 340px"
                 className="object-cover object-center pointer-events-none"
                 priority={idx === 0}
+                loading={idx === 0 ? "eager" : "lazy"}
+                decoding="async"
               />
             </div>
           ))}
