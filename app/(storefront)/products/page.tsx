@@ -4,8 +4,6 @@ import { ProductCatalogView } from "@/components/storefront/product-catalog-view
 import { getStorefrontCategories } from "@/lib/storefront/categories";
 import { getProducts } from "@/lib/storefront/products";
 
-export const dynamic = "force-dynamic";
-
 export const metadata: Metadata = {
   title: "Products",
   description: "Explore Namma Ada's traditional Kerala delicacies, handcrafted with care.",

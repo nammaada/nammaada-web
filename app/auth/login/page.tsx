@@ -1,10 +1,11 @@
+import { connection } from "next/server";
 import { redirect } from "next/navigation";
 import { getAuthenticatedUser, isAdminUser } from "@/lib/auth/admin";
 import { LoginForm } from "@/components/auth/login-form";
 
-export const dynamic = "force-dynamic";
-
 export default async function LoginPage() {
+  await connection();
+
   const user = await getAuthenticatedUser();
   if (user && (await isAdminUser(user.id))) {
     redirect("/admin");

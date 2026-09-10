@@ -1,6 +1,7 @@
 import "server-only";
 
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { unstable_cache } from "next/cache";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 export type WhoWeAreImage = {
   id: string;
@@ -69,9 +70,10 @@ export const DEFAULT_FROM_OUR_KITCHEN: FromOurKitchenContent = {
   reels: [],
 };
 
-export async function getWhoWeAreContent(): Promise<WhoWeAreContent> {
+async function fetchWhoWeAreContent(): Promise<WhoWeAreContent> {
+  // Use admin client — cookies() is blocked inside unstable_cache with cacheComponents.
   try {
-    const supabase = await createSupabaseServerClient();
+    const supabase = createSupabaseAdminClient();
     const { data, error } = await supabase
       .from("site_settings")
       .select("value")
@@ -101,9 +103,16 @@ export async function getWhoWeAreContent(): Promise<WhoWeAreContent> {
   return DEFAULT_WHO_WE_ARE;
 }
 
-export async function getFromOurKitchenContent(): Promise<FromOurKitchenContent> {
+export const getWhoWeAreContent = unstable_cache(
+  fetchWhoWeAreContent,
+  ["storefront-who-we-are"],
+  { tags: ["content"], revalidate: 300 }
+);
+
+async function fetchFromOurKitchenContent(): Promise<FromOurKitchenContent> {
+  // Use admin client — cookies() is blocked inside unstable_cache with cacheComponents.
   try {
-    const supabase = await createSupabaseServerClient();
+    const supabase = createSupabaseAdminClient();
     const { data, error } = await supabase
       .from("site_settings")
       .select("value")
@@ -124,7 +133,7 @@ export async function getFromOurKitchenContent(): Promise<FromOurKitchenContent>
           instagram_url: val.instagramUrl || DEFAULT_FROM_OUR_KITCHEN.instagramUrl,
           display_order: 1,
           is_published: true,
-          created_at: new Date().toISOString(),
+          created_at: "2025-01-01T00:00:00.000Z", // static — avoids Date.now() inside cache
         });
       }
 
@@ -148,3 +157,9 @@ export async function getFromOurKitchenContent(): Promise<FromOurKitchenContent>
 
   return DEFAULT_FROM_OUR_KITCHEN;
 }
+
+export const getFromOurKitchenContent = unstable_cache(
+  fetchFromOurKitchenContent,
+  ["storefront-kitchen"],
+  { tags: ["content"], revalidate: 300 }
+);

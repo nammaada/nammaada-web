@@ -10,10 +10,11 @@ function formatPrice(pricePaise: number) {
 
 export function ProductCard({ product, index }: { product: StorefrontProduct; index: number }) {
   return (
-    <div className="group flex h-full flex-col overflow-hidden rounded-xl sm:rounded-3xl border border-white/70 bg-gradient-to-br from-white/85 via-white/70 to-white/50 backdrop-blur-xl shadow-lg shadow-amber-950/6 transition-all duration-300 hover:border-white hover:bg-white/80">
+    <div className="group flex h-full flex-col overflow-hidden rounded-xl sm:rounded-3xl border border-white/70 bg-gradient-to-br from-white/85 via-white/70 to-white/50 backdrop-blur-xl [transform:translateZ(0)] [backface-visibility:hidden] [isolation:isolate] shadow-lg shadow-amber-950/6 transition-[border-color,background-color,box-shadow] duration-300 hover:border-white hover:bg-white/80">
       <Link
         className="flex h-full flex-col focus-visible:outline-2 focus-visible:outline-offset-[-3px] focus-visible:outline-ring"
         href={`/products/${product.slug}`}
+        prefetch={true}
         aria-label={`View ${product.name}`}
       >
         <div className="relative aspect-square sm:aspect-[4/3] overflow-hidden border-b border-[#e5d8c6] bg-[#f4efeb]">
@@ -22,8 +23,11 @@ export function ProductCard({ product, index }: { product: StorefrontProduct; in
               src={product.primary_image.url}
               alt={product.primary_image.alt || product.name}
               fill
+              priority={index < 2}
+              loading={index < 4 ? "eager" : "lazy"}
+              decoding="async"
               className="object-cover transition-transform duration-500 group-hover:scale-105"
-              sizes="(min-width: 1024px) 30vw, (min-width: 640px) 45vw, 50vw"
+              sizes="(min-width: 1024px) 25vw, (min-width: 640px) 45vw, 50vw"
             />
           ) : (
             <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 px-2 text-center text-[#6e5b55]">

@@ -9,8 +9,6 @@ import { getProductBySlug, getProductVariants } from "@/lib/storefront/products"
 
 type ProductPageProps = { params: Promise<{ slug: string }> };
 
-export const dynamic = "force-dynamic";
-
 export async function generateMetadata({ params }: ProductPageProps): Promise<Metadata> {
   const { slug } = await params;
   const product = await getProductBySlug(slug);

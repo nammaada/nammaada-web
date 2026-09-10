@@ -26,9 +26,9 @@ const values = [
 
 export function BrandValues() {
   return (
-    <section className="relative overflow-hidden bg-transparent py-10 sm:py-2">
+    <section className="relative bg-transparent py-10 sm:py-2">
       <Container className="relative z-10">
-        <div className="rounded-2xl sm:rounded-3xl border border-white/45 bg-gradient-to-br from-white/50 via-[#fcf7ee]/28 to-[#f5e8d5]/18 p-5 sm:p-8 md:p-10 backdrop-blur-xl [transform:translateZ(0)] shadow-[0_16px_36px_-10px_rgba(43,23,25,0.08),inset_0_1px_1.5px_0_rgba(255,255,255,0.75)]">
+        <div className="rounded-2xl sm:rounded-3xl border border-white/45 bg-gradient-to-br from-white/50 via-[#fcf7ee]/28 to-[#f5e8d5]/18 p-5 sm:p-8 md:p-10 backdrop-blur-xl [transform:translateZ(0)] [backface-visibility:hidden] [isolation:isolate] shadow-[0_16px_36px_-10px_rgba(43,23,25,0.08),inset_0_1px_1.5px_0_rgba(255,255,255,0.75)]">
           {/* Header matching client instructions */}
           <div className="text-center mb-6 sm:mb-8">
             <p className="text-[10px] sm:text-xs font-bold uppercase tracking-[0.2em] text-[#711e2c]">

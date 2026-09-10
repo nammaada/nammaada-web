@@ -59,16 +59,17 @@ export function StorefrontNavbar({ isVideoHero = false }: { isVideoHero?: boolea
       <header className={isHome ? "absolute inset-x-0 top-0 z-50 bg-transparent" : "sticky top-0 z-40 bg-transparent transition-colors"}>
         <Container className="py-3 sm:py-3.5">
           <div
-            className={`flex min-h-14 sm:min-h-16 items-center justify-between gap-3 sm:gap-4 rounded-full px-3.5 sm:px-6 transition-all duration-300 ${
+            className={`flex min-h-14 sm:min-h-16 items-center justify-between gap-3 sm:gap-4 rounded-full px-3.5 sm:px-6 transition-[background-color,border-color,box-shadow] duration-300 ${
               isCreamNavbar
                 ? "border border-[#e5d8c6] bg-[#fbf7ef] shadow-[0_10px_30px_-8px_rgba(43,23,25,0.14),0_2px_8px_rgba(0,0,0,0.06)]"
-                : "border border-white/50 bg-gradient-to-br from-white/55 via-[#fcf7ee]/32 to-[#f5e8d5]/22 backdrop-blur-xl [transform:translateZ(0)] shadow-[0_10px_30px_-8px_rgba(43,23,25,0.06),inset_0_1px_1.5px_0_rgba(255,255,255,0.75)]"
+                : "border border-white/50 bg-gradient-to-br from-white/55 via-[#fcf7ee]/32 to-[#f5e8d5]/22 backdrop-blur-xl [transform:translateZ(0)] [backface-visibility:hidden] [isolation:isolate] shadow-[0_10px_30px_-8px_rgba(43,23,25,0.06),inset_0_1px_1.5px_0_rgba(255,255,255,0.75)]"
             }`}
           >
             {/* LOGO */}
             <Link
               className="shrink-0 rounded-lg focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring"
               href="/"
+              prefetch={true}
               onClick={closeMenu}
               aria-label={`${siteConfig.name} home`}
             >
@@ -78,6 +79,8 @@ export function StorefrontNavbar({ isVideoHero = false }: { isVideoHero?: boolea
                 width={144}
                 height={96}
                 priority
+                decoding="async"
+                sizes="(min-width: 640px) 144px, 120px"
                 className="h-10 sm:h-12 w-auto object-contain"
               />
             </Link>
@@ -94,6 +97,7 @@ export function StorefrontNavbar({ isVideoHero = false }: { isVideoHero?: boolea
                         : "text-[#2b1719]/75 hover:text-[#711e2c]"
                     }`}
                     href={route.href}
+                    prefetch={true}
                     key={route.href}
                     aria-current={active ? "page" : undefined}
                   >
@@ -135,6 +139,7 @@ export function StorefrontNavbar({ isVideoHero = false }: { isVideoHero?: boolea
                     : "border border-white/60 bg-white/40 shadow-xs hover:bg-white/65 hover:border-white/80"
                 }`}
                 href="/cart"
+                prefetch={true}
                 onClick={closeMenu}
               >
                 <div className="relative inline-flex items-center justify-center">
@@ -155,6 +160,7 @@ export function StorefrontNavbar({ isVideoHero = false }: { isVideoHero?: boolea
               <Link
                 className="hidden min-h-11 items-center justify-center rounded-full bg-[#711e2c] px-5 sm:px-6 text-xs sm:text-sm font-semibold text-white shadow-xs transition-all duration-200 hover:bg-[#5a1723] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring active:scale-95 lg:inline-flex"
                 href="/products"
+                prefetch={true}
               >
                 Order Now
               </Link>
@@ -238,6 +244,7 @@ export function StorefrontNavbar({ isVideoHero = false }: { isVideoHero?: boolea
                             : "text-[#2b1719] hover:bg-[#f4efeb] active:bg-[#e5d8c6]/50"
                         }`}
                         href={route.href}
+                        prefetch={true}
                         key={route.href}
                         onClick={closeMenu}
                         aria-current={active ? "page" : undefined}
@@ -254,6 +261,7 @@ export function StorefrontNavbar({ isVideoHero = false }: { isVideoHero?: boolea
                         : "text-[#2b1719] hover:bg-[#f4efeb]"
                     }`}
                     href="/cart"
+                    prefetch={true}
                     onClick={closeMenu}
                   >
                     <span className="flex items-center gap-2.5">

@@ -1,6 +1,8 @@
 import "server-only";
 
+import { unstable_cache } from "next/cache";
 import { getHeroImageUrl, getHeroVideoPosterUrl, getHeroVideoUrl } from "@/lib/cloudinary/delivery";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export type HeroBanner = {
@@ -87,9 +89,11 @@ export function formatBannerWithUrls(row: Record<string, any>): HeroBanner {
   };
 }
 
-export async function getActiveHeroBanners(): Promise<HeroBanner[]> {
+async function fetchActiveHeroBanners(): Promise<HeroBanner[]> {
+  // Use admin client — cookies() is blocked inside unstable_cache with cacheComponents.
+  // Hero banners are public read-only data; service role key is appropriate here.
   try {
-    const supabase = await createSupabaseServerClient();
+    const supabase = createSupabaseAdminClient();
     const { data, error } = await supabase
       .from("hero_banners")
       .select("*")
@@ -118,6 +122,12 @@ export async function getActiveHeroBanners(): Promise<HeroBanner[]> {
 
   return [];
 }
+
+export const getActiveHeroBanners = unstable_cache(
+  fetchActiveHeroBanners,
+  ["storefront-hero-banners"],
+  { tags: ["hero-banners"], revalidate: 60 }
+);
 
 export async function getAdminHeroBanners(): Promise<HeroBanner[]> {
   try {
