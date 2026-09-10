@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { connection } from "next/server";
 import { Plus, ArrowUp, ArrowDown, Edit3, Image as ImageIcon, Video, Film } from "lucide-react";
 import { deleteHeroBanner, moveHeroBanner, toggleHeroBannerActive } from "@/actions/admin";
 import { ConfirmDialog } from "@/components/admin/confirm-dialog";
@@ -10,7 +11,10 @@ import { Card } from "@/components/ui/card";
 import { getHeroImageUrl, getHeroVideoPosterUrl } from "@/lib/cloudinary/delivery";
 import { getAdminHeroBanners } from "@/lib/storefront/hero";
 
+export const instant = false;
+
 export default async function HeroBannersPage({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
+  await connection();
   const banners = await getAdminHeroBanners();
   const q = await searchParams;
 

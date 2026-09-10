@@ -3,6 +3,7 @@ import { CelebrationCta } from "@/components/home/celebration-cta";
 import { FeaturedProducts } from "@/components/home/featured-products";
 import { HeroSection } from "@/components/home/hero-section";
 import { InstagramPreview } from "@/components/home/instagram-preview";
+import { IntroVideo } from "@/components/home/intro-video";
 import { StoryPreview } from "@/components/home/story-preview";
 import { Testimonials } from "@/components/home/testimonials";
 import { getFromOurKitchenContent, getWhoWeAreContent } from "@/lib/storefront/content";
@@ -19,6 +20,7 @@ export default async function HomePage() {
 
   return (
     <>
+      <IntroVideo />
       <HeroSection />
       <FeaturedProducts products={featuredProducts} />
       <BrandValues />

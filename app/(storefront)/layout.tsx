@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import { StorefrontFooter } from "@/components/layout/storefront-footer";
 import { StorefrontNavbar } from "@/components/layout/storefront-navbar";
+import { WhatsAppSticky } from "@/components/shared/whatsapp-sticky";
 import { CartProvider } from "@/components/cart/cart-provider";
 import { getActiveHeroBanners } from "@/lib/storefront/hero";
 
@@ -33,6 +34,7 @@ export default async function StorefrontLayout({ children }: Readonly<{ children
           <StorefrontNavbar isVideoHero={isVideoHero} />
           <main className="flex-1">{children}</main>
           <StorefrontFooter />
+          <WhatsAppSticky />
         </div>
       </div>
     </CartProvider>
