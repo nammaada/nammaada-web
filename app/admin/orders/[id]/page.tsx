@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { connection } from "next/server";
 import { notFound } from "next/navigation";
 import { ArrowLeft, MapPin, Phone, Mail, UserCheck, PackageCheck, CreditCard } from "lucide-react";
 import { updateOrder } from "@/actions/admin";
@@ -7,6 +8,8 @@ import { StatusBadge } from "@/components/admin/status-badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { adminRow, adminRows, formatINR } from "@/lib/admin/data";
+
+export const instant = false;
 
 type Order = {
   id: string;
@@ -43,6 +46,7 @@ type OrderItem = {
 };
 
 export default async function OrderDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  await connection();
   const { id } = await params;
   const [order, allItems] = await Promise.all([
     adminRow<Order>("admin_orders", id),

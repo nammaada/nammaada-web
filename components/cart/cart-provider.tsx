@@ -2,6 +2,7 @@
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { addCartItem, getCartItemCount, getCartSubtotalPaise, parseStoredCart, removeCartItem, setCartItemQuantity, type CartItem, type CartItemInput } from "@/lib/cart/cart";
+import { CartDrawer } from "@/components/cart/cart-drawer";
 
 const storageKey = "namma-ada-cart";
 
@@ -10,6 +11,10 @@ type CartContextValue = {
   itemCount: number;
   subtotalPaise: number;
   hydrated: boolean;
+  isDrawerOpen: boolean;
+  openCart: () => void;
+  closeCart: () => void;
+  toggleCart: () => void;
   addItem: (item: CartItemInput) => void;
   setQuantity: (lineId: string, quantity: number) => void;
   removeItem: (lineId: string) => void;
@@ -21,6 +26,7 @@ const CartContext = createContext<CartContextValue | null>(null);
 export function CartProvider({ children }: { children: ReactNode }) {
   const [items, setItems] = useState<CartItem[]>([]);
   const [hydrated, setHydrated] = useState(false);
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 
   useEffect(() => {
     let stored: string | null = null;
@@ -65,13 +71,43 @@ export function CartProvider({ children }: { children: ReactNode }) {
     }
   }, [hydrated, items]);
 
-  const addItem = useCallback((item: CartItemInput) => setItems((current) => addCartItem(current, item)), []);
+  const openCart = useCallback(() => setIsDrawerOpen(true), []);
+  const closeCart = useCallback(() => setIsDrawerOpen(false), []);
+  const toggleCart = useCallback(() => setIsDrawerOpen((prev) => !prev), []);
+
+  const addItem = useCallback((item: CartItemInput) => {
+    setItems((current) => addCartItem(current, item));
+    setIsDrawerOpen(true); // Automatically open the side drawer when an item is added
+  }, []);
+
   const setQuantity = useCallback((lineId: string, quantity: number) => setItems((current) => setCartItemQuantity(current, lineId, quantity)), []);
   const removeItem = useCallback((lineId: string) => setItems((current) => removeCartItem(current, lineId)), []);
   const clearCart = useCallback(() => setItems([]), []);
 
-  const value = useMemo(() => ({ items, itemCount: getCartItemCount(items), subtotalPaise: getCartSubtotalPaise(items), hydrated, addItem, setQuantity, removeItem, clearCart }), [items, hydrated, addItem, setQuantity, removeItem, clearCart]);
-  return <CartContext.Provider value={value}>{children}</CartContext.Provider>;
+  const value = useMemo(
+    () => ({
+      items,
+      itemCount: getCartItemCount(items),
+      subtotalPaise: getCartSubtotalPaise(items),
+      hydrated,
+      isDrawerOpen,
+      openCart,
+      closeCart,
+      toggleCart,
+      addItem,
+      setQuantity,
+      removeItem,
+      clearCart,
+    }),
+    [items, hydrated, isDrawerOpen, openCart, closeCart, toggleCart, addItem, setQuantity, removeItem, clearCart]
+  );
+
+  return (
+    <CartContext.Provider value={value}>
+      {children}
+      <CartDrawer />
+    </CartContext.Provider>
+  );
 }
 
 export function useCart() {

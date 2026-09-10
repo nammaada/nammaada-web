@@ -126,9 +126,17 @@ export function getProducts(categoryId?: string): Promise<StorefrontProduct[]> {
 }
 
 async function fetchFeaturedProducts(): Promise<StorefrontProduct[]> {
-  const products = await executeProductQuery((client) =>
-    client.from("storefront_products").select(productFields).eq("is_featured", true).order("display_order", { ascending: true })
+  let products = await executeProductQuery((client) =>
+    client.from("storefront_products").select(productFields).eq("is_featured", true).order("display_order", { ascending: true }).limit(4)
   );
+
+  // Fallback to top products if none are marked as featured yet
+  if (products.length === 0) {
+    products = await executeProductQuery((client) =>
+      client.from("storefront_products").select(productFields).order("display_order", { ascending: true }).limit(4)
+    );
+  }
+
   return attachPrimaryImages(products);
 }
 
