@@ -22,7 +22,7 @@ import {
 } from "@/lib/storefront/content";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
-function text(form: FormData, key: string) {
+function text(form: FormData, key: string): string {
   return String(form.get(key) ?? "").trim();
 }
 
@@ -30,7 +30,7 @@ function bool(form: FormData, key: string) {
   return form.get(key) === "on" || form.get(key) === "true";
 }
 
-function integer(form: FormData, key: string, fallback = 1) {
+function integer(form: FormData, key: string, fallback = 0): number {
   const val = Number.parseInt(text(form, key), 10);
   return Number.isSafeInteger(val) && val >= 0 ? val : fallback;
 }
@@ -40,7 +40,9 @@ function fail(path: string, message: string): never {
 }
 
 function ok(path: string, message?: string): never {
+  revalidatePath("/", "layout");
   revalidatePath("/");
+  revalidatePath("/products");
   revalidatePath(path);
   revalidatePath("/admin/our-story");
   revalidatePath("/admin/who-we-are");

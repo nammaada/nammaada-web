@@ -1,6 +1,8 @@
 import "server-only";
 
+import { unstable_cache } from "next/cache";
 import { getHeroImageUrl, getHeroVideoPosterUrl, getHeroVideoUrl } from "@/lib/cloudinary/delivery";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export type HeroBanner = {
@@ -64,16 +66,16 @@ export function formatBannerWithUrls(row: Record<string, any>): HeroBanner {
     cloudinary_public_id: row.cloudinary_public_id,
     poster_public_id: row.poster_public_id || null,
     media_type: isVideo ? "video" : "image",
-    eyebrow: row.eyebrow || "AUTHENTIC KERALA FLAVOURS",
-    headline: row.headline || "Soul of Kerala, served with heart.",
+    eyebrow: row.eyebrow || "A TASTE OF HOME",
+    headline: row.headline || "Every celebration begins with a little sweetness.",
     description:
       row.description ||
-      "At Namma Ada, we bring the soul of Kerala into the homes of Bangalore. Every delicacy is handcrafted with tradition and a whole lot of love.",
+      "At Namma Ada, we bring the soul of Kerala into the homes of Bangalore. Every bowl of Palada Payasam, every Unniyappam, every bottle of pure coconut oil, and every delicacy we create is handcrafted with tradition and a whole lot of love.\n\nWe don't just serve food. We serve memories, festivals, and the comforting taste of home.",
     primary_cta_label: row.primary_cta_label || "Explore Now",
     primary_cta_href: row.primary_cta_href || "/products",
-    secondary_cta_label: row.secondary_cta_label || null,
-    secondary_cta_href: row.secondary_cta_href || null,
-    is_secondary_cta_enabled: Boolean(row.is_secondary_cta_enabled),
+    secondary_cta_label: row.secondary_cta_label || "Bulk Orders",
+    secondary_cta_href: row.secondary_cta_href || "/contact",
+    is_secondary_cta_enabled: Boolean(row.is_secondary_cta_enabled ?? true),
     display_order: Number(row.display_order ?? 0),
     is_active: Boolean(row.is_active),
     alt_text: row.alt_text || null,
@@ -87,17 +89,32 @@ export function formatBannerWithUrls(row: Record<string, any>): HeroBanner {
   };
 }
 
-export async function getActiveHeroBanners(): Promise<HeroBanner[]> {
+async function fetchActiveHeroBanners(): Promise<HeroBanner[]> {
+  // Use admin client — cookies() is blocked inside unstable_cache with cacheComponents.
+  // Hero banners are public read-only data; service role key is appropriate here.
   try {
-    const supabase = await createSupabaseServerClient();
+    const supabase = createSupabaseAdminClient();
     const { data, error } = await supabase
       .from("hero_banners")
       .select("*")
       .eq("is_active", true)
-      .order("display_order", { ascending: true });
+      .order("display_order", { ascending: true })
+      .order("created_at", { ascending: true });
 
     if (!error && data && data.length > 0) {
-      return data.map(formatBannerWithUrls);
+      // If a video banner is active:
+      // Show only that active video. Inactive or image banners should not appear.
+      const activeVideo = data.find((b) => b.media_type === "video");
+      if (activeVideo) {
+        return [formatBannerWithUrls(activeVideo)];
+      }
+
+      // If images are active:
+      // Return all active images in their defined banner order (first top banner in top, second in second).
+      const activeImages = data.filter((b) => b.media_type === "image");
+      if (activeImages.length > 0) {
+        return activeImages.map(formatBannerWithUrls);
+      }
     }
   } catch {
     // Fail safely if database table is not deployed yet
@@ -106,13 +123,21 @@ export async function getActiveHeroBanners(): Promise<HeroBanner[]> {
   return [];
 }
 
+export const getActiveHeroBanners = unstable_cache(
+  fetchActiveHeroBanners,
+  ["storefront-hero-banners"],
+  { tags: ["hero-banners"], revalidate: 60 }
+);
+
 export async function getAdminHeroBanners(): Promise<HeroBanner[]> {
   try {
     const supabase = await createSupabaseServerClient();
     const { data, error } = await supabase
       .from("hero_banners")
       .select("*")
-      .order("display_order", { ascending: true });
+      .order("is_active", { ascending: false })
+      .order("display_order", { ascending: true })
+      .order("created_at", { ascending: true });
 
     if (!error && data) {
       return data.map(formatBannerWithUrls);
@@ -169,4 +194,41 @@ export async function getHeroMediaConfig(): Promise<HeroMediaConfig> {
     resource_type: "image",
   };
 }
+
+/**
+ * Returns the admin-uploaded background image URL for the storefront.
+ * Uses the active image hero banner uploaded via admin panel, or hero_media config.
+ */
+export async function getStorefrontBackgroundImage(): Promise<string> {
+  try {
+    const banners = await getActiveHeroBanners();
+
+    // 1. Prioritize active image hero banner uploaded from admin
+    const imageBanner = banners.find((b) => b.media_type === "image" && b.media_url);
+    if (imageBanner?.media_url) {
+      return imageBanner.media_url;
+    }
+
+    // 2. Poster image from video banner if present
+    const posterBanner = banners.find((b) => b.poster_url);
+    if (posterBanner?.poster_url) {
+      return posterBanner.poster_url;
+    }
+
+    // 3. Fallback to hero_media site settings
+    const heroMedia = await getHeroMediaConfig();
+    if (heroMedia.media_url && heroMedia.media_type === "image") {
+      return heroMedia.media_url;
+    }
+    if (heroMedia.poster_url) {
+      return heroMedia.poster_url;
+    }
+  } catch {
+    // Fail safely
+  }
+
+  // Safe fallback if database table is empty or offline
+  return "/nammaad bg image.png";
+}
+
 

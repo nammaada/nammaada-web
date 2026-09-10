@@ -240,7 +240,19 @@ export function ProductForm({
       </FormSection>
 
       {/* 4. Product Images (Inside Main Form) */}
-      <FormSection description="Product photos for catalog and storefront showcase." title="Product Images">
+      <FormSection
+        description="Product photos for catalog and storefront showcase. Recommended: 1000×1000px (1:1 square) or 1200×900px (4:3 ratio), under 5MB. Centered product on clean/white background."
+        title="Product Images"
+      >
+        {/* Recommended Size Note */}
+        <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border/80 bg-secondary/30 px-3.5 py-2 text-xs text-muted-foreground mb-3">
+          <span className="font-semibold text-foreground">Recommended Size:</span>
+          <span className="rounded bg-card px-2 py-0.5 font-medium text-foreground border border-border/60">1000 × 1000 px (1:1 Square)</span>
+          <span className="text-muted-foreground/60">or</span>
+          <span className="rounded bg-card px-2 py-0.5 font-medium text-foreground border border-border/60">1200 × 900 px (4:3)</span>
+          <span className="text-[11px] text-muted-foreground">• Max 5MB (JPG, PNG, WebP)</span>
+        </div>
+
         {/* On CREATE PRODUCT */}
         {isNew && (
           <div className="flex flex-wrap items-center gap-4 pt-1">

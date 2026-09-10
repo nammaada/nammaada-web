@@ -1,3 +1,6 @@
+"use client";
+
+import { useRef, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { ArrowUpRight } from "lucide-react";
@@ -9,149 +12,158 @@ function formatPrice(pricePaise: number) {
 }
 
 export function FeaturedProducts({ products }: { products: StorefrontProduct[] }) {
+  const [activeIndex, setActiveIndex] = useState(0);
+  const carouselRef = useRef<HTMLDivElement>(null);
+
+  const handleScroll = () => {
+    if (!carouselRef.current) return;
+    const { scrollLeft, offsetWidth } = carouselRef.current;
+    if (offsetWidth > 0) {
+      const index = Math.round(scrollLeft / offsetWidth);
+      setActiveIndex(index);
+    }
+  };
+
+  const scrollToSlide = (index: number) => {
+    if (!carouselRef.current) return;
+    const { offsetWidth } = carouselRef.current;
+    carouselRef.current.scrollTo({
+      left: index * offsetWidth,
+      behavior: "smooth",
+    });
+    setActiveIndex(index);
+  };
+
   return (
     <section
-      className="relative overflow-hidden bg-gradient-to-b from-[#f8f0e5] via-[#f2e4d0] to-[#ebd7be] pt-14 pb-6 sm:pt-20 sm:pb-10"
+      className="relative overflow-hidden py-6 sm:py-10 lg:py-14"
       id="featured-products"
     >
-      {/* Ambient background glow & luxury lighting */}
-      <div
-        className="pointer-events-none absolute -top-24 left-1/2 h-[450px] w-[900px] -translate-x-1/2 rounded-full bg-gradient-to-b from-white/80 via-[#fff5e8]/50 to-transparent blur-3xl"
-        aria-hidden="true"
-      />
-      <div
-        className="pointer-events-none absolute top-1/3 -right-28 h-[550px] w-[550px] rounded-full bg-[#dfbe96]/25 blur-3xl"
-        aria-hidden="true"
-      />
-      <div
-        className="pointer-events-none absolute -bottom-20 -left-20 h-[450px] w-[450px] rounded-full bg-[#d6ad80]/20 blur-3xl"
-        aria-hidden="true"
-      />
-
-      {/* Subtle organic silk flow behind the glass cards */}
-      <svg
-        className="pointer-events-none absolute inset-0 h-full w-full opacity-40 select-none"
-        preserveAspectRatio="none"
-        viewBox="0 0 1440 900"
-        fill="none"
-        aria-hidden="true"
-      >
-        <path
-          d="M-50 220C280 130 650 340 1050 200C1250 130 1380 180 1500 240L1500 900L-50 900Z"
-          fill="url(#silk-flow-1)"
-        />
-        <path
-          d="M-50 480C350 350 820 580 1200 420C1360 360 1440 390 1500 430L1500 900L-50 900Z"
-          fill="url(#silk-flow-2)"
-        />
-        <defs>
-          <linearGradient id="silk-flow-1" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" stopColor="#e4c7a6" stopOpacity="0.45" />
-            <stop offset="50%" stopColor="#fffaf2" stopOpacity="0.65" />
-            <stop offset="100%" stopColor="#d1a97d" stopOpacity="0.35" />
-          </linearGradient>
-          <linearGradient id="silk-flow-2" x1="100%" y1="0%" x2="0%" y2="100%">
-            <stop offset="0%" stopColor="#fff8ed" stopOpacity="0.5" />
-            <stop offset="100%" stopColor="#cfa579" stopOpacity="0.3" />
-          </linearGradient>
-        </defs>
-      </svg>
-
       <Container className="relative z-10">
-        {/* Section Heading matching the FIRST reference image typography */}
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-          <div className="max-w-2xl">
+        {/* Section Heading matching Reference 2 */}
+        <div className="flex flex-col items-center text-center gap-3 sm:flex-row sm:items-end sm:justify-between sm:text-left">
+          <div className="max-w-2xl text-center sm:text-left">
             <p className="eyebrow">OUR PRODUCTS</p>
-            <h2 className="mt-3 font-display text-3xl sm:text-4xl lg:text-5xl font-normal leading-[1.05] text-foreground">
-              Traditional flavours,<br className="hidden sm:inline" /> timeless classics
+            <h2 className="mt-2 font-display text-3xl sm:text-4xl lg:text-5xl font-semibold leading-tight text-[#2b1719]">
+              Crafted fresh, served with love.
             </h2>
-            <p className="mt-3 max-w-xl text-sm leading-6 text-muted-foreground sm:text-base">
-              Freshly prepared Kerala delicacies, made for everyday cravings and special gatherings.
+            <p className="mt-2 max-w-xl text-xs sm:text-base leading-relaxed text-[#6e5b55] mx-auto sm:mx-0">
+              Every order is prepared fresh, never rushed.
             </p>
           </div>
 
           <Link
             href="/products"
-            className="inline-flex min-h-10 shrink-0 items-center gap-1 self-start text-sm font-semibold text-primary underline decoration-primary/30 underline-offset-4 transition-colors hover:decoration-primary focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring sm:self-auto"
+            prefetch={true}
+            className="inline-flex min-h-11 shrink-0 items-center gap-1.5 self-center text-xs sm:text-sm font-semibold text-[#711e2c] underline decoration-[#711e2c]/30 underline-offset-4 transition-colors hover:decoration-[#711e2c] focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring sm:self-auto"
           >
-            View all products <ArrowUpRight aria-hidden="true" size={16} />
+            View All Products <ArrowUpRight aria-hidden="true" size={16} />
           </Link>
         </div>
 
-        {/* Product Cards Grid */}
+        {/* Translucent Warm Glass Cards Grid matching Reference 1 */}
         {products.length === 0 ? (
-          <div className="mt-10 rounded-3xl border border-white/70 bg-white/45 p-8 sm:p-12 text-center backdrop-blur-xl shadow-xl shadow-amber-950/5">
+          <div className="mt-8 rounded-3xl border border-white/45 bg-gradient-to-br from-white/50 via-[#fcf7ee]/28 to-[#f5e8d5]/18 p-8 text-center backdrop-blur-xl shadow-[0_16px_36px_-10px_rgba(43,23,25,0.08),inset_0_1px_1px_0_rgba(255,255,255,0.7)]">
             <p className="eyebrow">Coming to the table</p>
-            <h3 className="mt-3 font-display text-2xl text-foreground sm:text-3xl">Our featured collection is being prepared.</h3>
-            <p className="mx-auto mt-3 max-w-lg text-sm leading-6 text-muted-foreground">Featured products will appear here when they are available.</p>
+            <h3 className="mt-2 font-display text-xl sm:text-2xl text-[#2b1719]">Our featured collection is being prepared.</h3>
+            <p className="mx-auto mt-2 max-w-lg text-xs sm:text-sm leading-relaxed text-[#6e5b55]">Featured products will appear here when available.</p>
           </div>
         ) : (
-          <div className="mt-10 sm:mt-12 grid gap-6 md:grid-cols-2">
-            {products.map((product, index) => (
-              <div
-                key={product.id}
-                className="group relative flex flex-col sm:flex-row items-stretch gap-5 rounded-3xl border border-white/70 bg-gradient-to-br from-white/75 via-white/55 to-white/40 p-4 sm:p-5 backdrop-blur-xl shadow-xl shadow-amber-950/8 transition-all duration-300 hover:border-white hover:bg-white/65 hover:shadow-2xl hover:shadow-amber-950/12"
-              >
-                {/* Left side: Product Image */}
-                <div className="relative aspect-[4/3] sm:aspect-square md:aspect-[4/3] w-full sm:w-[46%] shrink-0 overflow-hidden rounded-2xl bg-secondary">
-                  {product.primary_image ? (
-                    <Image
-                      src={product.primary_image.url}
-                      alt={product.primary_image.alt || product.name}
-                      fill
-                      className="object-cover transition-transform duration-500 ease-out group-hover:scale-105"
-                      sizes="(min-width: 768px) 30vw, 100vw"
-                    />
-                  ) : (
-                    <div className="flex h-full w-full items-center justify-center p-4 text-center text-xs uppercase tracking-wider text-muted-foreground">
-                      {product.name}
-                    </div>
-                  )}
-                </div>
-
-                {/* Right side: Product Information */}
-                <div className="flex flex-1 flex-col justify-between py-1 sm:py-1">
-                  <div>
-                    {/* Numbering: 01, 02, etc. — Clearly visible matching FIRST image */}
-                    <span className="text-sm sm:text-base font-semibold text-primary/70 tracking-wider">
-                      {String(index + 1).padStart(2, "0")}
-                    </span>
-
-                    {/* Product Name — font-display serif matching FIRST image */}
-                    <h3 className="mt-1 font-display text-2xl sm:text-[26px] font-normal leading-tight text-foreground">
-                      <Link href={`/products/${product.slug}`} className="transition-colors hover:text-primary">
+          <>
+            <div
+              ref={carouselRef}
+              onScroll={handleScroll}
+              className="mt-8 sm:mt-10 flex overflow-x-auto snap-x snap-mandatory scrollbar-none gap-4 pb-2 sm:pb-0 sm:grid sm:grid-cols-2 sm:gap-5 lg:gap-6 sm:overflow-visible"
+            >
+              {products.map((product, index) => (
+                <div
+                  key={product.id}
+                  className="w-full min-w-full sm:min-w-0 shrink-0 snap-center sm:w-auto sm:shrink group relative flex flex-col sm:flex-row items-stretch gap-4 rounded-3xl border border-white/45 bg-gradient-to-br from-white/50 via-[#fcf7ee]/28 to-[#f5e8d5]/18 p-4 sm:p-5 backdrop-blur-xl [transform:translateZ(0)] [backface-visibility:hidden] [isolation:isolate] shadow-[0_16px_36px_-10px_rgba(43,23,25,0.08),inset_0_1px_1px_0_rgba(255,255,255,0.7)] transition-[border-color,background-color,box-shadow] duration-300 hover:border-white/60 hover:from-white/60 hover:via-[#fcf7ee]/38 hover:to-[#f5e8d5]/24 hover:shadow-[0_20px_40px_-10px_rgba(43,23,25,0.12),inset_0_1px_1.5px_0_rgba(255,255,255,0.85)]"
+                >
+                  {/* Product Image */}
+                  <div className="relative aspect-[4/3] sm:aspect-square w-full sm:w-[44%] shrink-0 overflow-hidden rounded-2xl bg-secondary">
+                    {product.primary_image ? (
+                      <Image
+                        src={product.primary_image.url}
+                        alt={product.primary_image.alt || product.name}
+                        fill
+                        priority={index === 0}
+                        loading={index < 2 ? "eager" : "lazy"}
+                        decoding="async"
+                        className="object-cover transition-transform duration-500 group-hover:scale-105"
+                        sizes="(min-width: 768px) 30vw, 100vw"
+                      />
+                    ) : (
+                      <div className="flex h-full w-full items-center justify-center p-4 text-center text-xs uppercase tracking-wider text-[#6e5b55]">
                         {product.name}
-                      </Link>
-                    </h3>
-
-                    {/* Short Description */}
-                    {product.short_description ? (
-                      <p className="mt-2 text-sm leading-6 text-muted-foreground line-clamp-3">
-                        {product.short_description}
-                      </p>
-                    ) : null}
+                      </div>
+                    )}
                   </div>
 
-                  {/* Bottom: Price & View product button */}
-                  <div className="mt-6 flex w-full items-center justify-between gap-4 pt-2">
-                    <span className="text-sm sm:text-base font-semibold text-primary font-sans">
-                      {formatPrice(product.price_paise)}
-                    </span>
-                    <Link
-                      href={`/products/${product.slug}`}
-                      className="inline-flex min-h-10 items-center gap-1 rounded-full bg-primary px-4.5 py-2 text-xs font-semibold text-primary-foreground shadow-sm transition-all duration-200 hover:bg-primary/90 hover:scale-[1.02] active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
-                    >
-                      <span>View product</span>
-                      <ArrowUpRight aria-hidden="true" size={14} />
-                    </Link>
+                  {/* Product Info */}
+                  <div className="flex flex-1 flex-col justify-between py-1">
+                    <div>
+                      {/* Index Number: 01, 02, etc. */}
+                      <span className="text-xs sm:text-sm font-bold text-[#711e2c] tracking-wider">
+                        {String(index + 1).padStart(2, "0")}
+                      </span>
+
+                      {/* Title */}
+                      <h3 className="mt-1 font-display text-xl sm:text-2xl font-semibold leading-tight text-[#2b1719]">
+                        <Link href={`/products/${product.slug}`} prefetch={true} className="transition-colors hover:text-[#711e2c]">
+                          {product.name}
+                        </Link>
+                      </h3>
+
+                      {/* Short Description */}
+                      {product.short_description ? (
+                        <p className="mt-2 text-xs sm:text-sm leading-relaxed text-[#6e5b55] line-clamp-3">
+                          {product.short_description}
+                        </p>
+                      ) : null}
+                    </div>
+
+                    {/* Price & Enquire Now / View CTA */}
+                    <div className="mt-4 flex items-center justify-between gap-3 pt-2 border-t border-[#711e2c]/15">
+                      <span className="text-sm sm:text-base font-semibold text-[#711e2c]">
+                        {formatPrice(product.price_paise)}
+                      </span>
+                      <Link
+                        href={`/products/${product.slug}`}
+                        prefetch={true}
+                        className="inline-flex min-h-10 items-center gap-1 rounded-full bg-[#711e2c] hover:bg-[#5a1723] px-4.5 py-2 text-xs font-semibold text-white shadow-md transition-all active:scale-95"
+                      >
+                        <span>Enquire Now</span>
+                        <ArrowUpRight aria-hidden="true" size={14} />
+                      </Link>
+                    </div>
                   </div>
                 </div>
+              ))}
+            </div>
+
+            {/* Mobile Swipe Indicators */}
+            {products.length > 1 && (
+              <div className="mt-4 flex items-center justify-center gap-2 sm:hidden">
+                {products.map((_, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    aria-label={`Go to product ${idx + 1}`}
+                    onClick={() => scrollToSlide(idx)}
+                    className={`h-2 transition-all duration-300 rounded-full cursor-pointer ${activeIndex === idx
+                        ? "w-6 bg-[#711e2c]"
+                        : "w-2 bg-[#711e2c]/25 hover:bg-[#711e2c]/50"
+                      }`}
+                  />
+                ))}
               </div>
-            ))}
-          </div>
+            )}
+          </>
         )}
       </Container>
     </section>
   );
 }
+
 

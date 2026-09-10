@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { CheckCircle2 } from "lucide-react";
 import { useCart } from "@/components/cart/cart-provider";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -11,10 +13,16 @@ function formatPrice(pricePaise: number) {
 }
 
 function Availability({ available }: { available: boolean }) {
-  return <p className="text-sm text-muted-foreground"><span aria-hidden="true" className={`mr-2 inline-block size-2 rounded-full ${available ? "bg-emerald-700" : "bg-primary/35"}`} />{available ? "Available" : "Currently unavailable"}</p>;
+  return (
+    <p className="text-xs sm:text-sm text-[#6e5b55] flex items-center gap-2">
+      <span className={`inline-block size-2 rounded-full ${available ? "bg-emerald-600" : "bg-[#711e2c]/35"}`} />
+      {available ? "Available to order" : "Currently unavailable"}
+    </p>
+  );
 }
 
 export function ProductOptions({ product, variants }: { product: StorefrontProduct; variants: StorefrontProductVariant[] }) {
+  const router = useRouter();
   const { addItem } = useCart();
   const [selectedVariantId, setSelectedVariantId] = useState("");
   const [statusMessage, setStatusMessage] = useState("");
@@ -35,29 +43,71 @@ export function ProductOptions({ product, variants }: { product: StorefrontProdu
       unitPricePaise: selectedVariant?.price_paise ?? product.price_paise,
       image: product.primary_image,
     });
-    setStatusMessage(`${product.name} added to your cart.`);
+    setStatusMessage(`${product.name} ${selectedVariant ? `(${selectedVariant.name})` : ""} added to your cart.`);
+  }
+
+  function handleBuyNow() {
+    if (!available || (variants.length > 0 && !selectedVariant)) {
+      return;
+    }
+
+    addItem({
+      productId: product.id,
+      slug: product.slug,
+      name: product.name,
+      variantId: selectedVariant?.id ?? null,
+      variantName: selectedVariant?.name ?? null,
+      unitPricePaise: selectedVariant?.price_paise ?? product.price_paise,
+      image: product.primary_image,
+    });
+
+    router.push("/checkout");
   }
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-end gap-x-4 gap-y-2">
-        <p className="font-display text-3xl text-primary" aria-live="polite">{selectedVariant || variants.length === 0 ? formatPrice(selectedVariant?.price_paise ?? product.price_paise) : "Choose an option"}</p>
+      {/* Price & Availability */}
+      <div className="flex flex-wrap items-baseline justify-between gap-2 border-b border-[#e5d8c6] pb-4">
+        <p className="font-display text-2xl sm:text-3xl font-bold text-[#711e2c]" aria-live="polite">
+          {selectedVariant || variants.length === 0
+            ? formatPrice(selectedVariant?.price_paise ?? product.price_paise)
+            : "Select an option"}
+        </p>
         <Availability available={available} />
       </div>
 
+      {/* Variant Selection Radio Pills */}
       {variants.length > 0 ? (
-        <fieldset>
-          <legend className="text-sm font-semibold text-foreground">Choose an option</legend>
-          <div className="mt-3 grid gap-2 sm:grid-cols-2">
+        <fieldset className="space-y-2.5">
+          <legend className="text-xs sm:text-sm font-bold uppercase tracking-wider text-[#2b1719]">
+            Select Variant
+          </legend>
+          <div className="grid gap-2.5 sm:grid-cols-2">
             {variants.map((variant) => {
               const selected = variant.id === selectedVariantId;
               return (
-                <label className={`flex min-h-14 cursor-pointer items-center justify-between gap-3 rounded-lg border px-4 py-3 text-sm transition-colors focus-within:outline-2 focus-within:outline-offset-2 focus-within:outline-ring ${selected ? "border-primary bg-secondary" : "border-border bg-card hover:border-primary/40"}`} key={variant.id}>
-                  <span className="flex min-w-0 items-center gap-3">
-                    <input checked={selected} className="accent-primary" name="product-variant" onChange={() => setSelectedVariantId(variant.id)} type="radio" value={variant.id} />
-                    <span className="break-words font-semibold">{variant.name}</span>
+                <label
+                  key={variant.id}
+                  className={`flex min-h-12 cursor-pointer items-center justify-between gap-3 rounded-xl border px-4 py-3 text-xs sm:text-sm font-semibold transition-all focus-within:ring-2 focus-within:ring-[#711e2c] ${
+                    selected
+                      ? "border-[#711e2c] bg-[#711e2c] text-white shadow-xs"
+                      : "border-[#e5d8c6] bg-[#fffdf8] text-[#2b1719] hover:border-[#711e2c]/50"
+                  }`}
+                >
+                  <span className="flex items-center gap-2.5">
+                    <input
+                      checked={selected}
+                      className="accent-[#711e2c]"
+                      name="product-variant"
+                      onChange={() => setSelectedVariantId(variant.id)}
+                      type="radio"
+                      value={variant.id}
+                    />
+                    <span>{variant.name}</span>
                   </span>
-                  <span className="shrink-0 text-xs text-muted-foreground">{formatPrice(variant.price_paise)}</span>
+                  <span className={selected ? "text-white/90" : "text-[#711e2c]"}>
+                    {formatPrice(variant.price_paise)}
+                  </span>
                 </label>
               );
             })}
@@ -65,12 +115,58 @@ export function ProductOptions({ product, variants }: { product: StorefrontProdu
         </fieldset>
       ) : null}
 
-      {product.delivery_scope ? <div className="flex flex-wrap gap-2 border-t border-border pt-5"><Badge variant="default">{product.delivery_scope === "bangalore_only" ? "Available in Bangalore" : "Delivery across India"}</Badge>{product.is_free_shipping ? <Badge variant="accent">Free shipping</Badge> : null}</div> : null}
+      {/* Delivery scope badges */}
+      {product.delivery_scope ? (
+        <div className="flex flex-wrap gap-2 pt-1">
+          <Badge variant="default" className="bg-[#f4efeb] text-[#711e2c] border border-[#e5d8c6] px-3 py-1 text-xs">
+            {product.delivery_scope === "bangalore_only" ? "Available in Bangalore" : "Delivery across India"}
+          </Badge>
+          {product.is_free_shipping ? (
+            <Badge variant="accent" className="bg-[#711e2c] text-[#fffcf2] font-bold px-3 py-1 text-xs">
+              Free shipping
+            </Badge>
+          ) : null}
+        </div>
+      ) : null}
 
-      <div className="space-y-3">
-        <Button className="w-full sm:w-auto" disabled={!available || (variants.length > 0 && !selectedVariant)} onClick={handleAddToCart} type="button">Add to cart</Button>
-        <p className="text-xs leading-5 text-muted-foreground" aria-live="polite">{statusMessage || (variants.length > 0 && !selectedVariant ? "Choose an option before adding this product." : !available ? "This product is currently unavailable." : "Your selection will be revalidated at checkout.")}</p>
+      {/* Primary Action Buttons (Add to Cart & Buy Now) & Status Message */}
+      <div className="space-y-3 pt-2">
+        <div className="flex flex-wrap sm:flex-nowrap items-center gap-3">
+          <Button
+            className="w-full sm:w-auto min-h-12 px-8 cursor-pointer"
+            disabled={!available || (variants.length > 0 && !selectedVariant)}
+            onClick={handleAddToCart}
+            type="button"
+          >
+            Add to Cart
+          </Button>
+
+          <Button
+            className="w-full sm:w-auto min-h-12 px-8 cursor-pointer"
+            disabled={!available || (variants.length > 0 && !selectedVariant)}
+            onClick={handleBuyNow}
+            type="button"
+          >
+            Buy Now
+          </Button>
+        </div>
+
+        {statusMessage ? (
+          <div className="flex items-center gap-2 text-xs sm:text-sm text-emerald-800 bg-emerald-50 border border-emerald-200 rounded-xl p-3 animate-in fade-in">
+            <CheckCircle2 size={16} className="shrink-0 text-emerald-600" />
+            <span>{statusMessage}</span>
+          </div>
+        ) : (
+          <p className="text-xs text-[#6e5b55]" aria-live="polite">
+            {variants.length > 0 && !selectedVariant
+              ? "Please select a variant option above before adding to cart."
+              : !available
+              ? "This product is currently unavailable."
+              : "Revalidated securely at checkout."}
+          </p>
+        )}
       </div>
     </div>
   );
 }
+

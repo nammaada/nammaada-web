@@ -14,19 +14,26 @@ function HeroVideoSlide({
   banner,
   isActive,
   isReducedMotion,
+  videoSrc,
+  posterSrc,
+  className,
 }: {
   banner: HeroBanner;
   isActive: boolean;
   isReducedMotion: boolean;
+  videoSrc?: string;
+  posterSrc?: string | null;
+  className?: string;
 }) {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const [hasError, setHasError] = useState(false);
+  const activeSrc = videoSrc || banner.media_url;
+  const activePoster = posterSrc !== undefined ? posterSrc : banner.poster_url;
 
   useEffect(() => {
     const video = videoRef.current;
     if (!video || !isActive || isReducedMotion || hasError) return;
 
-    // Strict browser autoplay compliance
     video.defaultMuted = true;
     video.muted = true;
 
@@ -35,7 +42,7 @@ function HeroVideoSlide({
         const playPromise = video.play();
         if (playPromise !== undefined) {
           playPromise.catch(() => {
-            // Browser autoplay restrictions will unlock on first user gesture
+            // Autoplay restrictions unlock on gesture
           });
         }
       }
@@ -47,7 +54,6 @@ function HeroVideoSlide({
     video.addEventListener("loadeddata", tryPlay);
     video.addEventListener("loadedmetadata", tryPlay);
 
-    // Fallback: unlock playback on first touch/click/scroll/hover if browser blocked initial autoplay
     const handleFirstGesture = () => {
       tryPlay();
       window.removeEventListener("click", handleFirstGesture);
@@ -70,16 +76,15 @@ function HeroVideoSlide({
       window.removeEventListener("scroll", handleFirstGesture);
       window.removeEventListener("pointerdown", handleFirstGesture);
     };
-  }, [isActive, isReducedMotion, hasError, banner.media_url]);
+  }, [isActive, isReducedMotion, hasError, activeSrc]);
 
-  // If video errored out or has no video URL, display fallback poster image
-  if (hasError || !banner.media_url) {
-    return banner.poster_url ? (
+  if (hasError || !activeSrc) {
+    return activePoster ? (
       // eslint-disable-next-line @next/next/no-img-element
       <img
         alt={banner.alt_text || banner.headline}
-        className="absolute inset-0 h-full w-full object-cover pointer-events-none"
-        src={banner.poster_url}
+        className={`absolute inset-0 h-full w-full object-cover pointer-events-none ${className || ""}`}
+        src={activePoster}
       />
     ) : null;
   }
@@ -89,61 +94,66 @@ function HeroVideoSlide({
       ref={videoRef}
       autoPlay
       aria-hidden="true"
-      className="absolute inset-0 h-full w-full object-cover pointer-events-none"
+      className={`absolute inset-0 h-full w-full object-cover pointer-events-none ${className || ""}`}
       loop
       muted
       onError={() => setHasError(true)}
       playsInline
       preload="auto"
-      src={banner.media_url}
+      poster={activePoster || undefined}
+      src={activeSrc}
     />
   );
 }
 
 export function HeroSlider({ banners }: HeroSliderProps) {
   const [currentIndex, setCurrentIndex] = useState(0);
-  const [isHovered, setIsHovered] = useState(false);
-  const [isReducedMotion, setIsReducedMotion] = useState(false);
+  const [manualTrigger, setManualTrigger] = useState(0);
   const touchStartX = useRef<number | null>(null);
+  const touchStartY = useRef<number | null>(null);
   const touchEndX = useRef<number | null>(null);
+  const touchEndY = useRef<number | null>(null);
 
   const bannerCount = banners.length;
+  // Guard index within available bounds
+  const activeIndex = currentIndex >= bannerCount ? 0 : currentIndex;
+  const currentBanner = banners[activeIndex];
+  const isCurrentBannerVideo = currentBanner?.media_type === "video";
 
-  // Check prefers-reduced-motion
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      const mediaQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
-      setIsReducedMotion(mediaQuery.matches);
-      const listener = (e: MediaQueryListEvent) => setIsReducedMotion(e.matches);
-      mediaQuery.addEventListener("change", listener);
-      return () => mediaQuery.removeEventListener("change", listener);
-    }
+  const resetTimer = useCallback(() => {
+    setManualTrigger((prev) => prev + 1);
   }, []);
 
   const handleNext = useCallback(() => {
     if (bannerCount > 1) {
       setCurrentIndex((prev) => (prev + 1) % bannerCount);
+      resetTimer();
     }
-  }, [bannerCount]);
+  }, [bannerCount, resetTimer]);
 
   const handlePrev = useCallback(() => {
     if (bannerCount > 1) {
       setCurrentIndex((prev) => (prev - 1 + bannerCount) % bannerCount);
+      resetTimer();
     }
-  }, [bannerCount]);
+  }, [bannerCount, resetTimer]);
 
-  // Autoplay timer (~6 seconds per slide) when 2+ banners and not paused/reduced motion
+  const handleDotClick = useCallback((idx: number) => {
+    setCurrentIndex(idx);
+    resetTimer();
+  }, [resetTimer]);
+
+  // Automatic slide animation every 5 seconds without pauses
   useEffect(() => {
-    if (bannerCount <= 1 || isHovered || isReducedMotion) return;
+    if (bannerCount <= 1 || isCurrentBannerVideo) return;
 
     const timer = setInterval(() => {
-      handleNext();
-    }, 6000);
+      setCurrentIndex((prev) => (prev + 1) % bannerCount);
+    }, 5000);
 
     return () => clearInterval(timer);
-  }, [bannerCount, isHovered, isReducedMotion, handleNext]);
+  }, [bannerCount, isCurrentBannerVideo, manualTrigger]);
 
-  // Keyboard navigation
   useEffect(() => {
     if (bannerCount <= 1) return;
 
@@ -156,225 +166,294 @@ export function HeroSlider({ banners }: HeroSliderProps) {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [bannerCount, handleNext, handlePrev]);
 
-  // Touch Swipe Handlers for Mobile
   const handleTouchStart = (e: React.TouchEvent) => {
     touchStartX.current = e.touches[0].clientX;
+    touchStartY.current = e.touches[0].clientY;
   };
 
   const handleTouchMove = (e: React.TouchEvent) => {
     touchEndX.current = e.touches[0].clientX;
+    touchEndY.current = e.touches[0].clientY;
   };
 
   const handleTouchEnd = () => {
     if (touchStartX.current === null || touchEndX.current === null) return;
-    const diff = touchStartX.current - touchEndX.current;
+    const diffX = touchStartX.current - touchEndX.current;
+    const diffY = (touchStartY.current ?? 0) - (touchEndY.current ?? 0);
     const minSwipeDistance = 40;
 
-    if (diff > minSwipeDistance) {
-      handleNext();
-    } else if (diff < -minSwipeDistance) {
-      handlePrev();
+    // Only trigger swipe if horizontal motion is dominant, preserving smooth vertical page scroll
+    if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > minSwipeDistance) {
+      if (diffX > 0) {
+        handleNext();
+      } else {
+        handlePrev();
+      }
     }
 
     touchStartX.current = null;
+    touchStartY.current = null;
     touchEndX.current = null;
+    touchEndY.current = null;
   };
 
-  // ---------------------------------------------------------------------------
-  // CASE 0: NO ACTIVE BANNERS -> BRANDED FALLBACK HERO
-  // ---------------------------------------------------------------------------
   if (bannerCount === 0) {
     return (
-      <section className="relative overflow-hidden bg-[radial-gradient(circle_at_78%_22%,rgb(212_175_55_/_0.2),transparent_24%),linear-gradient(120deg,rgb(74_14_23),rgb(92_17_30)_55%,rgb(55_8_17))] text-primary-foreground min-h-[560px] lg:h-[640px] flex items-center">
-        <div className="absolute -left-24 top-10 h-64 w-64 rounded-full bg-accent/10 blur-3xl" aria-hidden="true" />
+      <section className="relative w-full overflow-hidden min-h-[540px] xs:min-h-[560px] sm:min-h-[700px] lg:h-[760px] flex items-center">
+        <div className="absolute inset-0 z-0">
+          <img
+            src="/bg-image-aada.png"
+            alt="Authentic Kerala Payasam & Delicacies"
+            className="h-full w-full object-cover object-center pointer-events-none"
+          />
+          <div className="absolute inset-0 bg-gradient-to-t from-[#2b1719]/40 via-transparent to-black/10" />
+          {/* Mobile top-left cream fade: free-flowing unboxed natural spread from top-left */}
+          <div
+            aria-hidden="true"
+            className="absolute inset-0 pointer-events-none sm:hidden z-10"
+            style={{
+              background:
+                "radial-gradient(ellipse 120% 100% at 0% 15%, rgba(251, 247, 239, 0.88) 0%, rgba(251, 247, 239, 0.35) 35%, rgba(251, 247, 239, 0.2) 60%, transparent 80%)",
+            }}
+          />
+        </div>
 
-        <Container className="relative z-10 grid gap-8 py-16 lg:grid-cols-2 lg:items-center">
-          <div className="space-y-6">
-            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-accent">
-              AUTHENTIC KERALA FLAVOURS
-            </p>
-            <h1 className="font-display text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight text-white leading-tight">
-              Soul of Kerala,<br /> served with heart.
-            </h1>
-            <p className="text-base text-white/80 max-w-xl leading-relaxed">
-              At Namma Ada, we bring the soul of Kerala into the homes of Bangalore. Every delicacy is handcrafted with tradition and a whole lot of love.
-            </p>
-            <div className="flex flex-wrap gap-4 pt-2">
-              <Link
-                className="inline-flex min-h-12 items-center justify-center gap-2 rounded-full bg-primary px-6 text-sm font-semibold text-primary-foreground shadow-lifted hover:bg-primary/90 transition-all"
-                href="/products"
-              >
-                Explore Now <ArrowRight size={16} />
-              </Link>
-              <Link
-                className="inline-flex min-h-12 items-center justify-center rounded-full border border-white/30 bg-white/10 px-6 text-sm font-semibold text-white hover:bg-white/20 transition-all backdrop-blur-sm"
-                href="/contact"
-              >
-                Bulk orders
-              </Link>
-            </div>
-          </div>
+        <Container className="relative z-20 w-full pt-20 pb-12 sm:pt-28 sm:pb-16 lg:pt-32 lg:pb-20 my-auto">
+          <div className="grid lg:grid-cols-12 gap-6 items-center">
+            <div className="lg:col-span-7 xl:col-span-6 flex flex-col justify-center">
+              <div className="relative w-full max-w-[68%] xs:max-w-[65%] sm:max-w-none pl-1 sm:pl-0 bg-transparent sm:bg-gradient-to-br sm:from-white/50 sm:via-[#fcf6ed]/32 sm:to-[#f5e8d6]/22 border-0 sm:border sm:border-white/40 shadow-none sm:shadow-[0_20px_50px_-12px_rgba(43,23,25,0.12),inset_0_1px_1.5px_0_rgba(255,255,255,0.75)] sm:rounded-[2.5rem] p-0 sm:p-8 lg:p-9 sm:backdrop-blur-xl [transform:translateZ(0)]">
+                <div className="flex items-center gap-2.5 sm:gap-3">
+                  <span className="text-[11px] sm:text-xs font-bold uppercase tracking-[0.22em] text-[#711e2c]">
+                    A TASTE OF HOME
+                  </span>
+                  <span className="h-[1.5px] w-10 sm:w-14 bg-[#711e2c]/40 rounded-full" />
+                </div>
 
-          <div className="relative h-80 rounded-3xl border border-white/20 bg-white/5 backdrop-blur-md p-8 flex flex-col justify-center items-center text-center shadow-lifted">
-            <div className="h-16 w-16 rounded-full bg-accent/20 flex items-center justify-center mb-4">
-              <Leaf className="text-accent" size={32} />
+                <h1 className="mt-2.5 sm:mt-3 font-display text-[25px] xs:text-[27px] sm:text-3xl lg:text-4xl font-bold tracking-tight text-[#2b1719] leading-[1.16] sm:leading-[1.2]">
+                  Every celebration begins with a little sweetness.
+                </h1>
+
+                <div className="mt-3 sm:mt-4 space-y-2 sm:space-y-3 text-[12.5px] sm:text-sm text-[#381a1f] font-medium sm:font-normal leading-[1.48] sm:leading-relaxed max-w-xl">
+                  <p>
+                    At Namma Ada, we bring the soul of Kerala into the homes of Bangalore. Every bowl of Palada Payasam, every Unniyappam, every bottle of pure coconut oil, and every delicacy we create is handcrafted with tradition and a whole lot of love.
+                  </p>
+                  <p className="hidden sm:block">
+                    We don&apos;t just serve food. We serve memories, festivals, and the comforting taste of home.
+                  </p>
+                </div>
+
+                <div className="mt-4 sm:mt-5 flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 sm:gap-3 w-full max-w-[215px] sm:max-w-none">
+                  <Link
+                    className="inline-flex min-h-[44px] sm:min-h-11 items-center justify-center gap-2 rounded-full bg-[#711e2c] hover:bg-[#5a1723] px-6 sm:px-7 text-[13px] sm:text-sm font-semibold text-white shadow-md shadow-[#711e2c]/20 transition-all duration-150 active:scale-95 cursor-pointer"
+                    href="/products"
+                  >
+                    <span>Explore Now</span>
+                    <ArrowRight size={15} />
+                  </Link>
+                  <Link
+                    className="inline-flex min-h-[44px] sm:min-h-11 items-center justify-center rounded-full border border-[#711e2c]/20 bg-[#f4efe8] sm:bg-white/25 hover:bg-[#ebe2d8] sm:hover:bg-white/45 px-6 sm:px-7 text-[13px] sm:text-sm font-semibold text-[#711e2c] transition-all duration-150 active:scale-95 shadow-xs sm:shadow-none cursor-pointer"
+                    href="/contact"
+                  >
+                    <span>Bulk Orders</span>
+                  </Link>
+                </div>
+
+                {/* Desktop-only feature row */}
+                <div className="hidden sm:grid sm:grid-cols-3 sm:gap-2 sm:mt-6 sm:pt-4 sm:border-t sm:border-[#711e2c]/15">
+                  <div className="flex items-center gap-2">
+                    <Leaf className="text-[#711e2c] shrink-0" size={16} strokeWidth={2} />
+                    <span className="text-[10px] sm:text-[11px] font-semibold text-[#3d0b13]">Authentic Taste</span>
+                  </div>
+                  <div className="flex items-center gap-2 border-l border-[#711e2c]/15 pl-2 sm:pl-3">
+                    <Heart className="text-[#711e2c] shrink-0" size={16} strokeWidth={2} />
+                    <span className="text-[10px] sm:text-[11px] font-semibold text-[#3d0b13]">Made With Love</span>
+                  </div>
+                  <div className="flex items-center gap-2 border-l border-[#711e2c]/15 pl-2 sm:pl-3">
+                    <Gift className="text-[#711e2c] shrink-0" size={16} strokeWidth={2} />
+                    <span className="text-[10px] sm:text-[11px] font-semibold text-[#3d0b13]">Bulk Orders</span>
+                  </div>
+                </div>
+              </div>
             </div>
-            <p className="font-display text-xl font-semibold text-white">Handcrafted Delicacies</p>
-            <p className="text-xs text-white/70 mt-2 max-w-sm">
-              Fresh ingredients, traditional recipes, and authentic South Indian taste delivered straight to your door.
-            </p>
           </div>
         </Container>
       </section>
     );
   }
 
-  // Active banner data for current slide
-  const currentBanner = banners[currentIndex];
-
   return (
     <section
       aria-label="Storefront Hero Banner Slider"
-      className="relative w-full overflow-hidden bg-[#2b1719] min-h-[660px] sm:min-h-[720px] lg:h-[780px] flex items-center"
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
+      className="relative w-full overflow-hidden min-h-[540px] xs:min-h-[560px] sm:min-h-[700px] lg:h-[760px] flex items-center touch-pan-y"
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
     >
-      {/* FULL-BLEED BACKGROUND MEDIA SLIDES */}
-      {banners.map((banner, index) => {
-        const isActive = index === currentIndex;
-        const isVideo = banner.media_type === "video";
+      {/* HORIZONTAL SLIDING CAROUSEL TRACK */}
+      <div
+        className="absolute inset-0 flex h-full w-full transition-transform duration-700 ease-in-out"
+        style={{ transform: `translateX(-${activeIndex * 100}%)` }}
+      >
+        {banners.map((banner, index) => {
+          const isActive = index === activeIndex;
+          const isVideo = banner.media_type === "video";
 
-        return (
-          <div
-            key={banner.id}
-            aria-hidden={!isActive}
-            className={`absolute inset-0 transition-opacity duration-700 ease-in-out ${
-              isActive ? "opacity-100 z-10" : "opacity-0 z-0 pointer-events-none"
-            }`}
-          >
-            {isVideo ? (
-              <HeroVideoSlide
-                banner={banner}
-                isActive={isActive}
-                isReducedMotion={isReducedMotion}
-              />
-            ) : (
-              /* Image Background Slide */
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                alt={banner.alt_text || banner.headline}
-                className="absolute inset-0 h-full w-full object-cover pointer-events-none"
-                loading={index === 0 ? "eager" : "lazy"}
-                src={banner.media_url}
-              />
-            )}
-          </div>
-        );
-      })}
-
-      {/* CONTENT OVERLAY */}
-      <Container className="relative z-20 w-full pt-28 pb-14 sm:pt-32 sm:pb-16 lg:pt-36 lg:pb-20">
-        <div className="grid lg:grid-cols-12 gap-8 items-center">
-          {/* LEFT: Translucent Whitish Glass Content Box */}
-          <div className="lg:col-span-7 xl:col-span-6">
+          return (
             <div
-              key={currentIndex}
-              className="relative w-full rounded-3xl sm:rounded-[2.5rem] border border-white/70 bg-gradient-to-br from-white/75 via-white/55 to-white/40 backdrop-blur-xl p-6 sm:p-9 lg:p-10 shadow-2xl shadow-amber-950/15 animate-in fade-in slide-in-from-bottom-4 duration-500"
+              key={banner.id}
+              aria-hidden={!isActive}
+              className="relative h-full w-full min-w-full shrink-0 overflow-hidden"
             >
-              {/* Eyebrow tag with horizontal line divider matching reference image */}
-              <div className="flex items-center gap-3">
-                <span className="text-[11px] sm:text-xs font-bold uppercase tracking-[0.22em] text-[#6b1e28]">
-                  {currentBanner.mobile_headline && typeof window !== "undefined" && window.innerWidth < 640
-                    ? currentBanner.mobile_headline
-                    : currentBanner.eyebrow}
-                </span>
-                <span className="h-[1.5px] w-12 bg-[#6b1e28]/35 rounded-full" />
-              </div>
+              {banner.mobile_media_url ? (
+                <>
+                  {banner.mobile_media_type === "video" ? (
+                    <HeroVideoSlide
+                      banner={banner}
+                      className="sm:hidden"
+                      isActive={isActive}
+                      isReducedMotion={false}
+                      videoSrc={banner.mobile_media_url}
+                    />
+                  ) : (
+                    <img
+                      alt={banner.alt_text || banner.headline}
+                      className="absolute inset-0 h-full w-full object-cover object-center pointer-events-none sm:hidden"
+                      loading={index === 0 ? "eager" : "lazy"}
+                      src={banner.mobile_media_url}
+                    />
+                  )}
 
-              {/* Headline in serif display font */}
-              <h1 className="mt-3.5 font-display text-3xl sm:text-4xl lg:text-[42px] font-bold tracking-tight text-[#3d0b13] leading-[1.12] whitespace-pre-line">
-                {currentBanner.headline}
-              </h1>
+                  {isVideo ? (
+                    <HeroVideoSlide
+                      banner={banner}
+                      className="hidden sm:block"
+                      isActive={isActive}
+                      isReducedMotion={false}
+                    />
+                  ) : (
+                    <img
+                      alt={banner.alt_text || banner.headline}
+                      className="hidden sm:block absolute inset-0 h-full w-full object-cover object-center pointer-events-none"
+                      loading={index === 0 ? "eager" : "lazy"}
+                      src={banner.media_url}
+                    />
+                  )}
+                </>
+              ) : (
+                <>
+                  {isVideo ? (
+                    <HeroVideoSlide
+                      banner={banner}
+                      isActive={isActive}
+                      isReducedMotion={false}
+                    />
+                  ) : (
+                    <img
+                      alt={banner.alt_text || banner.headline}
+                      className="absolute inset-0 h-full w-full object-cover object-center pointer-events-none"
+                      loading={index === 0 ? "eager" : "lazy"}
+                      src={banner.media_url}
+                    />
+                  )}
+                </>
+              )}
 
-              {/* Description */}
-              <p className="mt-3.5 text-xs sm:text-sm text-[#4a242a]/85 leading-relaxed max-w-md">
-                {currentBanner.mobile_description && typeof window !== "undefined" && window.innerWidth < 640
-                  ? currentBanner.mobile_description
-                  : currentBanner.description}
-              </p>
+              {/* Contrast overlay */}
+              {isVideo ? (
+                <div className="absolute inset-0 bg-black/10 pointer-events-none" />
+              ) : (
+                <div className="absolute inset-0 bg-transparent sm:bg-gradient-to-t sm:from-black/60 sm:via-transparent sm:to-black/20 lg:bg-gradient-to-r lg:from-black/50 lg:via-transparent lg:to-transparent pointer-events-none" />
+              )}
+            </div>
+          );
+        })}
+      </div>
 
-              {/* Buttons Row */}
-              <div className="mt-6 flex flex-wrap items-center gap-3">
-                <Link
-                  className="inline-flex min-h-11 items-center justify-center gap-2 rounded-full bg-[#5c111a] hover:bg-[#480d14] px-6 sm:px-7 text-xs sm:text-sm font-semibold text-white shadow-md transition-all duration-200 active:scale-95"
-                  href={currentBanner.primary_cta_href}
-                >
-                  {currentBanner.primary_cta_label} <ArrowRight size={15} />
-                </Link>
+      {/* Mobile top-left cream fade: free-flowing unboxed natural spread from top-left */}
+      {!isCurrentBannerVideo && (
+        <div
+          aria-hidden="true"
+          className="absolute inset-0 pointer-events-none sm:hidden z-10"
+          style={{
+            background:
+              "radial-gradient(ellipse 90% 70% at 0% 15%, rgba(251, 247, 239, 0.88) 0%, rgba(251, 247, 239, 0.55) 35%, rgba(251, 247, 239, 0.2) 60%, transparent 80%)",
+          }}
+        />
+      )}
 
-                {currentBanner.is_secondary_cta_enabled && currentBanner.secondary_cta_label && currentBanner.secondary_cta_href ? (
-                  <Link
-                    className="inline-flex min-h-11 items-center justify-center rounded-full border border-[#5c111a]/25 bg-white/40 hover:bg-white/70 px-6 sm:px-7 text-xs sm:text-sm font-semibold text-[#5c111a] backdrop-blur-xs transition-all duration-200 active:scale-95"
-                    href={currentBanner.secondary_cta_href}
-                  >
-                    {currentBanner.secondary_cta_label}
-                  </Link>
-                ) : (
-                  <Link
-                    className="inline-flex min-h-11 items-center justify-center rounded-full border border-[#5c111a]/25 bg-white/40 hover:bg-white/70 px-6 sm:px-7 text-xs sm:text-sm font-semibold text-[#5c111a] backdrop-blur-xs transition-all duration-200 active:scale-95"
-                    href="/contact"
-                  >
-                    Bulk Orders
-                  </Link>
-                )}
-              </div>
+      {/* CONTENT REGION: EDITORIAL GLASS PANEL (Hidden when video mode is active) */}
+      {!isCurrentBannerVideo && currentBanner && (
+        <Container className="relative z-20 w-full pt-1 pb-12 sm:pt-28 sm:pb-16 lg:pt-32 lg:pb-20 my-auto">
+          <div className="grid lg:grid-cols-12 gap-6 items-center">
+            <div className="lg:col-span-7 xl:col-span-6 flex flex-col justify-center">
+              <div className="relative w-full max-w-[68%] xs:max-w-[65%] sm:max-w-none pl-1 sm:pl-0 bg-transparent sm:bg-gradient-to-br sm:from-white/50 sm:via-[#fcf6ed]/32 sm:to-[#f5e8d6]/22 border-0 sm:border sm:border-white/40 shadow-none sm:shadow-[0_20px_50px_-12px_rgba(43,23,25,0.12),inset_0_1px_1.5px_0_rgba(255,255,255,0.75)] sm:rounded-[2.5rem] p-0 sm:p-8 lg:p-9 sm:backdrop-blur-xl [transform:translateZ(0)]">
+                <div key={activeIndex} className="animate-in fade-in duration-300">
+                  <div className="flex items-center gap-2.5 sm:gap-3">
+                    <span className="text-[11px] sm:text-xs font-bold uppercase tracking-[0.22em] text-[#711e2c]">
+                      {currentBanner.eyebrow || "A TASTE OF HOME"}
+                    </span>
+                    <span className="h-[1.5px] w-10 sm:w-14 bg-[#711e2c]/40 rounded-full" />
+                  </div>
 
-              {/* Feature Items inside the card at the bottom matching reference image */}
-              <div className="mt-7 pt-5 border-t border-[#5c111a]/15 grid grid-cols-3 gap-2">
-                <div className="flex items-center gap-2 sm:gap-2.5">
-                  <Leaf className="text-[#5c111a] shrink-0" size={18} strokeWidth={2} />
-                  <div className="text-[10px] sm:text-[11px] font-semibold text-[#3d0b13] leading-tight">
-                    Authentic<br className="hidden sm:block" /> Kerala Taste
+                  <h1 className="mt-2.5 sm:mt-3 font-display text-[25px] xs:text-[27px] sm:text-3xl lg:text-4xl font-bold tracking-tight text-[#2b1719] leading-[1.16] sm:leading-[1.2]">
+                    {currentBanner.mobile_headline ? (
+                      <>
+                        <span className="sm:hidden">{currentBanner.mobile_headline}</span>
+                        <span className="hidden sm:inline">{currentBanner.headline}</span>
+                      </>
+                    ) : (
+                      currentBanner.headline || "Every celebration begins with a little sweetness."
+                    )}
+                  </h1>
+
+                  <div className="mt-3 sm:mt-4 space-y-2 sm:space-y-3 text-[12.5px] sm:text-sm text-[#381a1f] font-medium sm:font-normal leading-[1.48] sm:leading-relaxed max-w-xl">
+                    {(currentBanner.description || "At Namma Ada, we bring the soul of Kerala into the homes of Bangalore. Every bowl of Palada Payasam, every Unniyappam, every bottle of pure coconut oil, and every delicacy we create is handcrafted with tradition and a whole lot of love.\n\nWe don't just serve food. We serve memories, festivals, and the comforting taste of home.").split("\n\n").map((para, idx) => (
+                      <p key={idx} className={idx > 0 ? "hidden sm:block" : ""}>{para}</p>
+                    ))}
+                  </div>
+
+                  <div className="mt-4 sm:mt-5 flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 sm:gap-3 w-full max-w-[215px] sm:max-w-none">
+                    <Link
+                      className="inline-flex min-h-[44px] sm:min-h-11 items-center justify-center gap-2 rounded-full bg-[#711e2c] hover:bg-[#5a1723] px-6 sm:px-7 text-[13px] sm:text-sm font-semibold text-white shadow-md shadow-[#711e2c]/20 transition-all duration-150 active:scale-95 cursor-pointer"
+                      href={currentBanner.primary_cta_href || "/products"}
+                    >
+                      <span>Explore Now</span> <ArrowRight size={15} />
+                    </Link>
+
+                    <Link
+                      className="inline-flex min-h-[44px] sm:min-h-11 items-center justify-center rounded-full border border-[#711e2c]/20 bg-[#f4efe8] sm:bg-white/25 hover:bg-[#ebe2d8] sm:hover:bg-white/45 px-6 sm:px-7 text-[13px] sm:text-sm font-semibold text-[#711e2c] transition-all duration-150 active:scale-95 shadow-xs sm:shadow-none cursor-pointer"
+                      href={currentBanner.secondary_cta_href || "/contact"}
+                    >
+                      <span>Bulk Orders</span>
+                    </Link>
                   </div>
                 </div>
-                <div className="flex items-center gap-2 sm:gap-2.5 border-l border-[#5c111a]/15 pl-2 sm:pl-3">
-                  <Heart className="text-[#5c111a] shrink-0" size={18} strokeWidth={2} />
-                  <div className="text-[10px] sm:text-[11px] font-semibold text-[#3d0b13] leading-tight">
-                    Made<br className="hidden sm:block" /> With Love
+
+                <div className="hidden sm:grid sm:grid-cols-3 sm:gap-2 sm:mt-6 sm:pt-4 sm:border-t sm:border-[#711e2c]/15">
+                  <div className="flex items-center gap-2">
+                    <Leaf className="text-[#711e2c] shrink-0" size={16} strokeWidth={2} />
+                    <span className="text-[10px] sm:text-[11px] font-semibold text-[#3d0b13]">Authentic Taste</span>
                   </div>
-                </div>
-                <div className="flex items-center gap-2 sm:gap-2.5 border-l border-[#5c111a]/15 pl-2 sm:pl-3">
-                  <Gift className="text-[#5c111a] shrink-0" size={18} strokeWidth={2} />
-                  <div className="text-[10px] sm:text-[11px] font-semibold text-[#3d0b13] leading-tight">
-                    Bulk Orders<br className="hidden sm:block" /> Welcome
+                  <div className="flex items-center gap-2 border-l border-[#711e2c]/15 pl-2 sm:pl-3">
+                    <Heart className="text-[#711e2c] shrink-0" size={16} strokeWidth={2} />
+                    <span className="text-[10px] sm:text-[11px] font-semibold text-[#3d0b13]">Made With Love</span>
+                  </div>
+                  <div className="flex items-center gap-2 border-l border-[#711e2c]/15 pl-2 sm:pl-3">
+                    <Gift className="text-[#711e2c] shrink-0" size={16} strokeWidth={2} />
+                    <span className="text-[10px] sm:text-[11px] font-semibold text-[#3d0b13]">Bulk Orders</span>
                   </div>
                 </div>
               </div>
             </div>
           </div>
+        </Container>
+      )}
 
-          {/* RIGHT: Floating "Premium Quality" Glass Badge matching Reference Image */}
-          <div className="hidden lg:flex lg:col-span-5 xl:col-span-6 justify-end items-center pr-4">
-            <div className="flex items-center gap-3 rounded-2xl border border-white/65 bg-white/25 backdrop-blur-md px-5 py-3.5 text-white shadow-xl shadow-black/15 transition-all hover:bg-white/30">
-              <Leaf className="text-amber-300 shrink-0" size={22} strokeWidth={2} />
-              <div className="text-xs font-semibold leading-tight text-white drop-shadow-sm">
-                Premium<br />Quality
-              </div>
-            </div>
-          </div>
-        </div>
-      </Container>
-
-      {/* SLIDER CONTROLS (Only visible when 2+ active banners) */}
-      {bannerCount > 1 && (
+      {bannerCount > 1 && !isCurrentBannerVideo && (
         <>
-          {/* Previous / Next Edge Buttons */}
           <button
             aria-label="Previous hero banner"
-            className="absolute left-4 top-1/2 -translate-y-1/2 z-30 flex h-11 w-11 items-center justify-center rounded-full border border-white/25 bg-black/40 text-white backdrop-blur-md transition-all hover:bg-black/70 hover:scale-110 active:scale-95"
+            className="hidden sm:flex absolute left-4 top-1/2 -translate-y-1/2 z-30 h-11 w-11 items-center justify-center rounded-full border border-white/30 bg-black/40 text-white backdrop-blur-xs [transform:translateZ(0)] transition-all hover:bg-black/60 active:scale-95 cursor-pointer shadow-md"
             onClick={handlePrev}
             type="button"
           >
@@ -383,24 +462,23 @@ export function HeroSlider({ banners }: HeroSliderProps) {
 
           <button
             aria-label="Next hero banner"
-            className="absolute right-4 top-1/2 -translate-y-1/2 z-30 flex h-11 w-11 items-center justify-center rounded-full border border-white/25 bg-black/40 text-white backdrop-blur-md transition-all hover:bg-black/70 hover:scale-110 active:scale-95"
+            className="hidden sm:flex absolute right-4 top-1/2 -translate-y-1/2 z-30 h-11 w-11 items-center justify-center rounded-full border border-white/30 bg-black/40 text-white backdrop-blur-xs [transform:translateZ(0)] transition-all hover:bg-black/60 active:scale-95 cursor-pointer shadow-md"
             onClick={handleNext}
             type="button"
           >
             <ChevronRight size={22} />
           </button>
 
-          {/* Dot Indicators */}
-          <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-30 flex items-center gap-2 rounded-full border border-white/20 bg-black/40 px-3 py-1.5 backdrop-blur-md">
+          <div className="absolute bottom-5 left-1/2 -translate-x-1/2 z-30 flex items-center gap-2 rounded-full border border-white/20 bg-black/40 px-3.5 py-1.5 backdrop-blur-md [transform:translateZ(0)] shadow-lg">
             {banners.map((b, idx) => (
               <button
                 key={b.id}
                 aria-label={`Go to slide ${idx + 1}`}
-                aria-current={idx === currentIndex ? "true" : undefined}
-                className={`h-2.5 rounded-full transition-all duration-300 ${
-                  idx === currentIndex ? "w-7 bg-amber-400" : "w-2.5 bg-white/40 hover:bg-white/70"
+                aria-current={idx === activeIndex ? "true" : undefined}
+                className={`h-2.5 rounded-full transition-all duration-300 cursor-pointer ${
+                  idx === activeIndex ? "w-7 bg-[#fbf7ef] shadow-sm" : "w-2.5 bg-white/40 hover:bg-white/70"
                 }`}
-                onClick={() => setCurrentIndex(idx)}
+                onClick={() => handleDotClick(idx)}
                 type="button"
               />
             ))}

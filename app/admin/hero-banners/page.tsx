@@ -122,7 +122,15 @@ export default async function HeroBannersPage({ searchParams }: { searchParams: 
                         <form action={moveHeroBanner}>
                           <input name="id" type="hidden" value={banner.id} />
                           <input name="direction" type="hidden" value="up" />
-                          <Button disabled={index === 0} size="icon" type="submit" variant="ghost" className="h-8 w-8">
+                          <Button
+                            disabled={index === 0}
+                            size="icon"
+                            type="submit"
+                            variant="ghost"
+                            className="h-8 w-8 cursor-pointer disabled:cursor-not-allowed disabled:opacity-30 hover:bg-secondary"
+                            title="Move up"
+                            aria-label={`Move ${banner.headline.slice(0, 20)} up`}
+                          >
                             <ArrowUp size={14} />
                           </Button>
                         </form>
@@ -130,7 +138,15 @@ export default async function HeroBannersPage({ searchParams }: { searchParams: 
                         <form action={moveHeroBanner}>
                           <input name="id" type="hidden" value={banner.id} />
                           <input name="direction" type="hidden" value="down" />
-                          <Button disabled={index === banners.length - 1} size="icon" type="submit" variant="ghost" className="h-8 w-8">
+                          <Button
+                            disabled={index === banners.length - 1}
+                            size="icon"
+                            type="submit"
+                            variant="ghost"
+                            className="h-8 w-8 cursor-pointer disabled:cursor-not-allowed disabled:opacity-30 hover:bg-secondary"
+                            title="Move down"
+                            aria-label={`Move ${banner.headline.slice(0, 20)} down`}
+                          >
                             <ArrowDown size={14} />
                           </Button>
                         </form>

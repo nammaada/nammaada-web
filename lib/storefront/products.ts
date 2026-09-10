@@ -1,10 +1,10 @@
 import "server-only";
 
+import { unstable_cache } from "next/cache";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { AppError } from "@/lib/server/errors";
 import { getCloudinaryImageUrl } from "@/lib/cloudinary/delivery";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 export type StorefrontProduct = {
   id: string;
@@ -44,24 +44,8 @@ const productFields = "id,category_id,name,slug,short_description,description,pr
 async function executeProductQuery(
   buildQuery: (client: SupabaseClient) => PromiseLike<{ data: unknown[] | null; error: { message: string } | null }>
 ): Promise<StorefrontProduct[]> {
-  try {
-    const supabase = await createSupabaseServerClient();
-    const { data, error } = await buildQuery(supabase);
-    if (!error && data) {
-      return data.map((product) => ({
-        ...(product as Omit<StorefrontProduct, "primary_image" | "images">),
-        primary_image: null,
-        images: [],
-      }));
-    }
-    if (error) {
-      console.warn("[queryProducts] Server client query error, falling back to admin client:", error.message);
-    }
-  } catch (err) {
-    console.warn("[queryProducts] Server client error, falling back to admin client:", err);
-  }
-
-  // Fallback to admin client (immune to user session/expired cookie JWT issues)
+  // Use admin client directly — cookies() is blocked inside unstable_cache with cacheComponents.
+  // All storefront product data is public read-only; service role key is appropriate.
   try {
     const admin = createSupabaseAdminClient();
     const { data, error } = await buildQuery(admin);
@@ -107,7 +91,7 @@ async function attachPrimaryImages(
 
     for (const image of images) {
       const productImages = imagesByProduct.get(image.product_id) ?? [];
-      productImages.push({ id: image.id, url: getCloudinaryImageUrl({ publicId: image.cloudinary_public_id, width: 960, height: 720, crop: "fill" }), alt: image.alt_text, display_order: image.display_order });
+      productImages.push({ id: image.id, url: getCloudinaryImageUrl({ publicId: image.cloudinary_public_id, width: 960, crop: "limit" }), alt: image.alt_text, display_order: image.display_order });
       imagesByProduct.set(image.product_id, productImages);
     }
 
@@ -122,7 +106,7 @@ async function attachPrimaryImages(
   }
 }
 
-export async function getProducts(categoryId?: string): Promise<StorefrontProduct[]> {
+async function fetchProducts(categoryId?: string): Promise<StorefrontProduct[]> {
   const products = await executeProductQuery((client) => {
     let query = client.from("storefront_products").select(productFields).order("display_order", { ascending: true });
     if (categoryId) {
@@ -133,74 +117,74 @@ export async function getProducts(categoryId?: string): Promise<StorefrontProduc
   return attachPrimaryImages(products);
 }
 
-export async function getFeaturedProducts(): Promise<StorefrontProduct[]> {
+export function getProducts(categoryId?: string): Promise<StorefrontProduct[]> {
+  return unstable_cache(
+    () => fetchProducts(categoryId),
+    [`storefront-products-${categoryId || "all"}`],
+    { tags: ["products"], revalidate: 60 }
+  )();
+}
+
+async function fetchFeaturedProducts(): Promise<StorefrontProduct[]> {
   const products = await executeProductQuery((client) =>
     client.from("storefront_products").select(productFields).eq("is_featured", true).order("display_order", { ascending: true })
   );
   return attachPrimaryImages(products);
 }
 
-export async function getProductBySlug(slug: string): Promise<StorefrontProduct | null> {
-  let productData: unknown = null;
+export const getFeaturedProducts = unstable_cache(
+  fetchFeaturedProducts,
+  ["storefront-featured-products"],
+  { tags: ["products"], revalidate: 60 }
+);
 
+export async function searchStorefrontProducts(query: string): Promise<StorefrontProduct[]> {
+  const trimmed = query.trim();
+  if (!trimmed) return [];
+  const products = await executeProductQuery((client) =>
+    client
+      .from("storefront_products")
+      .select(productFields)
+      .ilike("name", `%${trimmed}%`)
+      .order("display_order", { ascending: true })
+      .limit(12)
+  );
+  return attachPrimaryImages(products);
+}
+
+async function fetchProductBySlug(slug: string): Promise<StorefrontProduct | null> {
+  // Use admin client — cookies() is blocked inside unstable_cache with cacheComponents.
   try {
-    const supabase = await createSupabaseServerClient();
-    const { data, error } = await supabase
+    const admin = createSupabaseAdminClient();
+    const { data, error } = await admin
       .from("storefront_products")
       .select(productFields)
       .eq("slug", slug)
       .maybeSingle();
 
     if (!error && data) {
-      productData = data;
+      const [product] = await attachPrimaryImages([
+        { ...(data as Omit<StorefrontProduct, "primary_image" | "images">), primary_image: null, images: [] },
+      ]);
+      return product ?? null;
     }
-  } catch {
-    // fallback to admin client
+  } catch (err) {
+    console.error("[getProductBySlug] Admin query error:", err);
   }
 
-  if (!productData) {
-    try {
-      const admin = createSupabaseAdminClient();
-      const { data, error } = await admin
-        .from("storefront_products")
-        .select(productFields)
-        .eq("slug", slug)
-        .maybeSingle();
-
-      if (!error && data) {
-        productData = data;
-      }
-    } catch (err) {
-      console.error("[getProductBySlug] Admin query error:", err);
-    }
-  }
-
-  if (!productData) {
-    return null;
-  }
-
-  const [product] = await attachPrimaryImages([
-    { ...(productData as Omit<StorefrontProduct, "primary_image" | "images">), primary_image: null, images: [] },
-  ]);
-  return product ?? null;
+  return null;
 }
 
-export async function getProductVariants(productId: string): Promise<StorefrontProductVariant[]> {
-  try {
-    const supabase = await createSupabaseServerClient();
-    const { data, error } = await supabase
-      .from("storefront_product_variants")
-      .select("id,product_id,name,price_paise,is_in_stock,display_order")
-      .eq("product_id", productId)
-      .order("display_order", { ascending: true });
+export function getProductBySlug(slug: string): Promise<StorefrontProduct | null> {
+  return unstable_cache(
+    () => fetchProductBySlug(slug),
+    [`storefront-product-${slug}`],
+    { tags: ["products", `product-${slug}`], revalidate: 60 }
+  )();
+}
 
-    if (!error && data) {
-      return data as StorefrontProductVariant[];
-    }
-  } catch {
-    // fallback
-  }
-
+async function fetchProductVariants(productId: string): Promise<StorefrontProductVariant[]> {
+  // Use admin client — cookies() is blocked inside unstable_cache with cacheComponents.
   try {
     const admin = createSupabaseAdminClient();
     const { data, error } = await admin
@@ -217,4 +201,12 @@ export async function getProductVariants(productId: string): Promise<StorefrontP
   }
 
   return [];
+}
+
+export function getProductVariants(productId: string): Promise<StorefrontProductVariant[]> {
+  return unstable_cache(
+    () => fetchProductVariants(productId),
+    [`storefront-variants-${productId}`],
+    { tags: ["products", `variants-${productId}`], revalidate: 60 }
+  )();
 }

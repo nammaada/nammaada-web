@@ -3,20 +3,20 @@
 :root {
   --background: #fbf7ef;
   --foreground: #2b1719;
-  --primary: #4a0e17;
-  --primary-foreground: #fffaf1;
+  --primary: #711e2c;
+  --primary-foreground: #fffcf2;
   --secondary: #f4efeb;
-  --secondary-foreground: #4a0e17;
-  --accent: #d4af37;
-  --accent-foreground: #2b1719;
+  --secondary-foreground: #711e2c;
+  --accent: #711e2c;
+  --accent-foreground: #fffcf2;
   --muted: #f1e8d9;
   --muted-foreground: #6e5b55;
   --border: #e5d8c6;
   --input: #dfd0bd;
   --card: #fffdf8;
   --card-foreground: #2b1719;
-  --ring: #a57b24;
-  --font-namma-sans: "Avenir Next", Avenir, "Segoe UI", sans-serif;
+  --ring: #711e2c;
+  --font-namma-sans: "Avenir Next", Avenir, "Segoe UI", system-ui, -apple-system, sans-serif;
   --font-namma-display: Georgia, "Times New Roman", serif;
 }
 
@@ -42,8 +42,8 @@
   --radius-md: 0.875rem;
   --radius-lg: 1.25rem;
   --radius-xl: 1.75rem;
-  --shadow-soft: 0 14px 40px rgb(74 14 23 / 0.06);
-  --shadow-lifted: 0 20px 55px rgb(74 14 23 / 0.1);
+  --shadow-soft: 0 10px 30px rgb(113 30 44 / 0.06);
+  --shadow-lifted: 0 20px 45px rgb(113 30 44 / 0.12);
 }
 
 * {
@@ -60,11 +60,17 @@ body {
   color: var(--foreground);
   font-family: var(--font-namma-sans), sans-serif;
   text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
 }
 
 ::selection {
-  background: var(--accent);
-  color: var(--accent-foreground);
+  background: #eedec8;
+  color: #2b1719;
+}
+
+::-moz-selection {
+  background: #eedec8;
+  color: #2b1719;
 }
 
 button,
@@ -74,8 +80,6 @@ select {
   font: inherit;
 }
 
-/* Keep element resets in the base layer so semantic utility classes such as
-   text-primary-foreground can correctly control link and button contrast. */
 @layer base {
   a {
     color: inherit;
@@ -90,13 +94,14 @@ select {
   -webkit-tap-highlight-color: transparent;
 }
 
+/* Mobile-first site container: 16px padding on 360px screens */
 .site-container {
-  width: min(100% - 2.5rem, 76rem);
+  width: min(100% - 2rem, 76rem);
   margin-inline: auto;
 }
 
 .section-shell {
-  padding-block: 4rem;
+  padding-block: 1rem;
 }
 
 .eyebrow {
@@ -108,30 +113,78 @@ select {
   text-transform: uppercase;
 }
 
-.surface-glass {
-  border: 1px solid rgb(255 253 248 / 0.62);
-  background: rgb(255 253 248 / 0.54);
-  box-shadow: var(--shadow-soft);
+/* High-Performance Hardware-Accelerated Glassmorphism Engine
+   Eliminates browser compositor stalls, checkerboarding, and delayed tile loading
+   while preserving the exact editorial frosted-glass appearance. */
+.backdrop-blur-xl {
+  -webkit-backdrop-filter: blur(12px);
   backdrop-filter: blur(12px);
+  isolation: isolate;
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+  transform: translateZ(0);
+  will-change: transform;
 }
 
-.ambient-glow {
-  background: radial-gradient(circle at 50% 50%, rgb(212 175 55 / 0.12), transparent 68%);
+.backdrop-blur-lg {
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  isolation: isolate;
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+  transform: translateZ(0);
+  will-change: transform;
 }
 
-@media (min-width: 640px) {
-  .site-container {
-    width: min(100% - 4rem, 76rem);
+.backdrop-blur-md {
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  isolation: isolate;
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+  transform: translateZ(0);
+  will-change: transform;
+}
+
+/* Editorial Glassmorphism Surface matching Reference 2 */
+.surface-glass {
+  border: 1px solid rgb(255 255 255 / 0.75);
+  background: linear-gradient(135deg, rgb(255 255 255 / 0.8) 0%, rgb(255 253 248 / 0.6) 60%, rgb(250 243 233 / 0.45) 100%);
+  box-shadow: 0 16px 40px rgb(74 14 23 / 0.08);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  isolation: isolate;
+  -webkit-backface-visibility: hidden;
+  backface-visibility: hidden;
+  transform: translateZ(0);
+  will-change: transform;
+  contain: layout style;
+}
+
+/* Mobile viewport optimization (<= 640px)
+   Matches mobile GPU fill rates so cards appear instantly with zero tile stalls */
+@media (max-width: 640px) {
+  .backdrop-blur-xl,
+  .surface-glass {
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
   }
 
-  .section-shell {
-    padding-block: 5.5rem;
+  .backdrop-blur-lg {
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
   }
 }
 
-@media (min-width: 1024px) {
-  .site-container {
-    width: min(100% - 6rem, 76rem);
+/* Progressive enhancement fallback for browsers/devices without backdrop-filter support */
+@supports not ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+  .backdrop-blur-xl,
+  .backdrop-blur-lg,
+  .backdrop-blur-md,
+  .backdrop-blur-sm,
+  .backdrop-blur-xs,
+  .surface-glass {
+    background-color: rgba(251, 247, 239, 0.94) !important;
   }
 }
 
@@ -151,3 +204,5 @@ select {
     transition-duration: 0.01ms !important;
   }
 }
+
+

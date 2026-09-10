@@ -1,11 +1,14 @@
-import { deleteTestimonial, saveTestimonial } from "@/actions/admin";
+import { ArrowDown, ArrowUp } from "lucide-react";
+import { deleteTestimonial, moveTestimonial, saveTestimonial, toggleTestimonialActive } from "@/actions/admin";
 import { AdminField, CheckField, Submit } from "@/components/admin/admin-form";
 import { ConfirmDialog } from "@/components/admin/confirm-dialog";
+import { EditTestimonialModal } from "@/components/admin/edit-testimonial-modal";
 import { EmptyState } from "@/components/admin/empty-state";
 import { PageHeader } from "@/components/admin/page-header";
 import { StatusBadge } from "@/components/admin/status-badge";
+import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { adminRows } from "@/lib/admin/data";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 
 type TestimonialRow = {
   id: string;
@@ -16,8 +19,26 @@ type TestimonialRow = {
   display_order: number;
 };
 
+async function getAdminTestimonials(): Promise<TestimonialRow[]> {
+  try {
+    const supabase = await createSupabaseServerClient();
+    const { data, error } = await supabase
+      .from("testimonials")
+      .select("*")
+      .order("display_order", { ascending: true })
+      .order("created_at", { ascending: false });
+
+    if (!error && data) {
+      return data as TestimonialRow[];
+    }
+  } catch {
+    // ignore error
+  }
+  return [];
+}
+
 export default async function TestimonialsPage({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
-  const rows = await adminRows<TestimonialRow>("admin_testimonials");
+  const rows = await getAdminTestimonials();
   const q = await searchParams;
 
   return (
@@ -41,33 +62,70 @@ export default async function TestimonialsPage({ searchParams }: { searchParams:
             <table className="w-full text-left text-sm">
               <thead className="border-b border-border bg-secondary/60 text-xs font-bold tracking-wider uppercase text-muted-foreground">
                 <tr>
+                  <th className="px-5 py-3.5 w-16">Order</th>
                   <th className="px-5 py-3.5">Customer</th>
                   <th className="px-5 py-3.5">Story / Review</th>
                   <th className="px-5 py-3.5">Status</th>
-                  <th className="px-5 py-3.5 text-right">Action</th>
+                  <th className="px-5 py-3.5 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
-                {rows.map((row) => (
+                {rows.map((row, index) => (
                   <tr key={row.id} className="transition-colors hover:bg-secondary/30">
+                    <td className="px-5 py-4 font-mono text-xs font-bold text-muted-foreground">
+                      {String(row.display_order).padStart(2, "0")}
+                    </td>
+
                     <td className="px-5 py-4">
                       <p className="font-semibold text-foreground">{row.display_name}</p>
                       {row.location && <p className="text-xs text-muted-foreground mt-0.5">{row.location}</p>}
                     </td>
+
                     <td className="px-5 py-4 text-xs text-muted-foreground leading-relaxed max-w-md">
                       &quot;{row.content}&quot;
                     </td>
+
                     <td className="px-5 py-4">
-                      <StatusBadge status={row.is_active ? "active" : "inactive"} />
+                      <form action={toggleTestimonialActive}>
+                        <input name="id" type="hidden" value={row.id} />
+                        <input name="is_active" type="hidden" value={row.is_active ? "false" : "true"} />
+                        <button type="submit" className="cursor-pointer" title="Click to toggle active status">
+                          <StatusBadge status={row.is_active ? "active" : "inactive"} />
+                        </button>
+                      </form>
                     </td>
+
                     <td className="px-5 py-4 text-right">
-                      <ConfirmDialog
-                        action={deleteTestimonial}
-                        confirmLabel="Delete"
-                        description={`Remove testimonial from "${row.display_name}"?`}
-                        hiddenFields={{ id: row.id }}
-                        title="Delete testimonial?"
-                      />
+                      <div className="flex items-center justify-end gap-1.5">
+                        {/* Reorder Buttons */}
+                        <form action={moveTestimonial}>
+                          <input name="id" type="hidden" value={row.id} />
+                          <input name="direction" type="hidden" value="up" />
+                          <Button disabled={index === 0} size="icon" type="submit" variant="ghost" className="h-8 w-8">
+                            <ArrowUp size={14} />
+                          </Button>
+                        </form>
+
+                        <form action={moveTestimonial}>
+                          <input name="id" type="hidden" value={row.id} />
+                          <input name="direction" type="hidden" value="down" />
+                          <Button disabled={index === rows.length - 1} size="icon" type="submit" variant="ghost" className="h-8 w-8">
+                            <ArrowDown size={14} />
+                          </Button>
+                        </form>
+
+                        {/* Edit Button Modal */}
+                        <EditTestimonialModal testimonial={row} />
+
+                        {/* Delete Dialog */}
+                        <ConfirmDialog
+                          action={deleteTestimonial}
+                          confirmLabel="Delete"
+                          description={`Remove testimonial from "${row.display_name}"?`}
+                          hiddenFields={{ id: row.id }}
+                          title="Delete testimonial?"
+                        />
+                      </div>
                     </td>
                   </tr>
                 ))}

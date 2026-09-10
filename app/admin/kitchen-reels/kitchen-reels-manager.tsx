@@ -105,7 +105,7 @@ export function KitchenReelsManager({ initialData }: { initialData: FromOurKitch
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border/60 pb-6">
         <div>
           <h2 className="font-display text-2xl font-bold text-foreground">
-            Kitchen Reels ({initialData.reels.length})
+            Instagram Reels ({initialData.reels.length})
           </h2>
           <p className="text-xs text-muted-foreground mt-1 max-w-xl">
             Each card represents an individual reel video showcased on the homepage. Add, edit, or remove reels anytime.
@@ -145,10 +145,10 @@ export function KitchenReelsManager({ initialData }: { initialData: FromOurKitch
             <Video size={32} />
           </div>
           <h3 className="font-display text-lg font-semibold text-foreground">
-            No kitchen reels published yet
+            No Instagram reels published yet
           </h3>
           <p className="text-xs text-muted-foreground max-w-md mx-auto mt-1 mb-6">
-            Upload your first portrait reel video to give visitors a live look at your Kerala kitchen preparation.
+            Upload your first portrait reel video to showcase your Instagram reels on the storefront.
           </p>
           <Button
             type="button"
@@ -277,7 +277,7 @@ export function KitchenReelsManager({ initialData }: { initialData: FromOurKitch
               <div className="flex items-center gap-2">
                 <FileText size={18} className="text-primary" />
                 <h3 className="font-display text-base font-semibold text-foreground">
-                  Edit Kitchen Reels Section Copy
+                  Edit Instagram Reels Section Copy
                 </h3>
               </div>
               <button
@@ -368,7 +368,7 @@ export function KitchenReelsManager({ initialData }: { initialData: FromOurKitch
               <div className="flex items-center gap-2">
                 <Film size={18} className="text-primary" />
                 <h3 className="font-display text-base font-semibold text-foreground">
-                  Add New Kitchen Reel
+                  Add New Instagram Reel
                 </h3>
               </div>
               <button
@@ -501,7 +501,7 @@ export function KitchenReelsManager({ initialData }: { initialData: FromOurKitch
           <div className="relative z-10 flex flex-col w-full max-w-xl rounded-2xl border border-border bg-card shadow-2xl overflow-hidden animate-in zoom-in-95 duration-150 max-h-[92vh]">
             <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-card shrink-0">
               <h3 className="font-display text-base font-semibold text-foreground">
-                Edit Kitchen Reel
+                Edit Instagram Reel
               </h3>
               <button
                 type="button"

@@ -2,7 +2,8 @@ import { getFromOurKitchenContent } from "@/lib/storefront/content";
 import { PageHeader } from "@/components/admin/page-header";
 import { KitchenReelsManager } from "./kitchen-reels-manager";
 
-export const dynamic = "force-dynamic";
+// searchParams (error/success flash) is URL data read at request time — block until available.
+export const instant = false;
 
 export default async function KitchenReelsPage({
   searchParams,
@@ -19,11 +20,11 @@ export default async function KitchenReelsPage({
       <PageHeader
         breadcrumbs={[
           { label: "Content" },
-          { label: "Kitchen Reels" },
+          { label: "Instagram Reels" },
         ]}
         description="Manage behind-the-scenes Instagram reel videos showcased on the storefront homepage."
         eyebrow="CONTENT"
-        title="Kitchen Reels"
+        title="Instagram Reels"
       />
 
       {params.error && (

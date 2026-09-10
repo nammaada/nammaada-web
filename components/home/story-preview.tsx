@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowUpRight } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import { Container } from "@/components/ui/container";
 import { DEFAULT_WHO_WE_ARE, type WhoWeAreContent } from "@/lib/storefront/content";
 import { StoryCardVisual } from "./story-card-visual";
@@ -8,36 +8,41 @@ export function StoryPreview({ content = DEFAULT_WHO_WE_ARE }: { content?: WhoWe
   const data = content || DEFAULT_WHO_WE_ARE;
 
   return (
-    <section className="py-16 sm:py-24 overflow-hidden" id="about-preview">
-      <Container className="grid gap-10 lg:grid-cols-2 lg:items-center lg:gap-14 xl:gap-20">
-        {/* Left Column: Large clean standalone image */}
-        <div className="w-full flex justify-center">
-          <StoryCardVisual images={data.images || []} />
-        </div>
+    <section className="relative py-12 sm:py-16 lg:py-20 bg-transparent overflow-hidden" id="about-preview">
+      <Container>
+        <div className="mx-auto max-w-4xl lg:max-w-[960px] flex flex-col lg:flex-row items-center gap-8 lg:gap-12">
+          {/* Left Column: Visual */}
+          <div className="w-full sm:w-[320px] lg:w-[340px] shrink-0 flex justify-center">
+            <StoryCardVisual images={data.images || []} />
+          </div>
 
-        {/* Right Content Column */}
-        <div className="text-left">
-          <p className="text-[11px] sm:text-xs font-bold uppercase tracking-[0.24em] text-[#6b212b]">
-            {data.label}
-          </p>
+          {/* Right Column: Short Editorial Text */}
+          <div className="flex-1 min-w-0 text-center lg:text-left">
+            <p className="text-[11px] sm:text-xs font-bold uppercase tracking-[0.2em] text-[#711e2c]">
+              WHO WE ARE
+            </p>
 
-          <h2 className="mt-3.5 font-display text-3xl sm:text-4xl lg:text-[44px] font-normal leading-[1.12] text-foreground tracking-tight max-w-xl">
-            {data.heading}
-          </h2>
+            <h2 className="mt-2.5 font-display text-2xl sm:text-3xl lg:text-4xl font-bold leading-[1.2] text-[#2b1719]">
+              A little taste of home, made with a whole lot of love.
+            </h2>
 
-          <p className="mt-5 max-w-lg text-xs sm:text-sm md:text-[15px] leading-relaxed text-[#5c3e41]/85">
-            {data.description}
-          </p>
+            <p className="mt-4 text-xs sm:text-sm lg:text-base leading-relaxed text-[#5a4843] max-w-xl mx-auto lg:mx-0">
+              Namma Ada is a Bangalore-based Kerala delicacy brand inspired by recipes passed down through generations. We bring Kerala&apos;s timeless taste to your table through fresh, handcrafted delicacies made with authentic flavours and a whole lot of love.
+            </p>
 
-          <Link
-            className="mt-7 inline-flex items-center gap-1.5 text-xs sm:text-sm font-semibold text-[#5c111a] hover:text-[#3d0b13] transition-colors pb-0.5 border-b border-[#5c111a]/30 hover:border-[#5c111a]"
-            href={data.buttonUrl || "/about"}
-          >
-            <span>{data.buttonText || "Read our story"}</span>
-            <ArrowUpRight aria-hidden="true" size={15} />
-          </Link>
+            <div className="mt-6 flex justify-center lg:justify-start">
+              <Link
+                className="inline-flex items-center gap-1.5 text-xs sm:text-sm font-semibold text-[#711e2c] hover:text-[#5a1723] transition-colors pb-0.5 border-b border-[#711e2c]/30 hover:border-[#711e2c]"
+                href="/about"
+              >
+                <span>Read our story</span>
+                <ArrowRight aria-hidden="true" size={15} />
+              </Link>
+            </div>
+          </div>
         </div>
       </Container>
     </section>
   );
 }
+
