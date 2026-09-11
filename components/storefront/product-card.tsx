@@ -25,10 +25,12 @@ function getProductRating(id: string, index: number) {
   return { rating, reviewCount };
 }
 
-function extractWeight(name: string, shortDesc: string | null) {
-  const text = `${name} ${shortDesc || ""}`;
-  const match = text.match(/(\d+\s*(?:g|gm|kg|ml|l|ltr))/i);
-  return match ? match[1].toLowerCase() : "250 g";
+function extractWeight(name: string, desc: string | null) {
+  const text = `${name} ${desc || ""}`;
+  const match = text.match(/\b(\d+\s*(?:g|gm|kg|ml|l|ltr|pcs|pack|pieces))\b/i);
+  if (match) return match[1].toLowerCase();
+  if (name.toLowerCase().includes("oil")) return "500 ml";
+  return "250 g";
 }
 
 export function ProductCard({
@@ -44,6 +46,8 @@ export function ProductCard({
 }) {
   const { addItem, items } = useCart();
   const [isAdding, setIsAdding] = useState(false);
+
+  const displayDescription = product.description || product.short_description;
 
   // Read current cart count for this product
   const cartItem = items.find((item) => item.productId === product.id);
@@ -167,10 +171,10 @@ export function ProductCard({
             </h2>
           </Link>
 
-          {/* Short description */}
-          {showDescription && (
-            <p className="text-xs text-[#6e5b55] font-medium line-clamp-1">
-              {product.short_description || "Traditional Kerala Delicacy"}
+          {/* Description */}
+          {showDescription && displayDescription && (
+            <p className="text-xs text-[#6e5b55] font-medium line-clamp-2 leading-relaxed">
+              {displayDescription}
             </p>
           )}
 
@@ -288,10 +292,10 @@ export function ProductCard({
           </h2>
         </Link>
 
-        {/* Subtitle / Tagline */}
-        {showDescription && (
-          <p className="text-[11px] sm:text-xs text-[#6e5b55] font-medium line-clamp-1">
-            {product.short_description || "Traditional Kerala Delicacy"}
+        {/* Description */}
+        {showDescription && displayDescription && (
+          <p className="text-[11px] sm:text-xs text-[#6e5b55] font-medium line-clamp-2 leading-tight">
+            {displayDescription}
           </p>
         )}
 
@@ -317,7 +321,7 @@ export function ProductCard({
         </div>
 
         {/* Action Controls: Quantity [-] qty [+] & Add to Cart */}
-        <div className="mt-auto pt-2 sm:pt-3 border-t border-white/50 flex items-center justify-between gap-1.5 sm:gap-2">
+        <div className="mt-auto pt-2 sm:pt-3 border-t border-white/50 flex items-center justify-between gap-1 sm:gap-2">
           {/* Quantity Selector */}
           <div className="flex items-center rounded-lg sm:rounded-xl border border-white/70 bg-white/70 backdrop-blur-xs text-xs font-bold text-[#2b1719] p-0.5 sm:p-1 shrink-0 shadow-2xs">
             <button
@@ -325,20 +329,20 @@ export function ProductCard({
               onClick={handleDecrease}
               disabled={displayQuantity <= 1}
               aria-label="Decrease quantity"
-              className="flex size-6 sm:size-7 items-center justify-center rounded text-[#6e5b55] hover:bg-[#f4efeb] hover:text-[#2b1719] transition-colors cursor-pointer disabled:opacity-30"
+              className="flex size-5 sm:size-7 items-center justify-center rounded text-[#6e5b55] hover:bg-[#f4efeb] hover:text-[#2b1719] transition-colors cursor-pointer disabled:opacity-30"
             >
-              <Minus size={11} className="sm:w-3 sm:h-3" />
+              <Minus size={10} className="sm:w-3 sm:h-3" />
             </button>
-            <span className="w-5 sm:w-6 text-center font-bold text-[11px] sm:text-xs text-[#2b1719]">
+            <span className="w-4 sm:w-6 text-center font-bold text-[10px] sm:text-xs text-[#2b1719]">
               {displayQuantity}
             </span>
             <button
               type="button"
               onClick={handleIncrease}
               aria-label="Increase quantity"
-              className="flex size-6 sm:size-7 items-center justify-center rounded text-[#6e5b55] hover:bg-[#f4efeb] hover:text-[#2b1719] transition-colors cursor-pointer"
+              className="flex size-5 sm:size-7 items-center justify-center rounded text-[#6e5b55] hover:bg-[#f4efeb] hover:text-[#2b1719] transition-colors cursor-pointer"
             >
-              <Plus size={11} className="sm:w-3 sm:h-3" />
+              <Plus size={10} className="sm:w-3 sm:h-3" />
             </button>
           </div>
 
@@ -348,12 +352,13 @@ export function ProductCard({
             onClick={handleAddToCart}
             disabled={!product.is_in_stock}
             aria-label={`Add ${product.name} to cart`}
-            className={`flex-1 min-w-0 h-7 sm:min-h-10 inline-flex items-center justify-center gap-1 sm:gap-1.5 rounded-lg sm:rounded-xl bg-[#711e2c] px-2 sm:px-3.5 py-1 sm:py-2 text-[11px] sm:text-xs font-bold text-white shadow-xs hover:bg-[#5a1723] active:scale-95 transition-all cursor-pointer whitespace-nowrap ${
+            className={`flex-1 min-w-0 h-7 sm:min-h-10 inline-flex items-center justify-center gap-1 sm:gap-1.5 rounded-lg sm:rounded-xl bg-[#711e2c] px-1.5 sm:px-3.5 py-1 sm:py-2 text-[10px] sm:text-xs font-bold text-white shadow-xs hover:bg-[#5a1723] active:scale-95 transition-all cursor-pointer whitespace-nowrap overflow-hidden ${
               isAdding ? "scale-95 opacity-90" : ""
             } disabled:opacity-50 disabled:pointer-events-none`}
           >
-            <ShoppingCart size={12} className="shrink-0 sm:w-3.5 sm:h-3.5" />
-            <span className="whitespace-nowrap">Add to Cart</span>
+            <ShoppingCart size={11} className="shrink-0 sm:w-3.5 sm:h-3.5" />
+            <span className="sm:hidden whitespace-nowrap">Add</span>
+            <span className="hidden sm:inline whitespace-nowrap">Add to Cart</span>
           </button>
         </div>
       </div>
