@@ -1,9 +1,57 @@
 import Image from "next/image";
 import Link from "next/link";
-import { ArrowUpRight, Mail, Phone } from "lucide-react";
+import { ArrowUpRight, ChevronRight, Mail, Phone } from "lucide-react";
 import { Container } from "@/components/ui/container";
 import { siteConfig, storefrontRoutes } from "@/lib/constants/site";
 import { CopyrightYear } from "@/components/layout/copyright-year";
+
+function InstagramIcon({ className = "size-4" }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <rect width="20" height="20" x="2" y="2" rx="5" ry="5" />
+      <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z" />
+      <line x1="17.5" x2="17.51" y1="6.5" y2="6.5" />
+    </svg>
+  );
+}
+
+function FloralDivider() {
+  return (
+    <div className="flex items-center justify-center gap-2.5 my-1 text-[#f3c87a]">
+      <span className="w-10 sm:w-14 h-px bg-[#f3c87a]/40" />
+      <svg
+        className="size-3.5 text-[#f3c87a]"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        aria-hidden="true"
+      >
+        <circle cx="12" cy="12" r="2" fill="currentColor" />
+        <circle cx="12" cy="5.5" r="2.2" />
+        <circle cx="12" cy="18.5" r="2.2" />
+        <circle cx="5.5" cy="12" r="2.2" />
+        <circle cx="18.5" cy="12" r="2.2" />
+        <circle cx="7.4" cy="7.4" r="2" />
+        <circle cx="16.6" cy="16.6" r="2" />
+        <circle cx="7.4" cy="16.6" r="2" />
+        <circle cx="16.6" cy="7.4" r="2" />
+      </svg>
+      <span className="w-10 sm:w-14 h-px bg-[#f3c87a]/40" />
+    </div>
+  );
+}
 
 export function StorefrontFooter() {
   return (
@@ -25,7 +73,7 @@ export function StorefrontFooter() {
 
         {/* Mobile: clean continuous maroon with small decorative leaves in the bottom corners */}
         <div className="relative h-full w-full block sm:hidden">
-          {/* Left corner leaves (small, subtle, positioned at bottom corner) */}
+          {/* Left corner leaves */}
           <div className="absolute bottom-0 left-0 w-40 pointer-events-none select-none z-0">
             <Image
               src="/footer-leaf-left.webp"
@@ -37,7 +85,7 @@ export function StorefrontFooter() {
               className="h-auto w-full object-contain object-left-bottom opacity-40"
             />
           </div>
-          {/* Right corner leaves (small, subtle, positioned at bottom corner) */}
+          {/* Right corner leaves */}
           <div className="absolute bottom-0 right-0 w-40 pointer-events-none select-none z-0">
             <Image
               src="/footer-leaf-right.webp"
@@ -52,13 +100,13 @@ export function StorefrontFooter() {
         </div>
       </div>
 
-      <Container className="relative z-10 pt-5 pb-3 sm:pt-7 sm:pb-5 lg:pt-8 lg:pb-5 sm:max-w-3xl lg:max-w-[860px] mx-auto">
-        {/* MOBILE LAYOUT (sm:hidden): Clean, compact 2-column side-by-side */}
-        <div className="grid grid-cols-2 gap-4 items-start text-left sm:hidden">
-          {/* Left Column: Logo + Brand + Contact */}
-          <div className="flex flex-col items-start gap-2">
+      <Container className="relative z-10 pt-6 pb-4 sm:pt-8 sm:pb-6 lg:pt-9 lg:pb-6 sm:max-w-3xl lg:max-w-[860px] mx-auto">
+        {/* MOBILE LAYOUT (sm:hidden): Matches Image 2 side-by-side with vertical divider */}
+        <div className="grid grid-cols-[1.1fr_1fr] gap-3 items-start text-left sm:hidden">
+          {/* Left Column: Logo + Brand + Gold line + Contact with badges */}
+          <div className="flex flex-col items-start gap-1.5">
             <Link href="/" aria-label={`${siteConfig.name} home`}>
-              <div className="size-16 rounded-full bg-[#fbf7ef] flex items-center justify-center p-2.5 shrink-0 shadow-sm border border-[#e5d8c6]/30">
+              <div className="size-16 rounded-full bg-[#f8d9b3] flex items-center justify-center p-2 shrink-0 shadow-sm border border-[#e7be8b]/40">
                 <Image
                   src="/namma-ada-logo.png"
                   alt="Namma Ada"
@@ -68,157 +116,199 @@ export function StorefrontFooter() {
                 />
               </div>
             </Link>
-            <p className="text-[11px] leading-snug text-[#fffcf2]/85">
-              {siteConfig.tagline}
-            </p>
-            <div className="flex flex-col gap-1.5 pt-1 text-[11px] text-[#ffeec9]">
-              <a href="tel:+919995811622" className="inline-flex items-center gap-1.5 hover:text-white transition-colors">
-                <Phone size={11} className="text-[#f3c87a] shrink-0" />
-                <span>+91 9995811622</span>
+
+            <div className="pt-0.5">
+              <p className="font-serif text-[11px] leading-tight text-[#fffcf2]">
+                Soul Of Kerala,
+              </p>
+              <p className="font-serif text-[11px] leading-tight text-[#fffcf2]">
+                Served With Heart.
+              </p>
+            </div>
+
+            {/* Gold divider line */}
+            <div className="w-8 h-[1px] bg-[#f3c87a]/60 my-0.5" />
+
+            {/* Contact items with circular badges */}
+            <div className="flex flex-col gap-1.5 pt-0.5 text-[11px] text-[#fffcf2]/90 w-full">
+              <a
+                href="tel:+919995811622"
+                className="group flex items-center gap-1.5 hover:text-white transition-colors"
+              >
+                <span className="size-5 rounded-full bg-black/20 flex items-center justify-center shrink-0 group-hover:bg-white/20 transition-colors">
+                  <Phone size={9} className="text-[#fffcf2]" />
+                </span>
+                <span className="text-[10px] sm:text-[11px] font-medium">+91 9995811622</span>
               </a>
-              <a href="mailto:namaste@nammaada.com" className="inline-flex items-center gap-1.5 hover:text-white transition-colors truncate max-w-[145px]">
-                <Mail size={11} className="text-[#f3c87a] shrink-0" />
-                <span className="truncate">namaste@nammaada.com</span>
+              <a
+                href="mailto:namaste@nammaada.com"
+                className="group flex items-center gap-1.5 hover:text-white transition-colors truncate max-w-[130px]"
+              >
+                <span className="size-5 rounded-full bg-black/20 flex items-center justify-center shrink-0 group-hover:bg-white/20 transition-colors">
+                  <Mail size={9} className="text-[#fffcf2]" />
+                </span>
+                <span className="truncate text-[10px] sm:text-[11px] font-medium">namaste@nammaada.co...</span>
               </a>
             </div>
           </div>
 
-          {/* Right Column: Explore Links (2 side-by-side columns) + Instagram */}
-          <div className="flex flex-col items-start pl-1 gap-3.5">
+          {/* Right Column: EXPLORE with chevrons + Instagram button with vertical divider */}
+          <div className="flex flex-col items-start border-l border-white/15 pl-3.5 h-full justify-between">
             <div className="w-full">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-[#fbf7ef]">Explore</h3>
-              {/* 2 side-by-side columns: Home & Products on left, About & Contact on right */}
-              <div className="mt-2 grid grid-cols-2 gap-x-4 gap-y-2 text-[12.5px] font-medium text-[#fffcf2]/95" aria-label="Mobile footer navigation">
-                {/* Column 1: Home & Products */}
-                <div className="flex flex-col gap-2">
-                  <Link href="/" className="hover:text-white transition-colors py-0.5" prefetch={true}>
-                    Home
+              <h3 className="text-[11px] font-bold uppercase tracking-widest text-[#fbf7ef]">
+                Explore
+              </h3>
+              <nav className="mt-2 flex flex-col gap-1 w-full" aria-label="Mobile footer explore navigation">
+                {storefrontRoutes.map((route) => (
+                  <Link
+                    key={route.href}
+                    href={route.href}
+                    prefetch={true}
+                    className="group flex items-center justify-between text-xs text-[#fffcf2]/90 hover:text-white transition-colors py-0.5"
+                  >
+                    <span>{route.label}</span>
+                    <ChevronRight size={13} className="text-[#fffcf2]/50 group-hover:text-white group-hover:translate-x-0.5 transition-all" />
                   </Link>
-                  <Link href="/products" className="hover:text-white transition-colors py-0.5" prefetch={true}>
-                    Products
-                  </Link>
-                </div>
-
-                {/* Column 2: About & Contact */}
-                <div className="flex flex-col gap-2">
-                  <Link href="/about" className="hover:text-white transition-colors py-0.5" prefetch={true}>
-                    About
-                  </Link>
-                  <Link href="/contact" className="hover:text-white transition-colors py-0.5" prefetch={true}>
-                    Contact
-                  </Link>
-                </div>
-              </div>
+                ))}
+              </nav>
             </div>
 
-            <div className="pt-0.5">
+            {/* Instagram Button */}
+            <div className="pt-2 w-full">
               <Link
-                className="inline-flex items-center gap-1.5 rounded-full border border-[#fffcf2]/30 bg-white/10 px-3.5 py-1.5 text-xs font-semibold text-[#fffcf2] hover:bg-white/20 active:scale-95 transition-all shadow-xs"
                 href={siteConfig.instagramUrl}
                 target="_blank"
                 rel="noreferrer"
-                aria-label="Visit Namma Ada on Instagram"
+                className="inline-flex items-center justify-between w-full max-w-[125px] rounded-full border border-white/25 bg-white/10 px-2.5 py-1.5 text-xs text-[#fffcf2] hover:bg-white/20 active:scale-95 transition-all shadow-xs"
+                aria-label="Follow Namma Ada on Instagram"
               >
-                <ArrowUpRight aria-hidden="true" size={13} />
-                <span>Instagram</span>
+                <span className="inline-flex items-center gap-1.5 min-w-0">
+                  <InstagramIcon className="size-3.5 shrink-0" />
+                  <span className="text-[11px] font-medium truncate">Instagram</span>
+                </span>
+                <ArrowUpRight size={12} className="shrink-0 text-white/70" />
               </Link>
             </div>
           </div>
         </div>
 
-        {/* DESKTOP / TABLET LAYOUT (hidden sm:grid): 3-column layout with cream logo circle */}
-        <div className="hidden sm:grid sm:grid-cols-3 lg:grid-cols-[1.5fr_1fr_1fr] sm:gap-8 lg:gap-8 text-left items-start">
-          {/* Brand statement */}
+        {/* DESKTOP / TABLET LAYOUT (hidden sm:grid): 3 columns with vertical borders matching Image 2 */}
+        <div className="hidden sm:grid sm:grid-cols-[1.25fr_1fr_1.25fr] gap-6 lg:gap-8 text-left items-start">
+          {/* Column 1: Brand statement + Contact badges */}
           <div className="space-y-3 flex flex-col items-start text-left w-full">
             <Link href="/" aria-label={`${siteConfig.name} home`} className="inline-flex items-center justify-start">
-              <div className="size-20 rounded-full bg-[#fbf7ef] flex items-center justify-center p-3 sm:p-3.5 shrink-0 shadow-sm border border-[#e5d8c6]/30">
+              <div className="size-24 rounded-full bg-[#f8d9b3] flex items-center justify-center p-3 shrink-0 shadow-sm border border-[#e7be8b]/40">
                 <Image
                   src="/namma-ada-logo.png"
                   alt="Namma Ada"
                   width={140}
                   height={90}
-                  className="w-auto h-auto max-w-[210%] max-h-[82%] object-contain"
+                  className="w-auto h-auto max-w-[90%] max-h-[85%] object-contain"
                 />
               </div>
             </Link>
-            <p className="max-w-xs text-xs sm:text-sm leading-relaxed text-[#fffcf2]/90 text-left">
-              {siteConfig.tagline}
-            </p>
+
+            <div>
+              <p className="font-serif text-sm leading-snug text-[#fffcf2]">
+                Soul Of Kerala,
+              </p>
+              <p className="font-serif text-sm leading-snug text-[#fffcf2]">
+                Served With Heart.
+              </p>
+            </div>
+
+            {/* Gold accent line */}
+            <div className="w-10 h-[1.5px] bg-[#f3c87a]/70 my-0.5 rounded-full" />
+
+            {/* Contact items with circular badges */}
+            <div className="flex flex-col gap-2 pt-1 text-xs text-[#fffcf2]/90 w-full">
+              <a
+                href="tel:+919995811622"
+                className="group inline-flex items-center gap-2.5 hover:text-white transition-colors"
+              >
+                <span className="size-7 rounded-full bg-black/20 flex items-center justify-center shrink-0 group-hover:bg-white/20 transition-colors">
+                  <Phone size={12} className="text-[#fffcf2]" />
+                </span>
+                <span className="font-medium">+91 9995811622</span>
+              </a>
+              <a
+                href="mailto:namaste@nammaada.com"
+                className="group inline-flex items-center gap-2.5 hover:text-white transition-colors"
+              >
+                <span className="size-7 rounded-full bg-black/20 flex items-center justify-center shrink-0 group-hover:bg-white/20 transition-colors">
+                  <Mail size={12} className="text-[#fffcf2]" />
+                </span>
+                <span className="font-medium truncate">namaste@nammaada.com</span>
+              </a>
+            </div>
           </div>
 
-          {/* Explore Links */}
-          <div className="flex flex-col items-start w-full">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-[#fbf7ef] text-left">Explore</h3>
-            <nav className="mt-2.5 flex flex-col items-start gap-2 w-full" aria-label="Footer navigation">
+          {/* Column 2: Explore Links with Chevrons and Left Divider */}
+          <div className="flex flex-col items-start w-full border-l border-white/15 pl-6 lg:pl-8">
+            <h3 className="text-xs font-bold uppercase tracking-widest text-[#fbf7ef] text-left">
+              Explore
+            </h3>
+            <nav className="mt-3 flex flex-col items-start gap-2.5 w-full max-w-[160px]" aria-label="Footer navigation">
               {storefrontRoutes.map((route) => (
                 <Link
                   key={route.href}
-                  className="text-xs sm:text-sm text-[#fffcf2]/90 transition-colors hover:text-white text-left"
+                  className="group flex items-center justify-between w-full text-xs sm:text-sm text-[#fffcf2]/90 transition-colors hover:text-white text-left py-0.5"
                   href={route.href}
                   prefetch={true}
                 >
-                  {route.label}
+                  <span>{route.label}</span>
+                  <ChevronRight size={14} className="text-[#fffcf2]/50 group-hover:text-white group-hover:translate-x-0.5 transition-all" />
                 </Link>
               ))}
             </nav>
           </div>
 
-          {/* Social & Contact */}
-          <div className="flex flex-col items-start w-full">
-            <h3 className="text-xs font-bold uppercase tracking-wider text-[#fbf7ef] text-left">Stay Connected</h3>
-            <div className="mt-2.5 flex flex-col items-start gap-2.5 w-full">
+          {/* Column 3: Stay Connected with Left Divider */}
+          <div className="flex flex-col items-start w-full border-l border-white/15 pl-6 lg:pl-8">
+            <h3 className="text-xs font-bold uppercase tracking-widest text-[#fbf7ef] text-left">
+              Stay Connected
+            </h3>
+            <p className="mt-2.5 text-xs sm:text-sm text-[#fffcf2]/80 leading-relaxed">
+              Follow us on Instagram for latest updates and more.
+            </p>
+            <div className="mt-4 flex flex-col items-start gap-2.5 w-full">
               <Link
-                className="inline-flex min-h-9 items-center gap-2 rounded-full border border-[#fffcf2]/30 bg-white/10 px-3.5 text-xs sm:text-sm font-semibold transition-colors hover:bg-white/20 active:scale-95 text-[#fffcf2]"
+                className="inline-flex min-h-10 items-center justify-between gap-3 rounded-full border border-white/25 bg-white/10 px-4 text-xs sm:text-sm font-semibold transition-all hover:bg-white/20 active:scale-95 text-[#fffcf2] w-full max-w-[180px]"
                 href={siteConfig.instagramUrl}
                 target="_blank"
                 rel="noreferrer"
                 aria-label="Visit Namma Ada on Instagram"
               >
-                <ArrowUpRight aria-hidden="true" size={14} />
-                Instagram
+                <span className="inline-flex items-center gap-2">
+                  <InstagramIcon className="size-4 shrink-0" />
+                  <span>Instagram</span>
+                </span>
+                <ArrowUpRight aria-hidden="true" size={15} className="text-white/70" />
               </Link>
-
-              {/* Highlighted Email & Phone */}
-              <div className="flex flex-col items-start gap-2 w-full pt-0.5">
-                <a
-                  href="mailto:namaste@nammaada.com"
-                  className="group inline-flex items-center gap-2 rounded-full border border-[#f3c87a]/40 bg-[#f3c87a]/15 px-3 py-1.5 text-xs sm:text-[13px] font-semibold text-[#ffeec9] transition-all hover:bg-[#f3c87a]/25 hover:border-[#f3c87a]/70 hover:text-white shadow-xs"
-                  aria-label="Send email to namaste@nammaada.com"
-                >
-                  <Mail size={13} className="shrink-0 text-[#f3c87a] group-hover:scale-110 transition-transform" />
-                  <span className="tracking-wide">namaste@nammaada.com</span>
-                </a>
-
-                <a
-                  href="tel:+919995811622"
-                  className="group inline-flex items-center gap-2 rounded-full border border-[#f3c87a]/40 bg-[#f3c87a]/15 px-3 py-1.5 text-xs sm:text-[13px] font-semibold text-[#ffeec9] transition-all hover:bg-[#f3c87a]/25 hover:border-[#f3c87a]/70 hover:text-white shadow-xs"
-                  aria-label="Call +91 9995811622"
-                >
-                  <Phone size={13} className="shrink-0 text-[#f3c87a] group-hover:scale-110 transition-transform" />
-                  <span className="tracking-wide">+91 9995811622</span>
-                </a>
-              </div>
             </div>
           </div>
         </div>
       </Container>
 
-      {/* Copyright & Company Credit - Balanced, Compact Bottom Bar */}
-      <div className="relative z-10 border-t border-[#fffcf2]/15 py-2.5 sm:py-3.5">
+      {/* Copyright & Floral Credit - Centered stack matching Image 2 */}
+      <div className="relative z-10 border-t border-[#fffcf2]/15 pt-3.5 pb-3 sm:pt-4 sm:pb-3.5">
         <Container className="relative sm:max-w-3xl lg:max-w-[860px] mx-auto">
-          <div className="relative flex flex-col items-center gap-1.5 text-center sm:flex-row sm:items-center sm:justify-between text-xs sm:text-sm text-[#fffcf2] font-normal">
-            {/* Left: Copyright */}
-            <p className="text-center sm:text-left sm:flex-1">
+          <div className="flex flex-col items-center justify-center text-center gap-1">
+            {/* Line 1: Copyright */}
+            <p className="text-[11px] sm:text-xs text-[#fffcf2]/90">
               © <CopyrightYear /> {siteConfig.name}. All rights reserved.
             </p>
 
-            {/* Center: CRAFTED BY EKODRIX (exact horizontal center on desktop) */}
-            <p className="text-[10px] sm:text-xs font-semibold tracking-widest text-[#fffcf2]/95 uppercase text-center sm:absolute sm:left-1/2 sm:-translate-x-1/2 sm:top-1/2 sm:-translate-y-1/2 whitespace-nowrap">
+            {/* Line 2: CRAFTED BY EKODRIX */}
+            <p className="text-[10px] sm:text-[11px] font-semibold tracking-widest text-[#fffcf2]/95 uppercase">
               CRAFTED BY EKODRIX
             </p>
 
-            {/* Right: Tradition text */}
-            <p className="text-center sm:text-right sm:flex-1">
+            {/* Line 3: Floral Divider Line ── ✿ ── */}
+            <FloralDivider />
+
+            {/* Line 4: Tradition text */}
+            <p className="text-[11px] sm:text-xs text-[#fffcf2]/90">
               Made with tradition. Shared with love.
             </p>
           </div>
