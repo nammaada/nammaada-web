@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState, useEffect, useCallback } from "react";
-import { Play } from "lucide-react";
+import { Play, ArrowUpRight } from "lucide-react";
 import {
   extractYouTubeId,
   getYouTubeThumbnailUrl,
@@ -10,6 +10,25 @@ import {
   unregisterYouTubePlayer,
   pauseAllOtherYouTubePlayers,
 } from "@/lib/youtube";
+
+function InstagramIcon({ className = "size-3.5" }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      aria-hidden="true"
+    >
+      <rect width="20" height="20" x="2" y="2" rx="5" ry="5" />
+      <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z" />
+      <line x1="17.5" x2="17.51" y1="6.5" y2="6.5" />
+    </svg>
+  );
+}
 
 export function ReelCardPlayer({
   src,
@@ -199,18 +218,22 @@ export function ReelCardPlayer({
   };
 
   // Card click / tap handler:
-  // - Mobile / touch: opens Instagram URL directly (no hover, no video play)
-  // - Desktop: opens Instagram Post URL in a new tab
+  // - Mobile / touch: tapping video plays/pauses video; Instagram button on side opens Instagram
+  // - Desktop: hover plays; clicking opens Instagram in a new tab
   const handleCardClick = () => {
     const isMobileDevice =
       isTouchRef.current ||
       (typeof window !== "undefined" && window.matchMedia("(hover: none)").matches);
 
     if (isMobileDevice) {
-      window.location.href = targetInstagramUrl;
+      if (!isActive) {
+        onActivate?.();
+      } else {
+        onDeactivate?.();
+      }
       setTimeout(() => {
         isTouchRef.current = false;
-      }, 500);
+      }, 300);
       return;
     }
 
@@ -280,6 +303,23 @@ export function ReelCardPlayer({
 
       {/* Subtle bottom gradient */}
       <div className="pointer-events-none absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-black/30 to-transparent" />
+
+      {/* Mobile-only Instagram button on the side */}
+      <a
+        href={targetInstagramUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+        onClick={(e) => {
+          e.stopPropagation();
+        }}
+        className="sm:hidden absolute top-3 right-3 z-30 flex items-center gap-1.5 rounded-full bg-black/75 backdrop-blur-md px-2.5 py-1 border border-white/30 text-white shadow-lg pointer-events-auto transition-transform active:scale-90 hover:bg-black/90 cursor-pointer"
+        aria-label="Open on Instagram"
+        title="Open on Instagram"
+      >
+        <InstagramIcon className="size-3 text-pink-400 shrink-0" />
+        <span className="text-[10px] font-semibold text-white/90">Instagram</span>
+        <ArrowUpRight size={10} className="text-white/60 -ml-0.5" />
+      </a>
 
       {/* Clean centered Play icon shown when video is not playing */}
       {!isPlaying && (
