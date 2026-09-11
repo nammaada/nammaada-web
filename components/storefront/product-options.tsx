@@ -21,18 +21,14 @@ function Availability({ available }: { available: boolean }) {
   );
 }
 
-export function ProductOptions({ product, variants }: { product: StorefrontProduct; variants: StorefrontProductVariant[] }) {
+export function ProductOptions({ product, variants = [] }: { product: StorefrontProduct; variants?: StorefrontProductVariant[] }) {
   const router = useRouter();
   const { addItem, items } = useCart();
-  const [selectedVariantId, setSelectedVariantId] = useState(variants[0]?.id ?? "");
   const [statusMessage, setStatusMessage] = useState("");
-  const selectedVariant = variants.find((variant) => variant.id === selectedVariantId);
-  const available = selectedVariant?.is_in_stock ?? (variants.length === 0 ? product.is_in_stock : false);
+  const available = product.is_in_stock;
 
-  // Sync with current cart quantity for this product / variant
-  const cartItem = items.find(
-    (item) => item.productId === product.id && (!selectedVariantId || item.variantId === selectedVariantId)
-  );
+  // Sync with current cart quantity for this product
+  const cartItem = items.find((item) => item.productId === product.id);
   const cartQty = cartItem ? cartItem.quantity : 0;
   const [manualAdjustment, setManualAdjustment] = useState(0);
 
@@ -47,7 +43,7 @@ export function ProductOptions({ product, variants }: { product: StorefrontProdu
   const displayQuantity = Math.max(1, (cartQty === 0 ? 1 : cartQty + 1) + manualAdjustment);
 
   function handleAddToCart() {
-    if (!available || (variants.length > 0 && !selectedVariant)) {
+    if (!available) {
       return;
     }
 
@@ -56,9 +52,9 @@ export function ProductOptions({ product, variants }: { product: StorefrontProdu
       productId: product.id,
       slug: product.slug,
       name: product.name,
-      variantId: selectedVariant?.id ?? null,
-      variantName: selectedVariant?.name ?? null,
-      unitPricePaise: selectedVariant?.price_paise ?? product.price_paise,
+      variantId: null,
+      variantName: null,
+      unitPricePaise: product.price_paise,
       image: product.primary_image,
       quantity: 1,
     });
@@ -66,7 +62,7 @@ export function ProductOptions({ product, variants }: { product: StorefrontProdu
     // Reset manual adjustment so displayed quantity naturally reflects cartQty + 1
     setManualAdjustment(0);
 
-    setStatusMessage(`${product.name} ${selectedVariant ? `(${selectedVariant.name})` : ""} added to your cart.`);
+    setStatusMessage(`${product.name} added to your cart.`);
   }
 
   function handleDecrease() {
@@ -80,7 +76,7 @@ export function ProductOptions({ product, variants }: { product: StorefrontProdu
   }
 
   function handleBuyNow() {
-    if (!available || (variants.length > 0 && !selectedVariant)) {
+    if (!available) {
       return;
     }
 
@@ -90,9 +86,9 @@ export function ProductOptions({ product, variants }: { product: StorefrontProdu
       productId: product.id,
       slug: product.slug,
       name: product.name,
-      variantId: selectedVariant?.id ?? "",
-      variantName: selectedVariant?.name ?? "",
-      unitPricePaise: String(selectedVariant?.price_paise ?? product.price_paise),
+      variantId: "",
+      variantName: "",
+      unitPricePaise: String(product.price_paise),
       quantity: String(displayQuantity),
       imageUrl: product.primary_image?.url ?? "",
       imageAlt: product.primary_image?.alt ?? product.name,
@@ -105,52 +101,18 @@ export function ProductOptions({ product, variants }: { product: StorefrontProdu
     <div className="space-y-6">
       {/* Price & Availability */}
       <div className="flex flex-wrap items-baseline justify-between gap-2 border-b border-[#e5d8c6] pb-4">
-        <p className="font-display text-2xl sm:text-3xl font-bold text-[#711e2c]" aria-live="polite">
-          {selectedVariant || variants.length === 0
-            ? formatPrice(selectedVariant?.price_paise ?? product.price_paise)
-            : "Select an option"}
-        </p>
-        <Availability available={available} />
+        <div className="flex items-baseline gap-2">
+          <p className="font-display text-2xl sm:text-3xl font-bold text-[#711e2c]" aria-live="polite">
+            {formatPrice(product.price_paise)}
+          </p>
+          {product.weight && (
+            <span className="text-sm font-semibold text-[#6e5b55]">
+              {product.weight}
+            </span>
+          )}
+        </div>
+        <Availability available={product.is_in_stock} />
       </div>
-
-      {/* Variant Selection Radio Pills */}
-      {variants.length > 0 ? (
-        <fieldset className="space-y-2.5">
-          <legend className="text-xs sm:text-sm font-bold uppercase tracking-wider text-[#2b1719]">
-            Select Variant
-          </legend>
-          <div className="grid gap-2.5 sm:grid-cols-2">
-            {variants.map((variant) => {
-              const selected = variant.id === selectedVariantId;
-              return (
-                <label
-                  key={variant.id}
-                  className={`flex min-h-12 cursor-pointer items-center justify-between gap-3 rounded-xl border px-4 py-3 text-xs sm:text-sm font-semibold transition-all focus-within:ring-2 focus-within:ring-[#711e2c] ${
-                    selected
-                      ? "border-[#711e2c] bg-[#711e2c] text-white shadow-xs"
-                      : "border-[#e5d8c6] bg-[#fffdf8] text-[#2b1719] hover:border-[#711e2c]/50"
-                  }`}
-                >
-                  <span className="flex items-center gap-2.5">
-                    <input
-                      checked={selected}
-                      className="accent-[#711e2c]"
-                      name="product-variant"
-                      onChange={() => setSelectedVariantId(variant.id)}
-                      type="radio"
-                      value={variant.id}
-                    />
-                    <span>{variant.name}</span>
-                  </span>
-                  <span className={selected ? "text-white/90" : "text-[#711e2c]"}>
-                    {formatPrice(variant.price_paise)}
-                  </span>
-                </label>
-              );
-            })}
-          </div>
-        </fieldset>
-      ) : null}
 
       {/* Delivery scope badges */}
       {product.delivery_scope ? (
@@ -195,7 +157,7 @@ export function ProductOptions({ product, variants }: { product: StorefrontProdu
 
           <Button
             className="flex-1 sm:w-auto min-h-12 px-8 cursor-pointer flex items-center justify-center gap-2"
-            disabled={!available || (variants.length > 0 && !selectedVariant)}
+            disabled={!available}
             onClick={handleAddToCart}
             type="button"
           >
@@ -206,7 +168,7 @@ export function ProductOptions({ product, variants }: { product: StorefrontProdu
           <Button
             variant="secondary"
             className="w-full sm:w-auto min-h-12 px-8 cursor-pointer flex items-center justify-center gap-2 border border-[#711e2c]/30 text-[#711e2c] hover:bg-[#711e2c]/5"
-            disabled={!available || (variants.length > 0 && !selectedVariant)}
+            disabled={!available}
             onClick={handleBuyNow}
             type="button"
           >
@@ -222,9 +184,7 @@ export function ProductOptions({ product, variants }: { product: StorefrontProdu
           </div>
         ) : (
           <p className="text-xs text-[#6e5b55]" aria-live="polite">
-            {variants.length > 0 && !selectedVariant
-              ? "Please select a variant option above before adding to cart."
-              : !available
+            {!available
               ? "This product is currently unavailable."
               : "Revalidated securely at checkout."}
           </p>
