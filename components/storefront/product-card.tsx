@@ -189,7 +189,7 @@ export function ProductCard({
 
           {/* Price & Weight */}
           <div className="flex items-baseline gap-1">
-            <span className="font-serif text-xl font-bold text-[#2b1719]">
+            <span className="font-sans text-xl font-bold text-[#2b1719]">
               {formatPriceINR(product.price_paise)}
             </span>
             <span className="text-[10px] font-semibold text-[#6e5b55]">{weight}</span>
@@ -318,7 +318,7 @@ export function ProductCard({
 
         {/* Price & Weight */}
         <div className="flex items-baseline gap-1.5 pt-0.5">
-          <span className="font-serif text-base sm:text-2xl font-bold text-[#2b1719]">
+          <span className="font-sans text-base sm:text-2xl font-bold text-[#2b1719]">
             {formatPriceINR(product.price_paise)}
           </span>
           <span className="text-[10px] sm:text-xs font-semibold text-[#6e5b55]">
