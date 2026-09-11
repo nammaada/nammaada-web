@@ -93,7 +93,7 @@ export function StorefrontFooter() {
                 Soul Of Kerala,
               </p>
               <p className="font-serif text-[11px] leading-tight text-[#fffcf2]">
-                Served With Heart.
+                Heart Of Karnataka.
               </p>
             </div>
 
@@ -184,7 +184,7 @@ export function StorefrontFooter() {
                 Soul Of Kerala,
               </p>
               <p className="font-serif text-sm leading-snug text-[#fffcf2]">
-                Served With Heart.
+                Heart Of Karnataka.
               </p>
             </div>
 
