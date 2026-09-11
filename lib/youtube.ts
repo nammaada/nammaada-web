@@ -24,11 +24,16 @@ export function getYouTubeEmbedUrl(
   id: string,
   options?: { autoplay?: boolean; mute?: boolean; loop?: boolean; controls?: boolean }
 ): string {
+  const autoplay = options?.autoplay ?? true;
+  const mute = options?.mute ?? true;
+  const loop = options?.loop ?? true;
+  const controls = options?.controls ?? false;
+
   const params = new URLSearchParams({
-    autoplay: options?.autoplay ? "1" : "0",
-    mute: options?.mute ?? true ? "1" : "0",
-    controls: options?.controls ? "1" : "0",
-    loop: options?.loop ?? true ? "1" : "0",
+    autoplay: autoplay ? "1" : "0",
+    mute: mute ? "1" : "0",
+    controls: controls ? "1" : "0",
+    loop: loop ? "1" : "0",
     playlist: id,
     playsinline: "1",
     rel: "0",
