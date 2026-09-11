@@ -170,24 +170,24 @@ export function KitchenReelsManager({ initialData }: { initialData: FromOurKitch
                 key={reel.id}
                 className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm hover:shadow-md hover:border-primary/40 transition-all flex flex-col"
               >
-                {/* VIDEO PREVIEW - Portrait 9:16 */}
+                {/* VIDEO PREVIEW - Portrait 9:16 (Static Thumbnail Preview - Do not play in admin) */}
                 <div className="relative aspect-[9/16] w-full bg-black overflow-hidden group">
                   {ytId ? (
-                    <iframe
-                      src={getYouTubeEmbedUrl(ytId)}
-                      title={reel.alt_text || `Reel #${reel.display_order}`}
-                      className="h-full w-full border-0 pointer-events-auto"
-                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                      allowFullScreen
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={getYouTubeThumbnailUrl(ytId, "maxres")}
+                      alt={reel.alt_text || `Reel #${reel.display_order}`}
+                      className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                      onError={(e) => {
+                        e.currentTarget.src = getYouTubeThumbnailUrl(ytId, "hq");
+                      }}
                     />
                   ) : reel.video_url && !reel.video_url.includes("youtube") ? (
-                    <video
-                      controls
-                      loop
-                      muted
-                      playsInline
-                      className="h-full w-full object-cover"
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
                       src={reel.video_url}
+                      alt={reel.alt_text || `Reel #${reel.display_order}`}
+                      className="h-full w-full object-cover"
                     />
                   ) : (
                     <div className="h-full w-full flex flex-col items-center justify-center p-4 text-center text-muted-foreground bg-zinc-900">
@@ -195,6 +195,13 @@ export function KitchenReelsManager({ initialData }: { initialData: FromOurKitch
                       <p className="text-xs font-medium">Video preview unavailable</p>
                     </div>
                   )}
+
+                  {/* Centered preview badge indicator without active playback */}
+                  <div className="absolute inset-0 flex items-center justify-center pointer-events-none bg-black/20">
+                    <div className="flex h-11 w-11 items-center justify-center rounded-full bg-black/60 backdrop-blur-xs text-white border border-white/20 shadow-md">
+                      <Film size={18} className="text-white" />
+                    </div>
+                  </div>
 
                   {/* Overlaid Badges */}
                   <div className="absolute top-3 left-3 flex flex-wrap gap-1.5 z-10 pointer-events-none">
