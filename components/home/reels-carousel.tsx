@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, useEffect, useCallback } from "react";
+import { useState, useRef } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { ReelCardPlayer } from "./reel-card-player";
 import type { KitchenReel } from "@/lib/storefront/content";
@@ -12,93 +12,144 @@ export function ReelsCarousel({
   reels: KitchenReel[];
   fallbackInstagramUrl?: string;
 }) {
-  const scrollContainerRef = useRef<HTMLDivElement>(null);
-  const [canScrollLeft, setCanScrollLeft] = useState(false);
-  const [canScrollRight, setCanScrollRight] = useState(true);
+  const [activeReelId, setActiveReelId] = useState<string | null>(null);
+  const [currentIndex, setCurrentIndex] = useState(0);
 
-  const updateScrollState = useCallback(() => {
-    const el = scrollContainerRef.current;
-    if (!el) return;
-    const { scrollLeft, scrollWidth, clientWidth } = el;
-    setCanScrollLeft(scrollLeft > 10);
-    setCanScrollRight(scrollLeft + clientWidth < scrollWidth - 10);
-  }, []);
+  const touchStartX = useRef(0);
+  const touchEndX = useRef(0);
 
-  useEffect(() => {
-    updateScrollState();
-    window.addEventListener("resize", updateScrollState);
-    return () => window.removeEventListener("resize", updateScrollState);
-  }, [updateScrollState]);
+  const displayReels = (reels || []).slice(0, 3);
+  const total = displayReels.length;
 
-  const handleScroll = (direction: "left" | "right") => {
-    const el = scrollContainerRef.current;
-    if (!el) return;
-    const card = el.querySelector<HTMLElement>("[data-reel-card]");
-    const scrollAmount = card ? card.offsetWidth + 14 : 210;
+  if (total === 0) return null;
 
-    if (direction === "left") {
-      if (el.scrollLeft <= 10) {
-        // Wrap to end smoothly
-        el.scrollTo({ left: el.scrollWidth, behavior: "smooth" });
-      } else {
-        el.scrollBy({ left: -scrollAmount, behavior: "smooth" });
-      }
-    } else {
-      if (el.scrollLeft + el.clientWidth >= el.scrollWidth - 15) {
-        // Wrap to start smoothly
-        el.scrollTo({ left: 0, behavior: "smooth" });
-      } else {
-        el.scrollBy({ left: scrollAmount, behavior: "smooth" });
-      }
+  const handlePrev = () => {
+    setCurrentIndex((prev) => (prev - 1 + total) % total);
+    setActiveReelId(null);
+  };
+
+  const handleNext = () => {
+    setCurrentIndex((prev) => (prev + 1) % total);
+    setActiveReelId(null);
+  };
+
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartX.current = e.targetTouches[0].clientX;
+  };
+
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    touchEndX.current = e.changedTouches[0].clientX;
+    const diff = touchStartX.current - touchEndX.current;
+    if (diff > 45) {
+      handleNext();
+    } else if (diff < -45) {
+      handlePrev();
     }
   };
 
-  if (reels.length === 0) return null;
-
   return (
-    <div className="relative w-full my-6">
-      {/* Left swipe button */}
-      <button
-        type="button"
-        aria-label="Swipe reels left"
-        onClick={() => handleScroll("left")}
-        className="absolute -left-2 sm:-left-4 top-1/2 -translate-y-1/2 z-30 flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-full border border-[#e5d8c6] bg-[#fffdf8]/90 text-[#711e2c] shadow-md backdrop-blur-xs [transform:translateZ(0)] transition-all hover:bg-white hover:scale-105 active:scale-90 cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#711e2c]"
-      >
-        <ChevronLeft size={20} className="mr-0.5" />
-      </button>
-
-      {/* Reel cards scroll container - touch swipe preserved and fully functional */}
+    <div className="w-full my-6">
+      {/* ==================================================================== */}
+      {/* 1. MOBILE SCREEN ONLY: 3D ROTATING COVERFLOW STACK WITH BUTTONS      */}
+      {/*    - 1 center card in front                                          */}
+      {/*    - 2 peek cards on back left & right                               */}
+      {/*    - Circular arrow buttons rotate endlessly without breaking        */}
+      {/* ==================================================================== */}
       <div
-        ref={scrollContainerRef}
-        onScroll={updateScrollState}
-        className="w-full max-w-full flex items-center justify-start sm:justify-center gap-3.5 sm:gap-4 overflow-x-auto pb-3 pt-1 snap-x snap-mandatory scrollbar-none px-4 sm:px-0 -mx-4 sm:mx-0 touch-pan-x scroll-smooth"
+        onTouchStart={handleTouchStart}
+        onTouchEnd={handleTouchEnd}
+        className="relative w-full flex sm:hidden items-center justify-center h-[395px] overflow-hidden my-2 select-none"
       >
-        {reels.map((reel) => (
+        {displayReels.map((reel, index) => {
+          const diff = (index - currentIndex + total) % total;
+          const isCenter = diff === 0;
+          const isRight = diff === 1;
+          const isLeft = diff === total - 1;
+
+          let positionClasses = "opacity-0 pointer-events-none scale-75";
+          if (isCenter) {
+            positionClasses = "z-20 scale-100 opacity-100 translate-x-0 shadow-2xl pointer-events-auto";
+          } else if (isRight) {
+            positionClasses = "z-10 scale-[0.84] opacity-55 translate-x-[62%] shadow-md pointer-events-auto";
+          } else if (isLeft) {
+            positionClasses = "z-10 scale-[0.84] opacity-55 -translate-x-[62%] shadow-md pointer-events-auto";
+          }
+
+          return (
+            <div
+              key={reel.id}
+              onClick={() => {
+                if (!isCenter) {
+                  setCurrentIndex(index);
+                  setActiveReelId(null);
+                }
+              }}
+              className={`absolute w-[64vw] max-w-[215px] aspect-[9/16] rounded-2xl overflow-hidden border border-[#e5d8c6] bg-black transition-all duration-300 ease-out ${positionClasses}`}
+            >
+              <ReelCardPlayer
+                src={reel.video_url}
+                youtubeUrl={reel.youtube_url}
+                youtubeId={reel.youtube_id}
+                title={reel.alt_text}
+                instagramUrl={reel.instagram_url || fallbackInstagramUrl}
+                className="h-full w-full"
+                isActive={isCenter && activeReelId === reel.id}
+                onActivate={() => setActiveReelId(reel.id)}
+                onDeactivate={() => setActiveReelId((curr) => (curr === reel.id ? null : curr))}
+              />
+            </div>
+          );
+        })}
+
+        {/* Circular Left Arrow Button (<) */}
+        {total > 1 && (
+          <button
+            type="button"
+            onClick={handlePrev}
+            className="absolute left-2.5 top-1/2 -translate-y-1/2 z-30 flex h-10 w-10 items-center justify-center rounded-full bg-white/95 text-[#2b1719] shadow-lg border border-white/60 transition-transform active:scale-90 hover:bg-white cursor-pointer"
+            aria-label="Previous video"
+          >
+            <ChevronLeft size={20} className="-translate-x-0.5" />
+          </button>
+        )}
+
+        {/* Circular Right Arrow Button (>) */}
+        {total > 1 && (
+          <button
+            type="button"
+            onClick={handleNext}
+            className="absolute right-2.5 top-1/2 -translate-y-1/2 z-30 flex h-10 w-10 items-center justify-center rounded-full bg-white/95 text-[#2b1719] shadow-lg border border-white/60 transition-transform active:scale-90 hover:bg-white cursor-pointer"
+            aria-label="Next video"
+          >
+            <ChevronRight size={20} className="translate-x-0.5" />
+          </button>
+        )}
+      </div>
+
+      {/* ==================================================================== */}
+      {/* 2. DESKTOP SCREEN ONLY: CLEAN 3-CARD SIDE-BY-SIDE PRESENTATION       */}
+      {/* ==================================================================== */}
+      <div className="hidden sm:flex w-full items-center justify-center gap-6 pb-4 pt-1">
+        {displayReels.map((reel) => (
           <div
             key={reel.id}
             data-reel-card
-            className="w-[185px] xs:w-[200px] sm:w-[210px] aspect-[9/16] shrink-0 rounded-2xl overflow-hidden shadow-soft border border-[#e5d8c6] bg-black relative snap-start sm:snap-center"
+            className="w-[220px] lg:w-[235px] aspect-[9/16] shrink-0 rounded-2xl overflow-hidden shadow-soft border border-[#e5d8c6] bg-black relative transition-transform duration-200 hover:-translate-y-1 hover:shadow-md"
           >
             <ReelCardPlayer
               src={reel.video_url}
+              youtubeUrl={reel.youtube_url}
+              youtubeId={reel.youtube_id}
               title={reel.alt_text}
               instagramUrl={reel.instagram_url || fallbackInstagramUrl}
               className="h-full w-full"
+              isActive={activeReelId === reel.id}
+              onActivate={() => setActiveReelId(reel.id)}
+              onDeactivate={() => setActiveReelId((curr) => (curr === reel.id ? null : curr))}
             />
           </div>
         ))}
-        <div className="w-1 shrink-0 sm:hidden" aria-hidden="true" />
       </div>
-
-      {/* Right swipe button */}
-      <button
-        type="button"
-        aria-label="Swipe reels right"
-        onClick={() => handleScroll("right")}
-        className="absolute -right-2 sm:-right-4 top-1/2 -translate-y-1/2 z-30 flex h-9 w-9 sm:h-10 sm:w-10 items-center justify-center rounded-full border border-[#e5d8c6] bg-[#fffdf8]/90 text-[#711e2c] shadow-md backdrop-blur-xs [transform:translateZ(0)] transition-all hover:bg-white hover:scale-105 active:scale-90 cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#711e2c]"
-      >
-        <ChevronRight size={20} className="ml-0.5" />
-      </button>
     </div>
   );
 }

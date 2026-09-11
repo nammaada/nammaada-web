@@ -19,6 +19,7 @@ import {
   KitchenReel,
   WhoWeAreContent,
   WhoWeAreImage,
+  extractYouTubeId,
 } from "@/lib/storefront/content";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
@@ -475,33 +476,27 @@ export async function saveFromOurKitchenContent(form: FormData) {
 
 export async function createKitchenReel(form: FormData) {
   await requireAdmin();
-  const file = form.get("video_file");
-  const altText = text(form, "alt_text") || "Namma Ada kitchen preparation reel";
+  const current = await getRawFromOurKitchen();
+  if (current.reels.length >= 3) {
+    fail("/admin/kitchen-reels", "Maximum of 3 reels allowed. Please edit or delete an existing reel.");
+  }
+
+  const youtubeUrl = text(form, "youtube_url") || text(form, "video_url");
+  const youtubeId = extractYouTubeId(youtubeUrl);
+  if (!youtubeId) {
+    fail("/admin/kitchen-reels", "Please enter a valid YouTube or YouTube Shorts URL (e.g. https://www.youtube.com/shorts/VIDEO_ID or https://www.youtube.com/watch?v=VIDEO_ID).");
+  }
+
   const instagramUrl = text(form, "instagram_url") || "https://www.instagram.com/namma_ada/";
-  const displayOrder = integer(form, "display_order", 1);
+  const altText = text(form, "alt_text") || "Namma Ada kitchen reel";
+  const displayOrder = integer(form, "display_order", current.reels.length + 1);
   const isPublished = bool(form, "is_published");
 
-  if (!(file instanceof File) || file.size === 0) {
-    fail("/admin/kitchen-reels", "Please select a reel video file to upload.");
-  }
-
-  const validation = validateMedia(file);
-  if (validation) {
-    fail("/admin/kitchen-reels", validation);
-  }
-
-  let uploaded;
-  try {
-    uploaded = await uploadCloudinaryMedia(file, "video");
-  } catch {
-    fail("/admin/kitchen-reels", "Reel video upload to Cloudinary failed. Check file size (under 25MB).");
-  }
-
-  const current = await getRawFromOurKitchen();
   const newReel: KitchenReel = {
     id: randomUUID(),
-    video_url: uploaded.secure_url,
-    cloudinary_public_id: uploaded.public_id,
+    video_url: `https://www.youtube.com/watch?v=${youtubeId}`,
+    youtube_url: youtubeUrl,
+    youtube_id: youtubeId,
     alt_text: altText,
     instagram_url: instagramUrl,
     display_order: displayOrder,
@@ -514,9 +509,9 @@ export async function createKitchenReel(form: FormData) {
 
   const updated: FromOurKitchenContent = {
     ...current,
-    reels,
+    reels: reels.slice(0, 3),
     reelVideoUrl: reels[0]?.video_url || null,
-    reelVideoPublicId: reels[0]?.cloudinary_public_id || null,
+    reelVideoPublicId: null,
     reelVideoAltText: reels[0]?.alt_text || null,
   };
 
@@ -531,17 +526,17 @@ export async function createKitchenReel(form: FormData) {
     fail("/admin/kitchen-reels", "Failed to save new reel.");
   }
 
-  ok("/admin/kitchen-reels", "Reel video added successfully.");
+  ok("/admin/kitchen-reels", "Reel added successfully.");
 }
 
 export async function updateKitchenReel(form: FormData) {
   await requireAdmin();
   const reelId = text(form, "reel_id");
-  const altText = text(form, "alt_text");
+  const youtubeUrl = text(form, "youtube_url") || text(form, "video_url");
   const instagramUrl = text(form, "instagram_url");
+  const altText = text(form, "alt_text");
   const displayOrder = integer(form, "display_order", 1);
   const isPublished = bool(form, "is_published");
-  const file = form.get("video_file");
 
   if (!reelId) fail("/admin/kitchen-reels", "Missing reel ID.");
 
@@ -551,24 +546,14 @@ export async function updateKitchenReel(form: FormData) {
 
   const reel = { ...current.reels[idx] };
 
-  if (file instanceof File && file.size > 0) {
-    const validation = validateMedia(file);
-    if (validation) fail("/admin/kitchen-reels", validation);
-
-    try {
-      const uploaded = await uploadCloudinaryMedia(file, "video");
-      if (reel.cloudinary_public_id) {
-        try {
-          await deleteCloudinaryMedia(reel.cloudinary_public_id, "video");
-        } catch {
-          // non-fatal
-        }
-      }
-      reel.cloudinary_public_id = uploaded.public_id;
-      reel.video_url = uploaded.secure_url;
-    } catch {
-      fail("/admin/kitchen-reels", "Video replacement upload failed.");
+  if (youtubeUrl) {
+    const youtubeId = extractYouTubeId(youtubeUrl);
+    if (!youtubeId) {
+      fail("/admin/kitchen-reels", "Please enter a valid YouTube or YouTube Shorts URL.");
     }
+    reel.youtube_url = youtubeUrl;
+    reel.youtube_id = youtubeId;
+    reel.video_url = `https://www.youtube.com/watch?v=${youtubeId}`;
   }
 
   reel.alt_text = altText || reel.alt_text;
@@ -581,8 +566,9 @@ export async function updateKitchenReel(form: FormData) {
 
   const updated: FromOurKitchenContent = {
     ...current,
+    reels: current.reels.slice(0, 3),
     reelVideoUrl: current.reels[0]?.video_url || null,
-    reelVideoPublicId: current.reels[0]?.cloudinary_public_id || null,
+    reelVideoPublicId: null,
     reelVideoAltText: current.reels[0]?.alt_text || null,
   };
 
@@ -622,7 +608,7 @@ export async function deleteKitchenReel(form: FormData) {
 
   const updated: FromOurKitchenContent = {
     ...current,
-    reels: remaining,
+    reels: remaining.slice(0, 3),
     reelVideoUrl: remaining[0]?.video_url || null,
     reelVideoPublicId: remaining[0]?.cloudinary_public_id || null,
     reelVideoAltText: remaining[0]?.alt_text || null,

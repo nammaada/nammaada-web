@@ -25,13 +25,18 @@ export type WhoWeAreContent = {
 export type KitchenReel = {
   id: string;
   video_url: string;
-  cloudinary_public_id: string;
+  youtube_url?: string;
+  youtube_id?: string;
+  cloudinary_public_id?: string;
   alt_text: string;
   instagram_url: string;
   display_order: number;
   is_published: boolean;
   created_at: string;
 };
+
+import { extractYouTubeId } from "@/lib/youtube";
+export { extractYouTubeId };
 
 export type FromOurKitchenContent = {
   label: string;
@@ -138,6 +143,10 @@ async function fetchFromOurKitchenContent(): Promise<FromOurKitchenContent> {
       }
 
       reels.sort((a, b) => (a.display_order ?? 0) - (b.display_order ?? 0));
+      reels = reels.slice(0, 3).map((r) => ({
+        ...r,
+        youtube_id: r.youtube_id || extractYouTubeId(r.youtube_url || r.video_url) || undefined,
+      }));
 
       return {
         label: val.label?.trim() || DEFAULT_FROM_OUR_KITCHEN.label,
