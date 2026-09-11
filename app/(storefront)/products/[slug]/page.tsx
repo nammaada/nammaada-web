@@ -74,9 +74,9 @@ export default async function ProductPage({ params }: ProductPageProps) {
               <h1 className="mt-1.5 font-display text-2xl sm:text-4xl font-semibold leading-tight text-[#2b1719]">
                 {product.name}
               </h1>
-              {(product.description || product.short_description) && (
+              {product.short_description && (
                 <p className="mt-2 text-sm sm:text-base text-[#6e5b55] leading-relaxed">
-                  {product.description || product.short_description}
+                  {product.short_description}
                 </p>
               )}
             </div>

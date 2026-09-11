@@ -47,8 +47,6 @@ export function ProductCard({
   const { addItem, items } = useCart();
   const [isAdding, setIsAdding] = useState(false);
 
-  const displayDescription = product.description || product.short_description;
-
   // Read current cart count for this product
   const cartItem = items.find((item) => item.productId === product.id);
   const cartQty = cartItem ? cartItem.quantity : 0;
@@ -171,11 +169,20 @@ export function ProductCard({
             </h2>
           </Link>
 
-          {/* Description */}
-          {showDescription && displayDescription && (
-            <p className="text-xs text-[#6e5b55] font-medium line-clamp-2 leading-relaxed">
-              {displayDescription}
-            </p>
+          {/* Short Description & Full Description */}
+          {showDescription && (
+            <div className="space-y-1">
+              {product.short_description && (
+                <p className="text-xs font-semibold text-[#8a4235] tracking-wide break-words">
+                  {product.short_description}
+                </p>
+              )}
+              {product.description && (
+                <p className="text-xs text-[#6e5b55] leading-relaxed break-words">
+                  {product.description}
+                </p>
+              )}
+            </div>
           )}
 
           {/* Rating */}
@@ -292,11 +299,20 @@ export function ProductCard({
           </h2>
         </Link>
 
-        {/* Description */}
-        {showDescription && displayDescription && (
-          <p className="text-[11px] sm:text-xs text-[#6e5b55] font-medium line-clamp-2 leading-tight">
-            {displayDescription}
-          </p>
+        {/* Short Description & Full Description */}
+        {showDescription && (
+          <div className="space-y-1">
+            {product.short_description && (
+              <p className="text-[11px] sm:text-xs font-semibold text-[#8a4235] tracking-wide break-words">
+                {product.short_description}
+              </p>
+            )}
+            {product.description && (
+              <p className="text-[11px] sm:text-xs text-[#6e5b55] leading-relaxed break-words">
+                {product.description}
+              </p>
+            )}
+          </div>
         )}
 
         {/* Rating Stars & Count */}
