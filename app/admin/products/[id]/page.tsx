@@ -12,7 +12,8 @@ import { Card } from "@/components/ui/card";
 import { adminRow, adminRows, formatINR } from "@/lib/admin/data";
 import { getCloudinaryImageUrl } from "@/lib/cloudinary/delivery";
 
-export const instant = false;
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 type Product = {
   id: string;
@@ -120,7 +121,12 @@ export default async function EditProductPage({
       <div className="space-y-8">
         {/* Product Details Card */}
         <Card className="p-6 sm:p-8 lg:p-10 shadow-xs">
-          <ProductForm categories={categories} product={product} images={productImages} />
+          <ProductForm
+            categories={categories}
+            product={product}
+            images={productImages}
+            weight={productVariants[0]?.name ?? null}
+          />
         </Card>
 
         {/* Product Variants Management Section */}

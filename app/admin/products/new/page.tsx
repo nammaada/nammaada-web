@@ -6,7 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { adminRows } from "@/lib/admin/data";
 
-export const instant = false;
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 export default async function NewProductPage({
   searchParams,

@@ -29,8 +29,7 @@ function extractWeight(name: string, desc: string | null) {
   const text = `${name} ${desc || ""}`;
   const match = text.match(/\b(\d+\s*(?:g|gm|kg|ml|l|ltr|pcs|pack|pieces))\b/i);
   if (match) return match[1].toLowerCase();
-  if (name.toLowerCase().includes("oil")) return "500 ml";
-  return "250 g";
+  return null;
 }
 
 export function ProductCard({
@@ -65,7 +64,7 @@ export function ProductCard({
   const displayQuantity = Math.max(1, (cartQty === 0 ? 1 : cartQty + 1) + manualAdjustment);
 
   const { rating, reviewCount } = getProductRating(product.id, index);
-  const weight = extractWeight(product.name, product.short_description);
+  const weight = product.weight || extractWeight(product.name, product.short_description);
 
   // Determine top badge
   const badgeText = product.is_featured
@@ -192,7 +191,9 @@ export function ProductCard({
             <span className="font-sans text-xl font-bold text-[#2b1719]">
               {formatPriceINR(product.price_paise)}
             </span>
-            <span className="text-[10px] font-semibold text-[#6e5b55]">{weight}</span>
+            {weight && (
+              <span className="text-[10px] font-semibold text-[#6e5b55]">{weight}</span>
+            )}
           </div>
 
           {/* Full Description - below price */}
@@ -321,9 +322,11 @@ export function ProductCard({
           <span className="font-sans text-base sm:text-2xl font-bold text-[#2b1719]">
             {formatPriceINR(product.price_paise)}
           </span>
-          <span className="text-[10px] sm:text-xs font-semibold text-[#6e5b55]">
-            {weight}
-          </span>
+          {weight && (
+            <span className="text-[10px] sm:text-xs font-semibold text-[#6e5b55]">
+              {weight}
+            </span>
+          )}
         </div>
 
         {/* Full Description - BELOW THE PRICE (1 line truncated with ... on mobile, full wrapping on desktop) */}

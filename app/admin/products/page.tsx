@@ -13,7 +13,8 @@ import { Card } from "@/components/ui/card";
 import { adminRows, formatINR } from "@/lib/admin/data";
 import { getCloudinaryImageUrl } from "@/lib/cloudinary/delivery";
 
-export const instant = false;
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 type ProductRow = {
   id: string;

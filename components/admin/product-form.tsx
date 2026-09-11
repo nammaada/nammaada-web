@@ -48,12 +48,14 @@ export function ProductForm({
   images = [],
   submitLabel,
   isNew,
+  weight,
 }: {
   product?: Product;
   categories: { id: string; name: string }[];
   images?: ImageRow[];
   submitLabel?: string;
   isNew?: boolean;
+  weight?: string | null;
 }) {
   const [slug, setSlug] = useState(product?.slug ?? "");
   const [slugManuallyEdited, setSlugManuallyEdited] = useState(Boolean(product?.slug));
@@ -98,11 +100,12 @@ export function ProductForm({
       setStagedFile(modalFile);
       setStagedAlt(product?.name || modalFile.name.replace(/\.[^/.]+$/, ""));
       setStagedPreviewUrl(modalPreview);
-      // Transfer to hidden file input if possible
       if (fileInputRef.current) {
-        const dataTransfer = new DataTransfer();
-        dataTransfer.items.add(modalFile);
-        fileInputRef.current.files = dataTransfer.files;
+        try {
+          const dataTransfer = new DataTransfer();
+          dataTransfer.items.add(modalFile);
+          fileInputRef.current.files = dataTransfer.files;
+        } catch {}
       }
     }
     setModalOpen(false);
@@ -147,7 +150,7 @@ export function ProductForm({
 
       {/* 1. Basic Information */}
       <FormSection description="Product identifiers and public content." title="Basic Information">
-        <div className="grid gap-5 sm:grid-cols-2">
+        <div className="grid gap-5 sm:grid-cols-3">
           <AdminField
             defaultValue={product?.name}
             label="Product name"
@@ -167,6 +170,13 @@ export function ProductForm({
               setSlugManuallyEdited(true);
               setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]+/g, ""));
             }}
+          />
+          <AdminField
+            defaultValue={weight ?? ""}
+            helperText="e.g. 250g, 500g, 100g, 500ml, 1kg"
+            label="Weight / Gram"
+            name="weight"
+            placeholder="e.g. 250g or 500ml"
           />
         </div>
 
