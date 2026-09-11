@@ -8,7 +8,9 @@ import { ReelsCarousel } from "./reels-carousel";
 export function InstagramPreview({ content = DEFAULT_FROM_OUR_KITCHEN }: { content?: FromOurKitchenContent }) {
   const data = content || DEFAULT_FROM_OUR_KITCHEN;
 
-  const publishedReels = (data.reels || []).filter((r) => r.is_published && r.video_url);
+  const publishedReels = (data.reels || [])
+    .filter((r) => r.is_published && (r.video_url || r.youtube_url))
+    .slice(0, 3);
 
   if (publishedReels.length === 0 && data.reelVideoUrl) {
     publishedReels.push({
@@ -36,18 +38,7 @@ export function InstagramPreview({ content = DEFAULT_FROM_OUR_KITCHEN }: { conte
           {data.description}
         </p>
 
-        {publishedReels.length === 1 && (
-          <div className="mx-auto my-6 max-w-[220px] sm:max-w-[250px] aspect-[9/16] rounded-2xl overflow-hidden shadow-soft border border-[#e5d8c6] bg-black">
-            <ReelCardPlayer
-              src={publishedReels[0].video_url}
-              title={publishedReels[0].alt_text || data.heading}
-              instagramUrl={publishedReels[0].instagram_url || data.instagramUrl}
-              className="h-full w-full"
-            />
-          </div>
-        )}
-
-        {publishedReels.length > 1 && (
+        {publishedReels.length > 0 && (
           <ReelsCarousel
             reels={publishedReels}
             fallbackInstagramUrl={data.instagramUrl}
