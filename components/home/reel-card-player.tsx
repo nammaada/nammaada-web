@@ -1,8 +1,15 @@
 "use client";
 
-import { useRef, useState, useEffect } from "react";
-import { Play, Volume2, VolumeX } from "lucide-react";
-import { extractYouTubeId, getYouTubeEmbedUrl, getYouTubeThumbnailUrl } from "@/lib/youtube";
+import { useRef, useState, useEffect, useCallback } from "react";
+import { Play } from "lucide-react";
+import {
+  extractYouTubeId,
+  getYouTubeThumbnailUrl,
+  loadYouTubeIFrameAPI,
+  registerYouTubePlayer,
+  unregisterYouTubePlayer,
+  pauseAllOtherYouTubePlayers,
+} from "@/lib/youtube";
 
 export function ReelCardPlayer({
   src,
@@ -26,17 +33,25 @@ export function ReelCardPlayer({
   onDeactivate?: () => void;
 }) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const isTouchRef = useRef(false);
+  const playerRef = useRef<any>(null);
+  const isInitializingRef = useRef<boolean>(false);
+  const isReadyRef = useRef<boolean>(false);
+  const isTouchRef = useRef<boolean>(false);
+  const isActiveRef = useRef<boolean>(isActive);
 
-  const [hasMounted, setHasMounted] = useState(false);
-  const [isMuted, setIsMuted] = useState(false);
+  // Persistent unique element ID for this card's iframe
+  const playerIdRef = useRef<string>("");
+  if (!playerIdRef.current) {
+    playerIdRef.current = `yt-player-${Math.random().toString(36).slice(2, 9)}`;
+  }
+
+  const [isPlayerMounted, setIsPlayerMounted] = useState<boolean>(false);
+  const [isPlaying, setIsPlaying] = useState<boolean>(false);
 
   const targetInstagramUrl = instagramUrl || "https://www.instagram.com/namma_ada/";
   const ytId = youtubeId || extractYouTubeId(youtubeUrl || src || "");
-  const isDirectVideo = Boolean(src && !src.includes("youtube") && !src.includes("youtu.be") && !ytId);
 
-  // Progressive thumbnail fallback for clean paused poster (maxres -> hq)
+  // Progressive thumbnail fallback (maxres -> hq)
   const [thumbnailSrc, setThumbnailSrc] = useState<string>(
     ytId ? getYouTubeThumbnailUrl(ytId, "maxres") : ""
   );
@@ -60,122 +75,146 @@ export function ReelCardPlayer({
     }
   };
 
-  const postToYouTube = (func: string, args: unknown[] = []) => {
-    if (iframeRef.current?.contentWindow) {
-      iframeRef.current.contentWindow.postMessage(
-        JSON.stringify({ event: "command", func, args }),
-        "*"
-      );
+  // Safe playback function that coordinates with all active players
+  const startPlayback = useCallback((player: any) => {
+    if (!player) return;
+    pauseAllOtherYouTubePlayers(player);
+    try {
+      player.unMute();
+      player.setVolume(100);
+      player.playVideo();
+    } catch {
+      try {
+        player.mute();
+        player.playVideo();
+      } catch {}
     }
-  };
+  }, []);
 
-  // Sync playback with single active card state
+  // When the React-rendered iframe finishes loading its document, bind the YT.Player instance
+  const handleIFrameLoad = useCallback(() => {
+    if (playerRef.current || isInitializingRef.current || !iframeRef.current) return;
+    isInitializingRef.current = true;
+
+    loadYouTubeIFrameAPI().then(() => {
+      if (!iframeRef.current || playerRef.current) {
+        isInitializingRef.current = false;
+        return;
+      }
+
+      try {
+        const player = new window.YT!.Player(playerIdRef.current, {
+          events: {
+            onReady: (event: any) => {
+              isReadyRef.current = true;
+              isInitializingRef.current = false;
+              playerRef.current = event.target;
+              registerYouTubePlayer(event.target);
+
+              // Single source of truth: only play if this card is currently active
+              if (isActiveRef.current) {
+                startPlayback(event.target);
+              }
+            },
+            onStateChange: (event: any) => {
+              // 1 = PLAYING, 2 = PAUSED, 0 = ENDED
+              if (event.data === 1) {
+                pauseAllOtherYouTubePlayers(event.target);
+                setIsPlaying(true);
+              } else if (event.data === 2 || event.data === 0) {
+                setIsPlaying(false);
+              }
+            },
+            onError: () => {
+              isInitializingRef.current = false;
+            },
+          },
+        });
+      } catch {
+        isInitializingRef.current = false;
+      }
+    });
+  }, [startPlayback]);
+
+  // Sync playback state strictly with isActive prop
   useEffect(() => {
-    if (isActive) {
-      setHasMounted(true);
-      setIsMuted(false);
-      postToYouTube("unMute");
-      postToYouTube("setVolume", [100]);
-      postToYouTube("playVideo");
+    isActiveRef.current = isActive;
 
-      if (isDirectVideo && videoRef.current) {
-        videoRef.current.muted = false;
-        videoRef.current.play().catch(() => {});
+    if (isActive) {
+      if (!isPlayerMounted) {
+        setIsPlayerMounted(true);
+        return;
+      }
+
+      if (playerRef.current && isReadyRef.current) {
+        startPlayback(playerRef.current);
       }
     } else {
-      setIsMuted(true);
-      postToYouTube("pauseVideo");
-      postToYouTube("mute");
-
-      if (isDirectVideo && videoRef.current) {
-        videoRef.current.muted = true;
-        videoRef.current.pause();
+      if (playerRef.current && isReadyRef.current) {
+        try {
+          playerRef.current.pauseVideo();
+        } catch {}
       }
+      setIsPlaying(false);
     }
-  }, [isActive, isDirectVideo]);
+  }, [isActive, isPlayerMounted, startPlayback]);
 
-  // Touch detection for mobile
+  // Clean up player on unmount
+  useEffect(() => {
+    return () => {
+      if (playerRef.current) {
+        unregisterYouTubePlayer(playerRef.current);
+        try {
+          playerRef.current.destroy();
+        } catch {}
+        playerRef.current = null;
+      }
+      isReadyRef.current = false;
+      isInitializingRef.current = false;
+    };
+  }, []);
+
+  // Detect touch interaction
   const handleTouchStart = () => {
     isTouchRef.current = true;
   };
 
-  // Desktop hover interaction:
-  // When hover -> play video with audio (unmuted)!
+  // Desktop hover-to-play:
+  // Strictly ignore on touch devices or if touch occurred
   const handleMouseEnter = () => {
-    if (isTouchRef.current) return;
-    setHasMounted(true);
-    setIsMuted(false);
-    onActivate?.();
-    postToYouTube("unMute");
-    postToYouTube("setVolume", [100]);
-    postToYouTube("playVideo");
-
-    if (isDirectVideo && videoRef.current) {
-      videoRef.current.muted = false;
-      videoRef.current.play().catch(() => {});
+    if (typeof window !== "undefined" && window.matchMedia("(hover: none)").matches) {
+      return;
     }
+    if (isTouchRef.current) return;
+    onActivate?.();
   };
 
-  // When mouse leaves ("take the hover") -> STOP the video immediately!
+  // Desktop hover-leave: pauses playback immediately
   const handleMouseLeave = () => {
+    if (typeof window !== "undefined" && window.matchMedia("(hover: none)").matches) {
+      return;
+    }
     if (isTouchRef.current) return;
     onDeactivate?.();
-    setIsMuted(true);
-    postToYouTube("pauseVideo");
-    postToYouTube("mute");
-
-    if (isDirectVideo && videoRef.current) {
-      videoRef.current.muted = true;
-      videoRef.current.pause();
-    }
   };
 
-  // Click / Tap behavior:
-  // - Desktop: click opens configured Instagram Post URL in a new tab
-  // - Mobile: first tap plays video with audio; tapping while playing opens Instagram Post URL
+  // Card click / tap handler:
+  // - Mobile / touch: opens Instagram URL directly (no hover, no video play)
+  // - Desktop: opens Instagram Post URL in a new tab
   const handleCardClick = () => {
-    if (isTouchRef.current) {
-      if (!isActive) {
-        setHasMounted(true);
-        setIsMuted(false);
-        onActivate?.();
-        postToYouTube("unMute");
-        postToYouTube("setVolume", [100]);
-        postToYouTube("playVideo");
-        if (isDirectVideo && videoRef.current) {
-          videoRef.current.muted = false;
-          videoRef.current.play().catch(() => {});
-        }
-      } else {
-        window.open(targetInstagramUrl, "_blank", "noopener,noreferrer");
-      }
+    const isMobileDevice =
+      isTouchRef.current ||
+      (typeof window !== "undefined" && window.matchMedia("(hover: none)").matches);
+
+    if (isMobileDevice) {
+      window.location.href = targetInstagramUrl;
       setTimeout(() => {
         isTouchRef.current = false;
       }, 500);
       return;
     }
 
-    // Desktop click opens Instagram
     window.open(targetInstagramUrl, "_blank", "noopener,noreferrer");
-  };
-
-  // Toggle Mute / Unmute
-  const handleToggleMute = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    e.preventDefault();
-    const nextMuted = !isMuted;
-    setIsMuted(nextMuted);
-
-    if (nextMuted) {
-      postToYouTube("mute");
-    } else {
-      postToYouTube("unMute");
-      postToYouTube("setVolume", [100]);
-    }
-
-    if (isDirectVideo && videoRef.current) {
-      videoRef.current.muted = nextMuted;
-    }
   };
 
   return (
@@ -193,61 +232,40 @@ export function ReelCardPlayer({
           handleCardClick();
         }
       }}
-      aria-label={title ? `${title} (Opens Instagram in a new tab)` : "Watch Instagram Reel"}
+      aria-label={title ? `${title} (Opens Instagram)` : "Watch Instagram Reel"}
     >
-      {/* 
-        CLEAN VIDEO PLAYER:
-        - Only ONE video plays at a time.
-        - Desktop: Hover plays with audio (unmuted). Mouse leave stops video completely.
-        - Mobile: Tap plays with audio. Tap while playing opens Instagram.
-        - Top mute/unmute button available to toggle audio.
-        - pointer-events-none ensures card clicks open Instagram.
-      */}
-      {isDirectVideo ? (
-        <video
-          ref={videoRef}
-          loop
-          muted={isMuted}
-          playsInline
-          className="h-full w-full object-cover pointer-events-none"
-          src={src}
-        />
-      ) : ytId ? (
+      {ytId ? (
         <div className="relative h-full w-full bg-black overflow-hidden pointer-events-none">
-          {/* YouTube Iframe: only visible and playing when isActive */}
-          {hasMounted && (
+          {/* 
+            Single React-Managed YouTube IFrame:
+            - Rendered once when active
+            - autoplay=0 prevents browser/URL clash
+            - Full 9:16 aspect ratio preserved without zoom or crop
+          */}
+          {isPlayerMounted && (
             <iframe
               ref={iframeRef}
-              src={getYouTubeEmbedUrl(ytId, {
-                autoplay: true,
-                mute: false,
-                loop: true,
-                controls: false,
-              })}
+              id={playerIdRef.current}
+              src={`https://www.youtube-nocookie.com/embed/${ytId}?enablejsapi=1&autoplay=0&controls=0&rel=0&playsinline=1&iv_load_policy=3&disablekb=1&fs=0`}
               title={title || "From our kitchen video"}
-              className={`h-full w-full border-0 object-cover pointer-events-none transition-opacity duration-200 ${
-                isActive ? "opacity-100" : "opacity-0"
+              className={`absolute inset-0 h-full w-full border-0 object-cover pointer-events-none transition-opacity duration-300 ${
+                isPlaying ? "opacity-100" : "opacity-0"
               }`}
               allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
               tabIndex={-1}
-              loading="eager"
-              onLoad={() => {
-                if (isActive) {
-                  postToYouTube("unMute");
-                  postToYouTube("setVolume", [100]);
-                  postToYouTube("playVideo");
-                }
-              }}
+              onLoad={handleIFrameLoad}
             />
           )}
 
-          {/* Clean paused poster: shown whenever card is not active */}
-          {(!hasMounted || !isActive) && thumbnailSrc && (
+          {/* Clean Custom Preview Layer: YouTube thumbnail shown before video is actively playing */}
+          {thumbnailSrc && (
             // eslint-disable-next-line @next/next/no-img-element
             <img
               src={thumbnailSrc}
               alt={title || "From our kitchen video"}
-              className="absolute inset-0 h-full w-full object-cover pointer-events-none"
+              className={`absolute inset-0 h-full w-full object-cover pointer-events-none transition-opacity duration-300 ${
+                isPlaying ? "opacity-0" : "opacity-100"
+              }`}
               onError={handleThumbnailError}
               onLoad={handleThumbnailLoad}
               loading="eager"
@@ -255,7 +273,7 @@ export function ReelCardPlayer({
           )}
         </div>
       ) : (
-        <div className="h-full w-full flex items-center justify-center bg-zinc-900 text-zinc-600 text-xs">
+        <div className="h-full w-full flex items-center justify-center bg-zinc-900 text-zinc-500 text-xs">
           Video content unavailable
         </div>
       )}
@@ -263,19 +281,8 @@ export function ReelCardPlayer({
       {/* Subtle bottom gradient */}
       <div className="pointer-events-none absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-black/30 to-transparent" />
 
-      {/* Top Mute/Unmute Button (Desktop & Mobile) */}
-      <button
-        type="button"
-        onClick={handleToggleMute}
-        className="absolute top-3 right-3 z-30 flex h-8 w-8 items-center justify-center rounded-full bg-black/60 backdrop-blur-xs border border-white/20 text-white/90 transition-all hover:bg-black/85 hover:scale-105 active:scale-95 shadow-md cursor-pointer pointer-events-auto"
-        aria-label={isMuted ? "Unmute video" : "Mute video"}
-        title={isMuted ? "Unmute video" : "Mute video"}
-      >
-        {isMuted ? <VolumeX size={15} /> : <Volume2 size={15} />}
-      </button>
-
-      {/* Clean centered Play icon shown when video is paused/inactive */}
-      {!isActive && (
+      {/* Clean centered Play icon shown when video is not playing */}
+      {!isPlaying && (
         <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/15 transition-opacity duration-200">
           <div className="flex h-12 w-12 sm:h-14 sm:w-14 items-center justify-center rounded-full bg-black/65 backdrop-blur-xs border border-white/30 text-white shadow-xl transition-all duration-200 group-hover:scale-110">
             <Play size={20} className="translate-x-0.5 fill-white sm:size-5" />
