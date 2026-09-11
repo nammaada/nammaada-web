@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { ReelCardPlayer } from "./reel-card-player";
 import type { KitchenReel } from "@/lib/storefront/content";
 
@@ -10,6 +11,7 @@ export function ReelsCarousel({
   reels: KitchenReel[];
   fallbackInstagramUrl?: string;
 }) {
+  const [activeReelId, setActiveReelId] = useState<string | null>(null);
   const displayReels = (reels || []).slice(0, 3);
 
   if (displayReels.length === 0) return null;
@@ -18,8 +20,9 @@ export function ReelsCarousel({
     <div className="w-full my-6">
       {/* 
         Responsive layout:
-        - Mobile: Smooth horizontal scroll strip with balanced padding (px-5), equal card width, and snap-centering so the first card never touches the edge.
-        - Desktop: Elegant centered flex container with 3 cards side-by-side, no scrollbar, no overlapping arrows.
+        - Mobile: Smooth horizontal scroll strip with balanced padding (px-5), equal card width, and snap-centering.
+        - Desktop: Elegant centered flex container with 3 cards side-by-side.
+        - Single active video: only 1 video plays at a time.
       */}
       <div className="w-full flex items-center justify-start sm:justify-center gap-4 sm:gap-6 overflow-x-auto sm:overflow-visible pb-4 pt-1 snap-x snap-mandatory scrollbar-none px-5 sm:px-0 touch-pan-x">
         {displayReels.map((reel) => (
@@ -35,6 +38,9 @@ export function ReelsCarousel({
               title={reel.alt_text}
               instagramUrl={reel.instagram_url || fallbackInstagramUrl}
               className="h-full w-full"
+              isActive={activeReelId === reel.id}
+              onActivate={() => setActiveReelId(reel.id)}
+              onDeactivate={() => setActiveReelId((curr) => (curr === reel.id ? null : curr))}
             />
           </div>
         ))}
