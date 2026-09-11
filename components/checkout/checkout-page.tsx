@@ -2,8 +2,9 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
-import { createPendingOrder } from "@/actions/checkout";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
+import { createRazorpayCheckoutSession, verifyAndFinalizePayment } from "@/actions/checkout";
 import { useCart } from "@/components/cart/cart-provider";
 import { Button } from "@/components/ui/button";
 import { Container } from "@/components/ui/container";
@@ -97,12 +98,12 @@ function OrderSummary({ items, subtotalPaise }: { items: CartItem[]; subtotalPai
       </div>
 
       <div className="flex items-center justify-between text-sm pt-1">
-        <span className="text-[#6e5b55]">Cart Subtotal</span>
+        <span className="text-[#6e5b55]">Subtotal</span>
         <span className="font-bold text-[#711e2c]">{formatPrice(subtotalPaise)}</span>
       </div>
 
       <div className="text-xs text-[#6e5b55] leading-relaxed pt-1">
-        Delivery and final total are revalidated securely on order creation.
+        Delivery and final total are authoritative and revalidated securely on payment.
       </div>
     </div>
   );
@@ -128,45 +129,91 @@ function EmptyCheckout() {
   );
 }
 
-function PendingOrderState({ orderNumber }: { orderNumber: string }) {
-  return (
-    <div className="rounded-2xl border border-[#e5d8c6] bg-[#fffdf8] p-6 sm:p-12 text-center shadow-soft">
-      <div className="mx-auto max-w-lg space-y-4">
-        <p className="eyebrow">Pending Order Created</p>
-        <h1 className="font-display text-2xl sm:text-4xl text-[#2b1719] font-semibold">Your details are recorded.</h1>
-        <p className="text-xs sm:text-sm text-[#6e5b55] leading-relaxed">
-          Order created successfully. Our team will contact you for payment confirmation and delivery scheduling.
-        </p>
-
-        <div className="my-6 rounded-xl border border-[#e5d8c6] bg-[#f4efeb] p-4">
-          <p className="text-xs uppercase tracking-wider font-semibold text-[#6e5b55]">Order Reference</p>
-          <p className="font-display text-2xl font-bold text-[#711e2c] mt-1">{orderNumber}</p>
-        </div>
-
-        <Link
-          className="inline-flex min-h-12 items-center justify-center rounded-full bg-[#711e2c] px-6 text-xs sm:text-sm font-semibold text-white shadow-sm hover:bg-[#5a1723]"
-          href="/products"
-        >
-          Continue browsing
-        </Link>
-      </div>
-    </div>
-  );
+// Razorpay SDK global type declaration
+declare global {
+  interface Window {
+    Razorpay?: new (options: Record<string, unknown>) => {
+      open: () => void;
+      on: (event: string, handler: (response: unknown) => void) => void;
+    };
+  }
 }
 
-export function CheckoutPage() {
-  const { items, subtotalPaise, hydrated } = useCart();
+function loadRazorpayScript(): Promise<boolean> {
+  return new Promise((resolve) => {
+    if (typeof window !== "undefined" && window.Razorpay) {
+      return resolve(true);
+    }
+    const script = document.createElement("script");
+    script.src = "https://checkout.razorpay.com/v1/checkout.js";
+    script.async = true;
+    script.onload = () => resolve(true);
+    script.onerror = () => resolve(false);
+    document.body.appendChild(script);
+  });
+}
+
+function CheckoutContent() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const { items: cartItems, subtotalPaise: cartSubtotal, hydrated, clearCart } = useCart();
+
   const [values, setValues] = useState<CheckoutFormValues>(initialValues);
   const [errors, setErrors] = useState<Partial<Record<keyof CheckoutFormValues, string>>>({});
   const [serverMessage, setServerMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [pendingOrderNumber, setPendingOrderNumber] = useState("");
   const messageRef = useRef<HTMLDivElement>(null);
   const idempotencyKeyRef = useRef<string | null>(null);
+
+  // Check if this is a direct "Buy Now" checkout
+  const isBuyNow = searchParams.get("buyNow") === "1";
+  const buyNowItem = useMemo<CartItem | null>(() => {
+    if (!isBuyNow) return null;
+    const productId = searchParams.get("productId");
+    const slug = searchParams.get("slug") || "";
+    const name = searchParams.get("name") || "";
+    const variantId = searchParams.get("variantId") || null;
+    const variantName = searchParams.get("variantName") || null;
+    const unitPricePaise = Number(searchParams.get("unitPricePaise")) || 0;
+    const quantity = Number(searchParams.get("quantity")) || 1;
+    const imageUrl = searchParams.get("imageUrl");
+    const imageAlt = searchParams.get("imageAlt") || name;
+
+    if (!productId) return null;
+
+    return {
+      lineId: `${productId}:${variantId ?? "base"}`,
+      productId,
+      slug,
+      name,
+      variantId,
+      variantName,
+      unitPricePaise,
+      quantity,
+      image: imageUrl ? { url: imageUrl, alt: imageAlt } : null,
+    };
+  }, [isBuyNow, searchParams]);
+
+  // Determine active checkout items (Buy Now single product vs Cart items)
+  const activeItems = useMemo<CartItem[]>(() => {
+    if (isBuyNow && buyNowItem) {
+      return [buyNowItem];
+    }
+    return cartItems;
+  }, [isBuyNow, buyNowItem, cartItems]);
+
+  const activeSubtotal = useMemo(() => {
+    return activeItems.reduce((total, item) => total + item.unitPricePaise * item.quantity, 0);
+  }, [activeItems]);
 
   useEffect(() => {
     if (serverMessage) messageRef.current?.focus();
   }, [serverMessage]);
+
+  // Pre-load Razorpay script
+  useEffect(() => {
+    loadRazorpayScript().catch(() => {});
+  }, []);
 
   if (!hydrated) {
     return (
@@ -180,21 +227,11 @@ export function CheckoutPage() {
     );
   }
 
-  if (items.length === 0) {
+  if (activeItems.length === 0) {
     return (
       <section className="section-shell py-8 sm:py-12">
         <Container>
           <EmptyCheckout />
-        </Container>
-      </section>
-    );
-  }
-
-  if (pendingOrderNumber) {
-    return (
-      <section className="section-shell py-8 sm:py-12">
-        <Container>
-          <PendingOrderState orderNumber={pendingOrderNumber} />
         </Container>
       </section>
     );
@@ -225,25 +262,99 @@ export function CheckoutPage() {
     setErrors({});
     setServerMessage("");
     setIsSubmitting(true);
+
     const idempotencyKey = idempotencyKeyRef.current ?? globalThis.crypto.randomUUID();
     idempotencyKeyRef.current = idempotencyKey;
 
-    const serverResult = await createPendingOrder({
-      idempotencyKey,
-      checkout: result.data,
-      items: items.map((item) => ({
-        productId: item.productId,
-        variantId: item.variantId,
-        quantity: item.quantity,
-        unitPricePaise: item.unitPricePaise,
-      })),
-    });
+    try {
+      // 1. Create Razorpay session on server (server calculates authoritative price from DB)
+      const sessionResult = await createRazorpayCheckoutSession({
+        idempotencyKey,
+        checkout: result.data,
+        items: activeItems.map((item) => ({
+          productId: item.productId,
+          variantId: item.variantId,
+          quantity: item.quantity,
+        })),
+      });
 
-    setIsSubmitting(false);
-    if (serverResult.ok) {
-      setPendingOrderNumber(serverResult.orderNumber);
-    } else {
-      setServerMessage(serverResult.message);
+      if (!sessionResult.ok) {
+        setIsSubmitting(false);
+        setServerMessage(sessionResult.message);
+        return;
+      }
+
+      // 2. Ensure Razorpay SDK script is loaded
+      const scriptReady = await loadRazorpayScript();
+      if (!scriptReady || !window.Razorpay) {
+        setIsSubmitting(false);
+        setServerMessage("Unable to load payment gateway. Please check your internet connection and try again.");
+        return;
+      }
+
+      // 3. Launch official Razorpay Checkout modal
+      const options = {
+        key: sessionResult.razorpayKeyId,
+        amount: sessionResult.amountPaise,
+        currency: sessionResult.currency,
+        name: "Namma Ada",
+        description: "Authentic Kerala Delicacies",
+        order_id: sessionResult.razorpayOrderId,
+        prefill: {
+          name: values.fullName,
+          contact: values.phone,
+          email: values.email || undefined,
+        },
+        theme: {
+          color: "#711e2c",
+        },
+        modal: {
+          ondismiss: function () {
+            setIsSubmitting(false);
+            setServerMessage("Payment was cancelled. You can retry whenever you are ready.");
+          },
+        },
+        handler: async function (response: {
+          razorpay_payment_id: string;
+          razorpay_order_id: string;
+          razorpay_signature: string;
+        }) {
+          setIsSubmitting(true);
+          setServerMessage("Verifying payment securely...");
+
+          // 4. Server-Side HMAC Signature Verification
+          const verifyResult = await verifyAndFinalizePayment({
+            razorpayOrderId: response.razorpay_order_id,
+            razorpayPaymentId: response.razorpay_payment_id,
+            razorpaySignature: response.razorpay_signature,
+            orderNumber: sessionResult.orderNumber,
+          });
+
+          if (verifyResult.ok) {
+            // Clear cart if checking out from cart
+            if (!isBuyNow) {
+              clearCart();
+            }
+            router.push(`/order-success/${verifyResult.orderNumber}`);
+          } else {
+            setIsSubmitting(false);
+            setServerMessage(verifyResult.message);
+          }
+        },
+      };
+
+      const razorpayInstance = new window.Razorpay(options);
+      razorpayInstance.on("payment.failed", function (response: unknown) {
+        console.error("Payment failed:", response);
+        setIsSubmitting(false);
+        setServerMessage("Payment could not be completed. Please try again or use another payment method.");
+      });
+
+      razorpayInstance.open();
+    } catch (err) {
+      console.error("Checkout submission exception:", err);
+      setIsSubmitting(false);
+      setServerMessage("An unexpected error occurred during checkout. Please try again.");
     }
   }
 
@@ -256,7 +367,7 @@ export function CheckoutPage() {
             Checkout
           </h1>
           <p className="mt-2 text-xs sm:text-sm text-[#6e5b55]">
-            Share your delivery details so your order can be prepared accurately.
+            Share your delivery details so your order can be prepared and delivered fresh.
           </p>
         </div>
 
@@ -281,12 +392,13 @@ export function CheckoutPage() {
                   />
                 </Field>
 
-                <Field id="phone" label="Phone" error={errors.phone}>
+                <Field id="phone" label="Phone (WhatsApp enabled)" error={errors.phone}>
                   <Input
                     {...fieldProps("phone", errors.phone)}
                     error={Boolean(errors.phone)}
                     autoComplete="tel"
                     inputMode="tel"
+                    placeholder="e.g. 9995811622"
                     onChange={(event) => updateValue("phone", event.target.value)}
                     value={values.phone}
                   />
@@ -320,6 +432,7 @@ export function CheckoutPage() {
                   <textarea
                     {...fieldProps("address", errors.address)}
                     autoComplete="street-address"
+                    placeholder="House / Flat / Street / Landmark"
                     className={`min-h-24 w-full resize-y rounded-xl border bg-[#fffdf8] px-3.5 py-3 text-sm sm:text-base text-[#2b1719] outline-none placeholder:text-[#6e5b55]/60 transition-all focus-visible:border-[#711e2c] focus-visible:ring-2 focus-visible:ring-[#711e2c]/20 ${
                       errors.address ? "border-red-700" : "border-[#dfd0bd]"
                     }`}
@@ -334,6 +447,7 @@ export function CheckoutPage() {
                       {...fieldProps("city", errors.city)}
                       error={Boolean(errors.city)}
                       autoComplete="address-level2"
+                      placeholder="e.g. Bangalore"
                       onChange={(event) => updateValue("city", event.target.value)}
                       value={values.city}
                     />
@@ -344,6 +458,7 @@ export function CheckoutPage() {
                       {...fieldProps("state", errors.state)}
                       error={Boolean(errors.state)}
                       autoComplete="address-level1"
+                      placeholder="e.g. Karnataka"
                       onChange={(event) => updateValue("state", event.target.value)}
                       value={values.state}
                     />
@@ -356,6 +471,7 @@ export function CheckoutPage() {
                       autoComplete="postal-code"
                       inputMode="numeric"
                       maxLength={6}
+                      placeholder="e.g. 560043"
                       onChange={(event) => updateValue("pincode", event.target.value)}
                       value={values.pincode}
                     />
@@ -364,11 +480,11 @@ export function CheckoutPage() {
               </div>
             </div>
 
-            {/* Error banner */}
+            {/* Error / Status banner */}
             {serverMessage && (
               <div
                 aria-live="polite"
-                className="rounded-xl border border-red-300 bg-red-50 p-4 text-xs sm:text-sm text-red-800"
+                className="rounded-xl border border-red-300 bg-red-50 p-4 text-xs sm:text-sm text-red-800 font-medium animate-in fade-in"
                 ref={messageRef}
                 tabIndex={-1}
               >
@@ -377,16 +493,43 @@ export function CheckoutPage() {
             )}
 
             {/* Submit CTA */}
-            <Button className="w-full sm:w-auto min-h-12 px-8" disabled={isSubmitting} size="lg" type="submit">
-              {isSubmitting ? "Creating order..." : "Create Pending Order"}
-            </Button>
+            <div className="space-y-2">
+              <Button
+                className="w-full sm:w-auto min-h-12 px-8 cursor-pointer shadow-md text-sm font-bold"
+                disabled={isSubmitting}
+                size="lg"
+                type="submit"
+              >
+                {isSubmitting ? "Connecting to Razorpay..." : `Pay ${formatPrice(activeSubtotal)} with Razorpay`}
+              </Button>
+              <p className="text-[11px] text-[#6e5b55]">
+                🔒 100% Secure Payment via Razorpay (UPI, Cards, NetBanking, Wallets).
+              </p>
+            </div>
           </form>
 
           {/* Order Summary */}
-          <OrderSummary items={items} subtotalPaise={subtotalPaise} />
+          <OrderSummary items={activeItems} subtotalPaise={activeSubtotal} />
         </div>
       </Container>
     </section>
   );
 }
 
+export function CheckoutPage() {
+  return (
+    <Suspense
+      fallback={
+        <main className="section-shell py-12 sm:py-16" aria-busy="true" aria-label="Loading checkout">
+          <Container className="space-y-4">
+            <div className="h-4 w-28 animate-pulse rounded bg-[#e5d8c6]" />
+            <div className="h-10 max-w-xs animate-pulse rounded bg-[#e5d8c6]" />
+            <div className="h-48 w-full animate-pulse rounded-2xl bg-[#e5d8c6]" />
+          </Container>
+        </main>
+      }
+    >
+      <CheckoutContent />
+    </Suspense>
+  );
+}

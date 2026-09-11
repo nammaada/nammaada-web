@@ -1,96 +1,98 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { ArrowRight } from "lucide-react";
 
-const INTRO_SESSION_KEY = "namma_ada_intro_seen";
+const INTRO_STORAGE_KEY = "namma_ada_intro_seen";
 
 export function IntroVideo() {
-  const [mounted, setMounted] = useState(false);
-  const [hasSeen, setHasSeen] = useState(true); // Default to true to prevent flash on returning users
+  const [visible, setVisible] = useState(false);
   const [isFadingOut, setIsFadingOut] = useState(false);
-  const [isFinished, setIsFinished] = useState(false);
-  const [autoplayBlocked, setAutoplayBlocked] = useState(false);
-  const [videoSrc, setVideoSrc] = useState<string | null>(null);
+  const [videoSrc, setVideoSrc] = useState<string>("");
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const hasFinishedRef = useRef(false);
 
   useEffect(() => {
-    // Check session storage
+    // 1. Check persistent localStorage flag
     try {
-      const seen = sessionStorage.getItem(INTRO_SESSION_KEY);
-      if (seen === "true") {
-        setIsFinished(true);
+      if (typeof window !== "undefined" && window.localStorage.getItem(INTRO_STORAGE_KEY) === "true") {
         return;
       }
     } catch {
-      // In case session storage is restricted
+      // If localStorage is restricted or throws, avoid trapping user
+      return;
     }
 
-    setHasSeen(false);
-    setMounted(true);
-
-    // Responsive video selection: mobile vs desktop
+    // 2. Responsive video selection based on screen width
     const isMobile = window.innerWidth < 768;
     setVideoSrc(isMobile ? "/video/ad-mobile-namma.mp4" : "/video/desktop-ada.mp4");
+    setVisible(true);
 
-    // Lock page scrolling while intro is playing
-    const originalOverflow = document.body.style.overflow;
+    // 3. Lock page scrolling while intro is playing
+    const originalBodyOverflow = document.body.style.overflow;
     const originalHtmlOverflow = document.documentElement.style.overflow;
     document.body.style.overflow = "hidden";
     document.documentElement.style.overflow = "hidden";
 
     return () => {
-      document.body.style.overflow = originalOverflow;
-      document.documentElement.style.overflow = originalHtmlOverflow;
+      document.body.style.overflow = originalBodyOverflow || "";
+      document.documentElement.style.overflow = originalHtmlOverflow || "";
     };
   }, []);
 
   const finishIntro = () => {
-    if (isFinished || isFadingOut) return;
+    if (hasFinishedRef.current) return;
+    hasFinishedRef.current = true;
 
+    // Save persistent flag to localStorage
     try {
-      sessionStorage.setItem(INTRO_SESSION_KEY, "true");
+      if (typeof window !== "undefined") {
+        window.localStorage.setItem(INTRO_STORAGE_KEY, "true");
+      }
     } catch {
-      // Ignore sessionStorage errors in incognito/private modes
+      // Ignore localStorage errors in private modes
     }
 
-    setIsFadingOut(true);
-
-    // Unlock body scroll immediately upon fade start
+    // Restore page scrolling immediately on fade out start
     document.body.style.overflow = "";
     document.documentElement.style.overflow = "";
 
-    // Allow smooth fade-out animation to complete before unmounting
+    // Smoothly fade out overlay
+    setIsFadingOut(true);
+
+    // Completely unmount video and overlay after fade transition
     setTimeout(() => {
-      setIsFinished(true);
-    }, 750);
+      setVisible(false);
+    }, 700);
   };
 
-  // Attempt autoplay as soon as videoSrc is loaded
+  // Autoplay video immediately when mounted and source is set
   useEffect(() => {
-    if (!videoSrc || !videoRef.current || isFinished) return;
+    if (!visible || !videoSrc || !videoRef.current || hasFinishedRef.current) return;
 
     const video = videoRef.current;
     video.muted = true;
+    video.defaultMuted = true;
 
     const playPromise = video.play();
     if (playPromise !== undefined) {
       playPromise.catch((err) => {
-        console.warn("Autoplay restriction detected:", err);
-        setAutoplayBlocked(true);
+        console.warn("Intro autoplay prevented:", err);
+        // If autoplay is strictly restricted by browser, transition directly to website
+        finishIntro();
       });
     }
 
-    // Safety timeout: If for any reason video stalls/hangs longer than 20s, allow entering
+    // Safety timeout: if video stalls or exceeds 20s, proceed to website
     const safetyTimer = setTimeout(() => {
       finishIntro();
     }, 20000);
 
     return () => clearTimeout(safetyTimer);
-  }, [videoSrc, isFinished]);
+  }, [visible, videoSrc]);
 
-  if (!mounted || hasSeen || isFinished || !videoSrc) {
+  // If already seen or not visible, do not render overlay in DOM
+  if (!visible || !videoSrc) {
     return null;
   }
 
@@ -98,63 +100,25 @@ export function IntroVideo() {
     <div
       id="namma-intro-overlay"
       aria-label="Welcome to Namma Ada intro video"
-      className={`fixed inset-0 z-[99999] flex h-[100dvh] w-screen items-center justify-center bg-[#1b0709] overflow-hidden transition-opacity duration-700 ease-out ${
+      className={`fixed inset-0 z-[99999] flex h-[100dvh] w-screen items-center justify-center bg-black overflow-hidden transition-opacity duration-700 ease-out select-none ${
         isFadingOut ? "opacity-0 pointer-events-none" : "opacity-100"
       }`}
+      onClick={finishIntro}
     >
-      {/* Video element */}
       <video
         ref={videoRef}
         src={videoSrc}
         autoPlay
         muted
         playsInline
+        // @ts-ignore
+        webkit-playsinline="true"
         preload="auto"
         onEnded={finishIntro}
-        onError={() => {
-          console.warn("Intro video could not load, entering homepage");
-          finishIntro();
-        }}
+        onError={finishIntro}
         className="h-full w-full object-cover object-center pointer-events-none select-none"
       />
-
-      {/* Fallback overlay if browser blocks autoplay */}
-      {autoplayBlocked && !isFadingOut && (
-        <div className="absolute inset-0 z-30 flex flex-col items-center justify-center gap-5 bg-black/65 backdrop-blur-xs p-6 text-center">
-          <div className="space-y-1 max-w-sm">
-            <h2 className="text-xl font-serif text-[#fffcf2] font-semibold tracking-wide">
-              Welcome to Namma Ada
-            </h2>
-            <p className="text-xs text-[#fffcf2]/80">
-              Handcrafted Kerala delicacies, made with love.
-            </p>
-          </div>
-
-          <div className="flex flex-wrap items-center justify-center gap-3">
-            <button
-              type="button"
-              onClick={() => {
-                if (videoRef.current) {
-                  videoRef.current.play().catch(finishIntro);
-                }
-                setAutoplayBlocked(false);
-              }}
-              className="inline-flex items-center gap-2 rounded-full bg-[#711e2c] px-6 py-2.5 text-xs font-bold text-white shadow-xl hover:bg-[#862534] transition-all active:scale-95 cursor-pointer border border-white/20"
-            >
-              Watch Video
-            </button>
-
-            <button
-              type="button"
-              onClick={finishIntro}
-              className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-5 py-2.5 text-xs font-semibold text-[#fffcf2] hover:bg-white/25 transition-all active:scale-95 cursor-pointer border border-white/20"
-            >
-              <span>Enter Store</span>
-              <ArrowRight size={12} />
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
+

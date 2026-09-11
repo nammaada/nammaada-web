@@ -18,7 +18,7 @@ export function StorefrontNavbar({ isVideoHero = false }: { isVideoHero?: boolea
   const pathname = usePathname();
   const isHome = pathname === "/";
   const isCreamNavbar = isHome && isVideoHero;
-  const { itemCount } = useCart();
+  const { itemCount, openCart } = useCart();
   const [menuOpen, setMenuOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const menuButtonRef = useRef<HTMLButtonElement>(null);
@@ -129,21 +129,23 @@ export function StorefrontNavbar({ isVideoHero = false }: { isVideoHero?: boolea
                 <Search aria-hidden="true" size={18} />
               </button>
 
-              {/* Cart Link (Always visible, touch friendly) */}
-              <Link
+              {/* Cart Button (Always visible, opens slide drawer on desktop & full size on mobile) */}
+              <button
+                type="button"
                 aria-label={
                   itemCount > 0
                     ? `Cart with ${itemCount} ${itemCount === 1 ? "item" : "items"}`
                     : "Cart, empty"
                 }
-                className={`inline-flex min-h-11 min-w-11 items-center justify-center gap-2 rounded-full px-3.5 sm:px-4 text-xs sm:text-sm font-semibold text-[#711e2c] transition-all focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring active:scale-95 ${
+                className={`inline-flex min-h-11 min-w-11 items-center justify-center gap-2 rounded-full px-3.5 sm:px-4 text-xs sm:text-sm font-semibold text-[#711e2c] transition-all focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring active:scale-95 cursor-pointer ${
                   isCreamNavbar
                     ? "border border-[#e5d8c6] bg-white/80 shadow-xs hover:bg-white"
                     : "border border-white/60 bg-white/40 shadow-xs hover:bg-white/65 hover:border-white/80"
                 }`}
-                href="/cart"
-                prefetch={true}
-                onClick={closeMenu}
+                onClick={() => {
+                  closeMenu();
+                  openCart();
+                }}
               >
                 <div className="relative inline-flex items-center justify-center">
                   <ShoppingBag aria-hidden="true" size={18} />
@@ -157,7 +159,7 @@ export function StorefrontNavbar({ isVideoHero = false }: { isVideoHero?: boolea
                   ) : null}
                 </div>
                 <span className="hidden sm:inline">Cart</span>
-              </Link>
+              </button>
 
               {/* Order Now CTA (Desktop only) */}
               <Link
@@ -257,32 +259,24 @@ export function StorefrontNavbar({ isVideoHero = false }: { isVideoHero?: boolea
                     );
                   })}
 
-                  <Link
-                    className={`flex min-h-12 items-center justify-between rounded-2xl px-5 text-base font-semibold transition-colors ${
-                      pathname === "/cart"
-                        ? "bg-[#711e2c] text-white"
-                        : "text-[#2b1719] hover:bg-[#f4efeb]"
-                    }`}
-                    href="/cart"
-                    prefetch={true}
-                    onClick={closeMenu}
+                  <button
+                    type="button"
+                    className="flex min-h-12 w-full items-center justify-between rounded-2xl px-5 text-base font-semibold transition-colors text-[#2b1719] hover:bg-[#f4efeb] cursor-pointer"
+                    onClick={() => {
+                      closeMenu();
+                      openCart();
+                    }}
                   >
                     <span className="flex items-center gap-2.5">
                       <ShoppingBag size={19} />
                       Cart
                     </span>
                     {itemCount > 0 && (
-                      <span
-                        className={`rounded-full px-2.5 py-0.5 text-xs font-bold ${
-                          pathname === "/cart"
-                            ? "bg-white text-[#711e2c]"
-                            : "bg-[#711e2c] text-[#fffcf2]"
-                        }`}
-                      >
+                      <span className="rounded-full px-2.5 py-0.5 text-xs font-bold bg-[#711e2c] text-[#fffcf2]">
                         {itemCount} {itemCount === 1 ? "item" : "items"}
                       </span>
                     )}
-                  </Link>
+                  </button>
                 </nav>
               </div>
 
