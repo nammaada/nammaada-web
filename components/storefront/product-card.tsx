@@ -169,20 +169,11 @@ export function ProductCard({
             </h2>
           </Link>
 
-          {/* Short Description & Full Description */}
-          {showDescription && (
-            <div className="space-y-1">
-              {product.short_description && (
-                <p className="text-xs font-semibold text-[#8a4235] tracking-wide break-words">
-                  {product.short_description}
-                </p>
-              )}
-              {product.description && (
-                <p className="text-xs text-[#6e5b55] leading-relaxed break-words">
-                  {product.description}
-                </p>
-              )}
-            </div>
+          {/* Short Description */}
+          {showDescription && product.short_description && (
+            <p className="text-xs font-semibold text-[#8a4235] tracking-wide break-words">
+              {product.short_description}
+            </p>
           )}
 
           {/* Rating */}
@@ -196,18 +187,26 @@ export function ProductCard({
             <span className="text-[#6e5b55]">({reviewCount})</span>
           </div>
 
+          {/* Price & Weight */}
+          <div className="flex items-baseline gap-1">
+            <span className="font-serif text-xl font-bold text-[#2b1719]">
+              {formatPriceINR(product.price_paise)}
+            </span>
+            <span className="text-[10px] font-semibold text-[#6e5b55]">{weight}</span>
+          </div>
+
+          {/* Full Description - below price */}
+          {showDescription && product.description && (
+            <p className="text-xs text-[#6e5b55] leading-relaxed break-words">
+              {product.description}
+            </p>
+          )}
+
           {/* Spacer */}
           <div className="flex-1" />
 
-          {/* Bottom: price + quantity + cart */}
-          <div className="pt-2 border-t border-white/50 flex items-center justify-between gap-2">
-            {/* Price */}
-            <div className="flex items-baseline gap-1">
-              <span className="font-serif text-xl font-bold text-[#2b1719]">
-                {formatPriceINR(product.price_paise)}
-              </span>
-              <span className="text-[10px] font-semibold text-[#6e5b55]">{weight}</span>
-            </div>
+          {/* Bottom: quantity + cart */}
+          <div className="pt-2 border-t border-white/50 flex items-center justify-end gap-2">
 
             {/* Quantity + Cart */}
             <div className="flex items-center gap-2">
@@ -299,20 +298,11 @@ export function ProductCard({
           </h2>
         </Link>
 
-        {/* Short Description & Full Description */}
-        {showDescription && (
-          <div className="space-y-1">
-            {product.short_description && (
-              <p className="text-[11px] sm:text-xs font-semibold text-[#8a4235] tracking-wide break-words">
-                {product.short_description}
-              </p>
-            )}
-            {product.description && (
-              <p className="text-[11px] sm:text-xs text-[#6e5b55] leading-relaxed break-words">
-                {product.description}
-              </p>
-            )}
-          </div>
+        {/* Short Description */}
+        {showDescription && product.short_description && (
+          <p className="text-[11px] sm:text-xs font-semibold text-[#8a4235] tracking-wide break-words">
+            {product.short_description}
+          </p>
         )}
 
         {/* Rating Stars & Count */}
@@ -335,6 +325,13 @@ export function ProductCard({
             {weight}
           </span>
         </div>
+
+        {/* Full Description - BELOW THE PRICE (1 line truncated with ... on mobile, full wrapping on desktop) */}
+        {showDescription && product.description && (
+          <p className="text-[11px] sm:text-xs text-[#6e5b55] leading-relaxed truncate sm:whitespace-normal sm:overflow-visible break-words">
+            {product.description}
+          </p>
+        )}
 
         {/* Action Controls: Quantity [-] qty [+] & Add to Cart */}
         <div className="mt-auto pt-2 sm:pt-3 border-t border-white/50 flex items-center justify-between gap-1 sm:gap-2">
