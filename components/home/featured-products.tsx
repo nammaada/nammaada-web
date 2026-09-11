@@ -41,17 +41,17 @@ export function FeaturedProducts({ products }: { products: StorefrontProduct[] }
           </div>
         ) : (
           <>
-            {/* Mobile: 2-col vertical grid (unchanged) */}
+            {/* Mobile: 2-col vertical grid */}
             <div className="mt-8 grid grid-cols-2 gap-3 lg:hidden">
               {products.map((product, index) => (
-                <ProductCard key={product.id} index={index} product={product} />
+                <ProductCard key={product.id} index={index} product={product} showDescription={false} />
               ))}
             </div>
 
             {/* Desktop: 2×2 horizontal card grid */}
             <div className="hidden lg:grid mt-10 grid-cols-2 gap-5">
               {products.map((product, index) => (
-                <ProductCard key={product.id} index={index} product={product} horizontal />
+                <ProductCard key={product.id} index={index} product={product} horizontal showDescription={false} />
               ))}
             </div>
           </>

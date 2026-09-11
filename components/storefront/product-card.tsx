@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { Star, Plus, Minus, ShoppingCart, Sparkles } from "lucide-react";
+import { Star, Plus, Minus, ShoppingCart } from "lucide-react";
 import { useCart } from "@/components/cart/cart-provider";
 import type { StorefrontProduct } from "@/lib/storefront/products";
 
@@ -25,24 +25,22 @@ function getProductRating(id: string, index: number) {
   return { rating, reviewCount };
 }
 
-// Extract weight or provide clean default
-function extractWeight(name: string, description?: string | null): string {
-  const text = `${name} ${description || ""}`;
-  const match = text.match(/\b(\d+\s*(?:g|gm|kg|ml|l|pieces|pcs|pack))\b/i);
-  if (match) return match[1];
-  if (name.toLowerCase().includes("oil")) return "500 ml";
-  if (name.toLowerCase().includes("payasam") || name.toLowerCase().includes("aada")) return "250 g";
-  return "250 g";
+function extractWeight(name: string, shortDesc: string | null) {
+  const text = `${name} ${shortDesc || ""}`;
+  const match = text.match(/(\d+\s*(?:g|gm|kg|ml|l|ltr))/i);
+  return match ? match[1].toLowerCase() : "250 g";
 }
 
 export function ProductCard({
   product,
   index = 0,
   horizontal = false,
+  showDescription = true,
 }: {
   product: StorefrontProduct;
   index?: number;
   horizontal?: boolean;
+  showDescription?: boolean;
 }) {
   const { addItem, items } = useCart();
   const [isAdding, setIsAdding] = useState(false);
@@ -170,9 +168,11 @@ export function ProductCard({
           </Link>
 
           {/* Short description */}
-          <p className="text-xs text-[#6e5b55] font-medium line-clamp-1">
-            {product.short_description || "Traditional Kerala Delicacy"}
-          </p>
+          {showDescription && (
+            <p className="text-xs text-[#6e5b55] font-medium line-clamp-1">
+              {product.short_description || "Traditional Kerala Delicacy"}
+            </p>
+          )}
 
           {/* Rating */}
           <div className="flex items-center gap-1 text-xs">
@@ -183,14 +183,6 @@ export function ProductCard({
             </div>
             <span className="font-bold text-[#2b1719] ml-0.5">{rating.toFixed(1)}</span>
             <span className="text-[#6e5b55]">({reviewCount})</span>
-          </div>
-
-          {/* Stock badge */}
-          <div>
-            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 border border-emerald-200/80 px-2 py-0.5 text-[10px] font-semibold text-emerald-800">
-              <Sparkles size={10} className="text-emerald-600" />
-              {product.is_in_stock ? "Fresh batch available" : "Restocking soon"}
-            </span>
           </div>
 
           {/* Spacer */}
@@ -297,9 +289,11 @@ export function ProductCard({
         </Link>
 
         {/* Subtitle / Tagline */}
-        <p className="text-[11px] sm:text-xs text-[#6e5b55] font-medium line-clamp-1">
-          {product.short_description || "Traditional Kerala Delicacy"}
-        </p>
+        {showDescription && (
+          <p className="text-[11px] sm:text-xs text-[#6e5b55] font-medium line-clamp-1">
+            {product.short_description || "Traditional Kerala Delicacy"}
+          </p>
+        )}
 
         {/* Rating Stars & Count */}
         <div className="flex items-center gap-1 text-[10px] sm:text-xs">
@@ -319,14 +313,6 @@ export function ProductCard({
           </span>
           <span className="text-[10px] sm:text-xs font-semibold text-[#6e5b55]">
             {weight}
-          </span>
-        </div>
-
-        {/* Fresh Batch Stock Badge */}
-        <div>
-          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 border border-emerald-200/80 px-2 py-0.5 text-[10px] sm:text-[11px] font-semibold text-emerald-800">
-            <Sparkles size={10} className="text-emerald-600 sm:w-[11px] sm:h-[11px]" />
-            {product.is_in_stock ? "Fresh batch available" : "Restocking soon"}
           </span>
         </div>
 
