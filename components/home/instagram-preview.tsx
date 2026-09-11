@@ -2,7 +2,6 @@ import Link from "next/link";
 import { ArrowUpRight } from "lucide-react";
 import { Container } from "@/components/ui/container";
 import { DEFAULT_FROM_OUR_KITCHEN, type FromOurKitchenContent } from "@/lib/storefront/content";
-import { ReelCardPlayer } from "./reel-card-player";
 import { ReelsCarousel } from "./reels-carousel";
 
 export function InstagramPreview({ content = DEFAULT_FROM_OUR_KITCHEN }: { content?: FromOurKitchenContent }) {

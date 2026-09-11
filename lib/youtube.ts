@@ -1,8 +1,11 @@
 export function extractYouTubeId(url: string): string | null {
   if (!url) return null;
   const trimmed = url.trim();
+  if (/^[\w-]{11}$/.test(trimmed)) {
+    return trimmed;
+  }
   const match = trimmed.match(
-    /(?:youtu\.be\/|youtube\.com\/(?:embed\/|v\/|watch\?v=|shorts\/|watch\?.+&v=))([\w-]{11})/
+    /(?:youtu\.be\/|youtube(?:-nocookie)?\.com\/(?:embed\/|v\/|watch\?v=|shorts\/|watch\?.+&v=))([\w-]{11})/
   );
   return match ? match[1] : null;
 }
@@ -37,11 +40,103 @@ export function getYouTubeEmbedUrl(
     playlist: id,
     playsinline: "1",
     rel: "0",
-    modestbranding: "1",
-    iv_load_policy: "3",
     enablejsapi: "1",
+    iv_load_policy: "3",
     disablekb: "1",
     fs: "0",
   });
   return `https://www.youtube-nocookie.com/embed/${id}?${params.toString()}`;
 }
+
+declare global {
+  interface Window {
+    YT?: {
+      Player: new (
+        element: HTMLElement | string,
+        config: {
+          videoId?: string;
+          playerVars?: Record<string, any>;
+          events?: {
+            onReady?: (event: { target: any }) => void;
+            onStateChange?: (event: { data: number; target: any }) => void;
+            onError?: (event: { data: number; target: any }) => void;
+          };
+        }
+      ) => any;
+      PlayerState?: {
+        UNSTARTED: number;
+        ENDED: number;
+        PLAYING: number;
+        PAUSED: number;
+        BUFFERING: number;
+        CUED: number;
+      };
+    };
+    onYouTubeIframeAPIReady?: () => void;
+  }
+}
+
+let ytApiLoadingPromise: Promise<void> | null = null;
+
+export function loadYouTubeIFrameAPI(): Promise<void> {
+  if (typeof window === "undefined") {
+    return Promise.resolve();
+  }
+
+  if (window.YT && window.YT.Player) {
+    return Promise.resolve();
+  }
+
+  if (ytApiLoadingPromise) {
+    return ytApiLoadingPromise;
+  }
+
+  ytApiLoadingPromise = new Promise<void>((resolve) => {
+    const existingScript = document.getElementById("youtube-iframe-api-script");
+    if (!existingScript) {
+      const tag = document.createElement("script");
+      tag.id = "youtube-iframe-api-script";
+      tag.src = "https://www.youtube.com/iframe_api";
+      const firstScript = document.getElementsByTagName("script")[0];
+      if (firstScript && firstScript.parentNode) {
+        firstScript.parentNode.insertBefore(tag, firstScript);
+      } else {
+        document.head.appendChild(tag);
+      }
+    }
+
+    const checkReady = () => {
+      if (window.YT && window.YT.Player) {
+        resolve();
+        return true;
+      }
+      return false;
+    };
+
+    if (checkReady()) return;
+
+    const previousOnReady = window.onYouTubeIframeAPIReady;
+    window.onYouTubeIframeAPIReady = () => {
+      if (typeof previousOnReady === "function") {
+        try {
+          previousOnReady();
+        } catch {}
+      }
+      resolve();
+    };
+
+    const interval = setInterval(() => {
+      if (checkReady()) {
+        clearInterval(interval);
+      }
+    }, 100);
+
+    setTimeout(() => {
+      clearInterval(interval);
+      resolve();
+    }, 10000);
+  });
+
+  return ytApiLoadingPromise;
+}
+
