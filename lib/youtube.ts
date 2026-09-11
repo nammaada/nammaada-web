@@ -11,13 +11,23 @@ export function getYouTubeThumbnailUrl(id: string): string {
   return `https://img.youtube.com/vi/${id}/hqdefault.jpg`;
 }
 
-export function getYouTubeEmbedUrl(id: string, autoplay = false): string {
+export function getYouTubeEmbedUrl(
+  id: string,
+  options?: { autoplay?: boolean; mute?: boolean; loop?: boolean; controls?: boolean }
+): string {
   const params = new URLSearchParams({
-    autoplay: autoplay ? "1" : "0",
+    autoplay: options?.autoplay ? "1" : "0",
+    mute: options?.mute ?? true ? "1" : "0",
+    controls: options?.controls ? "1" : "0",
+    loop: options?.loop ?? true ? "1" : "0",
+    playlist: id,
     playsinline: "1",
     rel: "0",
     modestbranding: "1",
-    controls: "1",
+    iv_load_policy: "3",
+    enablejsapi: "1",
+    disablekb: "1",
+    fs: "0",
   });
   return `https://www.youtube-nocookie.com/embed/${id}?${params.toString()}`;
 }
