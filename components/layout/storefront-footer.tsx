@@ -83,33 +83,43 @@ export function StorefrontFooter() {
             </div>
           </div>
 
-          {/* Right Column: Explore Links + Instagram */}
-          <div className="flex flex-col items-start pl-2 gap-2.5">
-            <div>
-              <h3 className="text-[11px] font-bold uppercase tracking-wider text-[#fbf7ef]">Explore</h3>
-              <nav className="mt-1.5 flex flex-col gap-1.5 text-xs text-[#fffcf2]/90" aria-label="Mobile footer navigation">
-                {storefrontRoutes.map((route) => (
-                  <Link
-                    key={route.href}
-                    className="transition-colors hover:text-white"
-                    href={route.href}
-                    prefetch={true}
-                  >
-                    {route.label}
+          {/* Right Column: Explore Links (2 side-by-side columns) + Instagram */}
+          <div className="flex flex-col items-start pl-1 gap-3.5">
+            <div className="w-full">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-[#fbf7ef]">Explore</h3>
+              {/* 2 side-by-side columns: Home & Products on left, About & Contact on right */}
+              <div className="mt-2 grid grid-cols-2 gap-x-4 gap-y-2 text-[12.5px] font-medium text-[#fffcf2]/95" aria-label="Mobile footer navigation">
+                {/* Column 1: Home & Products */}
+                <div className="flex flex-col gap-2">
+                  <Link href="/" className="hover:text-white transition-colors py-0.5" prefetch={true}>
+                    Home
                   </Link>
-                ))}
-              </nav>
+                  <Link href="/products" className="hover:text-white transition-colors py-0.5" prefetch={true}>
+                    Products
+                  </Link>
+                </div>
+
+                {/* Column 2: About & Contact */}
+                <div className="flex flex-col gap-2">
+                  <Link href="/about" className="hover:text-white transition-colors py-0.5" prefetch={true}>
+                    About
+                  </Link>
+                  <Link href="/contact" className="hover:text-white transition-colors py-0.5" prefetch={true}>
+                    Contact
+                  </Link>
+                </div>
+              </div>
             </div>
 
-            <div className="pt-1">
+            <div className="pt-0.5">
               <Link
-                className="inline-flex items-center gap-1.5 rounded-full border border-[#fffcf2]/30 bg-white/10 px-3 py-1 text-[11px] font-semibold text-[#fffcf2] hover:bg-white/20 active:scale-95 transition-all"
+                className="inline-flex items-center gap-1.5 rounded-full border border-[#fffcf2]/30 bg-white/10 px-3.5 py-1.5 text-xs font-semibold text-[#fffcf2] hover:bg-white/20 active:scale-95 transition-all shadow-xs"
                 href={siteConfig.instagramUrl}
                 target="_blank"
                 rel="noreferrer"
                 aria-label="Visit Namma Ada on Instagram"
               >
-                <ArrowUpRight aria-hidden="true" size={12} />
+                <ArrowUpRight aria-hidden="true" size={13} />
                 <span>Instagram</span>
               </Link>
             </div>
