@@ -77,14 +77,13 @@ export function StorefrontFooter() {
           {/* Left Column: Logo + Brand + Gold line + Contact with badges */}
           <div className="flex flex-col items-start gap-1.5">
             <Link href="/" aria-label={`${siteConfig.name} home`}>
-              <div className="size-20 rounded-full bg-[#f8d9b3] flex items-center justify-center p-1 shrink-0 shadow-sm border border-[#e7be8b]/40 overflow-hidden">
+              <div className="size-20 rounded-full bg-[#f8d9b3] flex items-center justify-center p-2 shrink-0 shadow-sm border border-[#e7be8b]/40 overflow-hidden">
                 <Image
                   src="/namma-ada-logo.png"
                   alt="Namma Ada"
-                  width={140}
-                  height={140}
+                  width={160}
+                  height={160}
                   className="w-full h-full object-contain"
-                  style={{ transform: "scale(1.75)" }}
                 />
               </div>
             </Link>
@@ -169,14 +168,13 @@ export function StorefrontFooter() {
           {/* Column 1: Brand statement + Contact badges */}
           <div className="space-y-3 flex flex-col items-start text-left w-full">
             <Link href="/" aria-label={`${siteConfig.name} home`} className="inline-flex items-center justify-start">
-              <div className="size-28 rounded-full bg-[#f8d9b3] flex items-center justify-center p-1.5 shrink-0 shadow-sm border border-[#e7be8b]/40 overflow-hidden">
+              <div className="size-28 rounded-full bg-[#f8d9b3] flex items-center justify-center p-3 shrink-0 shadow-sm border border-[#e7be8b]/40 overflow-hidden">
                 <Image
                   src="/namma-ada-logo.png"
                   alt="Namma Ada"
-                  width={200}
-                  height={200}
+                  width={220}
+                  height={220}
                   className="w-full h-full object-contain"
-                  style={{ transform: "scale(1.75)" }}
                 />
               </div>
             </Link>
