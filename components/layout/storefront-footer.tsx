@@ -77,13 +77,13 @@ export function StorefrontFooter() {
           {/* Left Column: Logo + Brand + Gold line + Contact with badges */}
           <div className="flex flex-col items-start gap-1.5">
             <Link href="/" aria-label={`${siteConfig.name} home`}>
-              <div className="size-16 rounded-full bg-[#f8d9b3] flex items-center justify-center p-2 shrink-0 shadow-sm border border-[#e7be8b]/40">
+              <div className="size-20 rounded-full bg-[#f8d9b3] flex items-center justify-center p-1 shrink-0 shadow-sm border border-[#e7be8b]/40 overflow-hidden">
                 <Image
                   src="/namma-ada-logo.png"
                   alt="Namma Ada"
-                  width={90}
-                  height={60}
-                  className="w-auto h-auto max-w-[85%] max-h-[85%] object-contain"
+                  width={160}
+                  height={160}
+                  className="w-full h-full object-contain"
                 />
               </div>
             </Link>
@@ -93,7 +93,7 @@ export function StorefrontFooter() {
                 Soul Of Kerala,
               </p>
               <p className="font-serif text-[11px] leading-tight text-[#fffcf2]">
-                Served With Heart.
+                Heart Of Karnataka.
               </p>
             </div>
 
@@ -168,13 +168,13 @@ export function StorefrontFooter() {
           {/* Column 1: Brand statement + Contact badges */}
           <div className="space-y-3 flex flex-col items-start text-left w-full">
             <Link href="/" aria-label={`${siteConfig.name} home`} className="inline-flex items-center justify-start">
-              <div className="size-24 rounded-full bg-[#f8d9b3] flex items-center justify-center p-3 shrink-0 shadow-sm border border-[#e7be8b]/40">
+              <div className="size-28 rounded-full bg-[#f8d9b3] flex items-center justify-center p-3 shrink-0 shadow-sm border border-[#e7be8b]/40 overflow-hidden">
                 <Image
                   src="/namma-ada-logo.png"
                   alt="Namma Ada"
-                  width={140}
-                  height={90}
-                  className="w-auto h-auto max-w-[90%] max-h-[85%] object-contain"
+                  width={220}
+                  height={220}
+                  className="w-full h-full object-contain"
                 />
               </div>
             </Link>
@@ -184,7 +184,7 @@ export function StorefrontFooter() {
                 Soul Of Kerala,
               </p>
               <p className="font-serif text-sm leading-snug text-[#fffcf2]">
-                Served With Heart.
+                Heart Of Karnataka.
               </p>
             </div>
 
