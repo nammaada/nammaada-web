@@ -1,112 +1,62 @@
 "use client";
 
-import { useRef, useState, useEffect } from "react";
-import { Play, Volume2, VolumeX, Maximize2 } from "lucide-react";
+import { useState } from "react";
+import Image from "next/image";
+import { Play, ArrowUpRight } from "lucide-react";
+import { extractYouTubeId, getYouTubeEmbedUrl, getYouTubeThumbnailUrl } from "@/lib/youtube";
+
+function InstagramIcon({ className = "size-3" }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+    >
+      <rect width="20" height="20" x="2" y="2" rx="5" ry="5" />
+      <path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z" />
+      <line x1="17.5" x2="17.51" y1="6.5" y2="6.5" />
+    </svg>
+  );
+}
 
 export function ReelCardPlayer({
   src,
+  youtubeUrl,
+  youtubeId,
   title,
   instagramUrl,
   className = "",
 }: {
-  src: string;
+  src?: string;
+  youtubeUrl?: string;
+  youtubeId?: string;
   title?: string;
   instagramUrl?: string;
   className?: string;
 }) {
-  const videoRef = useRef<HTMLVideoElement>(null);
   const [isPlaying, setIsPlaying] = useState(false);
-  const [isMuted, setIsMuted] = useState(true);
-  const [isHovered, setIsHovered] = useState(false);
 
   const targetInstagramUrl = instagramUrl || "https://www.instagram.com/namma_ada/";
-
-  const handleMouseEnter = () => {
-    setIsHovered(true);
-    if (videoRef.current) {
-      videoRef.current.muted = isMuted;
-      videoRef.current
-        .play()
-        .then(() => setIsPlaying(true))
-        .catch(() => {
-          // Autoplay fallback: retry muted if browser policy blocked unmuted
-          if (videoRef.current) {
-            videoRef.current.muted = true;
-            setIsMuted(true);
-            videoRef.current
-              .play()
-              .then(() => setIsPlaying(true))
-              .catch(() => {});
-          }
-        });
-    }
-  };
-
-  const handleMouseLeave = () => {
-    setIsHovered(false);
-    if (videoRef.current) {
-      videoRef.current.pause();
-      // Return to thumbnail frame
-      videoRef.current.currentTime = 0;
-      setIsPlaying(false);
-      // Reset mute to true so future preview starts muted by default
-      videoRef.current.muted = true;
-      setIsMuted(true);
-    }
-  };
+  const ytId = youtubeId || extractYouTubeId(youtubeUrl || src || "");
 
   const handleCardClick = () => {
     window.open(targetInstagramUrl, "_blank", "noopener,noreferrer");
   };
 
-  const handleToggleMute = (e: React.MouseEvent) => {
+  const handlePlayClick = (e: React.MouseEvent) => {
     e.stopPropagation();
-    e.preventDefault();
-    if (!videoRef.current) return;
-    const nextMuted = !videoRef.current.muted;
-    videoRef.current.muted = nextMuted;
-    setIsMuted(nextMuted);
+    setIsPlaying(true);
   };
-
-  const handleFullscreen = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    e.preventDefault();
-    const video = videoRef.current;
-    if (!video) return;
-
-    if (document.fullscreenElement) {
-      document.exitFullscreen().catch(() => {});
-    } else {
-      if (video.requestFullscreen) {
-        video.requestFullscreen().catch(() => {});
-      } else if ((video as unknown as { webkitRequestFullscreen?: () => void }).webkitRequestFullscreen) {
-        (video as unknown as { webkitRequestFullscreen: () => void }).webkitRequestFullscreen();
-      }
-    }
-  };
-
-  useEffect(() => {
-    const video = videoRef.current;
-    if (!video) return;
-
-    const onPlay = () => setIsPlaying(true);
-    const onPause = () => setIsPlaying(false);
-
-    video.addEventListener("play", onPlay);
-    video.addEventListener("pause", onPause);
-
-    return () => {
-      video.removeEventListener("play", onPlay);
-      video.removeEventListener("pause", onPause);
-    };
-  }, []);
 
   return (
     <div
-      onMouseEnter={handleMouseEnter}
-      onMouseLeave={handleMouseLeave}
       onClick={handleCardClick}
-      className={`group relative cursor-pointer overflow-hidden select-none ${className}`}
+      className={`group relative cursor-pointer overflow-hidden select-none bg-black ${className}`}
       role="link"
       tabIndex={0}
       onKeyDown={(e) => {
@@ -115,58 +65,97 @@ export function ReelCardPlayer({
           handleCardClick();
         }
       }}
-      aria-label={title ? `${title} (Opens Instagram Reel in a new tab)` : "Watch Instagram Reel (Opens in a new tab)"}
+      aria-label={title ? `${title} (Opens Instagram post in a new tab)` : "Watch Instagram Reel (Opens in a new tab)"}
     >
-      <video
-        ref={videoRef}
-        loop
-        muted
-        playsInline
-        preload="metadata"
-        className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
-        src={src}
-        title={title}
-      />
-
-      {/* Hover Controls (top right): Fullscreen & Mute/Unmute */}
-      <div className="absolute top-2.5 right-2.5 z-20 flex items-center gap-2">
-        {/* Fullscreen button on hover */}
-        <button
-          type="button"
-          aria-label="View fullscreen"
-          title="Fullscreen"
-          onClick={handleFullscreen}
-          className={`flex h-8 w-8 items-center justify-center rounded-full bg-black/65 border border-white/20 text-white transition-all duration-200 hover:bg-black/85 hover:scale-105 active:scale-95 shadow-md cursor-pointer ${
-            isHovered ? "opacity-100 scale-100" : "opacity-0 scale-90 pointer-events-none"
-          }`}
-        >
-          <Maximize2 size={15} />
-        </button>
-
-        {/* Mute/unmute button shown when playing */}
-        {isPlaying && (
+      {/* Playing state: YouTube iframe embed */}
+      {isPlaying && ytId ? (
+        <div className="relative h-full w-full bg-black">
+          <iframe
+            src={getYouTubeEmbedUrl(ytId, true)}
+            title={title || "YouTube video player"}
+            className="h-full w-full border-0 pointer-events-auto"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+            allowFullScreen
+          />
+          {/* Floating Instagram link button so user can still open post */}
           <button
             type="button"
-            aria-label={isMuted ? "Unmute audio" : "Mute audio"}
-            title={isMuted ? "Unmute" : "Mute"}
-            onClick={handleToggleMute}
-            className="flex h-8 w-8 items-center justify-center rounded-full bg-black/65 border border-white/20 text-white transition-all duration-200 hover:bg-black/85 hover:scale-105 active:scale-95 shadow-md cursor-pointer animate-in fade-in zoom-in-90 duration-150"
+            onClick={handleCardClick}
+            className="absolute top-2.5 right-2.5 z-30 inline-flex items-center gap-1 rounded-full bg-black/75 px-2.5 py-1 text-[10px] font-semibold text-white/95 backdrop-blur-xs border border-white/20 hover:bg-black transition-all cursor-pointer shadow-md"
+            title="Open original Instagram post"
           >
-            {isMuted ? <VolumeX size={15} /> : <Volume2 size={15} />}
+            <InstagramIcon className="size-3 text-[#ffcdd2]" />
+            <span>Instagram</span>
+            <ArrowUpRight size={10} className="text-white/80" />
           </button>
-        )}
-      </div>
-
-      {/* Play indicator overlay visible when not playing */}
-      <div
-        className={`pointer-events-none absolute inset-0 flex items-center justify-center transition-all duration-200 ${
-          isPlaying ? "bg-transparent opacity-0" : "bg-black/25 opacity-100"
-        }`}
-      >
-        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-black/65 border border-white/20 text-white shadow-lg transition-transform duration-200 group-hover:scale-110">
-          <Play size={20} className="translate-x-0.5 fill-white" />
         </div>
-      </div>
+      ) : isPlaying && src && !src.includes("youtube") ? (
+        <video
+          autoPlay
+          controls
+          loop
+          playsInline
+          className="h-full w-full object-cover"
+          src={src}
+          title={title}
+        />
+      ) : (
+        /* Idle / Cover State */
+        <div className="relative h-full w-full">
+          {ytId ? (
+            <Image
+              src={getYouTubeThumbnailUrl(ytId)}
+              alt={title || "Instagram reel video preview"}
+              fill
+              className="object-cover transition-transform duration-300 group-hover:scale-105"
+              unoptimized
+            />
+          ) : src ? (
+            <video
+              preload="metadata"
+              className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+              src={src}
+            />
+          ) : (
+            <div className="h-full w-full flex items-center justify-center bg-zinc-900 text-zinc-500 text-xs font-medium">
+              Preview
+            </div>
+          )}
+
+          {/* Vignette / Dark gradient overlay */}
+          <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-black/40 transition-opacity group-hover:opacity-85" />
+
+          {/* Instagram Badge (Top Right) */}
+          <div className="absolute top-3 right-3 z-20 pointer-events-none">
+            <span className="inline-flex items-center gap-1 rounded-full bg-black/60 px-2.5 py-1 text-[10px] font-semibold text-white/90 backdrop-blur-xs border border-white/15 shadow-sm">
+              <InstagramIcon className="size-3" />
+              <span>Instagram</span>
+              <ArrowUpRight size={10} className="text-white/70" />
+            </span>
+          </div>
+
+          {/* Centered Play Button */}
+          <div className="absolute inset-0 flex items-center justify-center z-20">
+            <button
+              type="button"
+              onClick={handlePlayClick}
+              aria-label="Play video"
+              className="flex h-12 w-12 sm:h-14 sm:w-14 items-center justify-center rounded-full bg-black/70 border border-white/25 text-white shadow-xl transition-all duration-200 group-hover:scale-110 hover:bg-black/90 active:scale-95 cursor-pointer"
+            >
+              <Play size={20} className="translate-x-0.5 fill-white sm:size-6" />
+            </button>
+          </div>
+
+          {/* Bottom Title / Description overlay */}
+          {title && (
+            <div className="absolute bottom-3 inset-x-3 z-20 pointer-events-none">
+              <p className="text-[11px] sm:text-xs font-medium text-white/95 line-clamp-2 drop-shadow-md text-left leading-tight">
+                {title}
+              </p>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }
