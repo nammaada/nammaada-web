@@ -24,35 +24,6 @@ function InstagramIcon({ className = "size-4" }: { className?: string }) {
   );
 }
 
-function FloralDivider() {
-  return (
-    <div className="flex items-center justify-center gap-2.5 my-1 text-[#f3c87a]">
-      <span className="w-10 sm:w-14 h-px bg-[#f3c87a]/40" />
-      <svg
-        className="size-3.5 text-[#f3c87a]"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        aria-hidden="true"
-      >
-        <circle cx="12" cy="12" r="2" fill="currentColor" />
-        <circle cx="12" cy="5.5" r="2.2" />
-        <circle cx="12" cy="18.5" r="2.2" />
-        <circle cx="5.5" cy="12" r="2.2" />
-        <circle cx="18.5" cy="12" r="2.2" />
-        <circle cx="7.4" cy="7.4" r="2" />
-        <circle cx="16.6" cy="16.6" r="2" />
-        <circle cx="7.4" cy="16.6" r="2" />
-        <circle cx="16.6" cy="7.4" r="2" />
-      </svg>
-      <span className="w-10 sm:w-14 h-px bg-[#f3c87a]/40" />
-    </div>
-  );
-}
-
 export function StorefrontFooter() {
   return (
     <footer className="relative overflow-hidden bg-[#711e2c] text-[#fffcf2]">
@@ -303,9 +274,6 @@ export function StorefrontFooter() {
             <p className="text-[10px] sm:text-[11px] font-semibold tracking-widest text-[#fffcf2]/95 uppercase">
               CRAFTED BY EKODRIX
             </p>
-
-            {/* Line 3: Floral Divider Line ── ✿ ── */}
-            <FloralDivider />
 
             {/* Line 4: Tradition text */}
             <p className="text-[11px] sm:text-xs text-[#fffcf2]/90">
