@@ -7,7 +7,16 @@ export function extractYouTubeId(url: string): string | null {
   return match ? match[1] : null;
 }
 
-export function getYouTubeThumbnailUrl(id: string): string {
+export function getYouTubeThumbnailUrl(
+  id: string,
+  quality: "maxres" | "hq" | "sd" = "maxres"
+): string {
+  if (quality === "maxres") {
+    return `https://img.youtube.com/vi/${id}/maxresdefault.jpg`;
+  }
+  if (quality === "sd") {
+    return `https://img.youtube.com/vi/${id}/sddefault.jpg`;
+  }
   return `https://img.youtube.com/vi/${id}/hqdefault.jpg`;
 }
 
