@@ -77,7 +77,7 @@ export function StorefrontFooter() {
           {/* Left Column: Logo + Brand + Gold line + Contact with badges */}
           <div className="flex flex-col items-start gap-1.5">
             <Link href="/" aria-label={`${siteConfig.name} home`}>
-              <div className="size-20 rounded-full bg-[#f8d9b3] flex items-center justify-center p-2 shrink-0 shadow-sm border border-[#e7be8b]/40 overflow-hidden">
+              <div className="size-20 rounded-full bg-[#f8d9b3] flex items-center justify-center p-1 shrink-0 shadow-sm border border-[#e7be8b]/40 overflow-hidden">
                 <Image
                   src="/namma-ada-logo.png"
                   alt="Namma Ada"
