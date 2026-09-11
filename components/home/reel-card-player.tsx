@@ -27,29 +27,41 @@ export function ReelCardPlayer({
   const targetInstagramUrl = instagramUrl || "https://www.instagram.com/namma_ada/";
   const ytId = youtubeId || extractYouTubeId(youtubeUrl || src || "");
 
-  // On desktop hover: play/pause interaction
+  // On desktop hover: play and unmute video
   const handleMouseEnter = () => {
     setIsPlaying(true);
+    setIsMuted(false);
     if (iframeRef.current?.contentWindow) {
+      iframeRef.current.contentWindow.postMessage(
+        JSON.stringify({ event: "command", func: "unMute" }),
+        "*"
+      );
       iframeRef.current.contentWindow.postMessage(
         JSON.stringify({ event: "command", func: "playVideo" }),
         "*"
       );
     }
     if (videoRef.current) {
+      videoRef.current.muted = false;
       videoRef.current.play().catch(() => {});
     }
   };
 
   const handleMouseLeave = () => {
     setIsPlaying(false);
+    setIsMuted(true);
     if (iframeRef.current?.contentWindow) {
+      iframeRef.current.contentWindow.postMessage(
+        JSON.stringify({ event: "command", func: "mute" }),
+        "*"
+      );
       iframeRef.current.contentWindow.postMessage(
         JSON.stringify({ event: "command", func: "pauseVideo" }),
         "*"
       );
     }
     if (videoRef.current) {
+      videoRef.current.muted = true;
       videoRef.current.pause();
     }
   };
@@ -94,10 +106,7 @@ export function ReelCardPlayer({
       aria-label={title ? `${title} (Opens Instagram post in a new tab)` : "Watch Instagram Reel (Opens in a new tab)"}
     >
       {/* 
-        Video Stream:
-        Scales the iframe slightly (1.35x) inside the overflow-hidden card so that all 
-        YouTube title bars, channel avatars, progress bars, and watermarks are clipped 
-        outside the card boundaries.
+        Video Stream: Full uncropped view.
         pointer-events-none ensures all clicks hit the card and navigate to Instagram.
       */}
       {ytId ? (
@@ -106,7 +115,7 @@ export function ReelCardPlayer({
             ref={iframeRef}
             src={getYouTubeEmbedUrl(ytId, { autoplay: false, mute: true, loop: true, controls: false })}
             title={title || "Video content"}
-            className="absolute -top-[18%] -left-[18%] h-[136%] w-[136%] border-0 object-cover pointer-events-none"
+            className="h-full w-full border-0 object-cover pointer-events-none"
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
           />
         </div>
