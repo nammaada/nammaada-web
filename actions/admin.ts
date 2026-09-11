@@ -1,6 +1,6 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag, updateTag } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireAdmin } from "@/lib/auth/admin";
 import { deleteCloudinaryImage, deleteCloudinaryMedia, uploadCloudinaryImage, uploadCloudinaryMedia, validateImage, validateMedia } from "@/lib/cloudinary/server";
@@ -19,9 +19,17 @@ function moneyPaise(form: FormData, key: string) {
 }
 function fail(path: string, message: string): never { redirect(`${path}?error=${encodeURIComponent(message)}`); }
 function ok(path: string): never {
+  try {
+    updateTag("products");
+    revalidateTag("products", "max");
+    updateTag("featured-products");
+    revalidateTag("featured-products", "max");
+  } catch {}
   revalidatePath("/", "layout");
   revalidatePath("/");
   revalidatePath("/products");
+  revalidatePath("/admin", "layout");
+  revalidatePath("/admin/products");
   revalidatePath(path);
   redirect(path);
 }
@@ -101,8 +109,54 @@ export async function saveProduct(form: FormData) {
     }
   }
 
+  // Save or update primary variant with weight/gram if provided
+  const weight = text(form, "weight");
+  if (targetProductId && weight) {
+    try {
+      const { data: existingVariants } = await client
+        .from("product_variants")
+        .select("id")
+        .eq("product_id", targetProductId)
+        .order("display_order", { ascending: true });
+
+      if (existingVariants && existingVariants.length > 0) {
+        await client
+          .from("product_variants")
+          .update({
+            name: weight,
+            price_paise: price,
+            stock_quantity: values.stock_quantity,
+          })
+          .eq("id", existingVariants[0].id);
+      } else {
+        await client.from("product_variants").insert({
+          product_id: targetProductId,
+          name: weight,
+          price_paise: price,
+          stock_quantity: values.stock_quantity,
+          is_active: true,
+          display_order: 0,
+        });
+      }
+    } catch (err) {
+      console.warn("[saveProduct] Could not update weight variant:", err);
+    }
+  }
+
+  try {
+    updateTag("products");
+    revalidateTag("products", "max");
+    updateTag("featured-products");
+    revalidateTag("featured-products", "max");
+    if (slug) {
+      updateTag(`product-${slug}`);
+      revalidateTag(`product-${slug}`, "max");
+    }
+  } catch {}
+  revalidatePath("/", "layout");
   revalidatePath("/");
   revalidatePath("/products");
+  revalidatePath("/admin", "layout");
   revalidatePath("/admin/products");
   if (targetProductId) {
     revalidatePath(`/admin/products/${targetProductId}`);

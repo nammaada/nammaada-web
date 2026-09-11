@@ -19,6 +19,7 @@ export type StorefrontProduct = {
   is_free_shipping: boolean;
   is_featured: boolean;
   display_order: number;
+  weight?: string | null;
   primary_image: { url: string; alt: string } | null;
   images: StorefrontProductImage[];
 };
@@ -57,6 +58,7 @@ async function executeProductQuery(
       ...(product as Omit<StorefrontProduct, "primary_image" | "images">),
       primary_image: null,
       images: [],
+      weight: null,
     }));
   } catch (err) {
     if (err instanceof AppError) throw err;
@@ -74,19 +76,25 @@ async function attachPrimaryImages(
 
   try {
     const imageClient = createSupabaseAdminClient();
-    const { data, error } = await imageClient
-      .from("product_images")
-      .select("id,product_id,cloudinary_public_id,alt_text,display_order,is_primary")
-      .in("product_id", products.map((product) => product.id))
-      .order("is_primary", { ascending: false })
-      .order("display_order", { ascending: true });
+    const [imagesRes, variantsRes] = await Promise.all([
+      imageClient
+        .from("product_images")
+        .select("id,product_id,cloudinary_public_id,alt_text,display_order,is_primary")
+        .in("product_id", products.map((product) => product.id))
+        .order("is_primary", { ascending: false })
+        .order("display_order", { ascending: true }),
+      imageClient
+        .from("product_variants")
+        .select("product_id,name,display_order")
+        .in("product_id", products.map((product) => product.id))
+        .order("display_order", { ascending: true }),
+    ]);
 
-    if (error) {
-      console.warn("[attachPrimaryImages] Error loading product imagery:", error.message);
-      return products;
+    if (imagesRes.error) {
+      console.warn("[attachPrimaryImages] Error loading product imagery:", imagesRes.error.message);
     }
 
-    const images = (data ?? []) as { id: string; product_id: string; cloudinary_public_id: string; alt_text: string; display_order: number; is_primary: boolean }[];
+    const images = (imagesRes.data ?? []) as { id: string; product_id: string; cloudinary_public_id: string; alt_text: string; display_order: number; is_primary: boolean }[];
     const imagesByProduct = new Map<string, StorefrontProductImage[]>();
 
     for (const image of images) {
@@ -95,10 +103,19 @@ async function attachPrimaryImages(
       imagesByProduct.set(image.product_id, productImages);
     }
 
+    const weightByProduct = new Map<string, string>();
+    const variants = (variantsRes.data ?? []) as { product_id: string; name: string }[];
+    for (const v of variants) {
+      if (!weightByProduct.has(v.product_id) && v.name) {
+        weightByProduct.set(v.product_id, v.name);
+      }
+    }
+
     return products.map((product) => ({
       ...product,
       primary_image: imagesByProduct.get(product.id)?.[0] ?? null,
       images: imagesByProduct.get(product.id) ?? [],
+      weight: weightByProduct.get(product.id) ?? null,
     }));
   } catch (err) {
     console.warn("[attachPrimaryImages] Unexpected error loading imagery:", err);
@@ -126,9 +143,17 @@ export function getProducts(categoryId?: string): Promise<StorefrontProduct[]> {
 }
 
 async function fetchFeaturedProducts(): Promise<StorefrontProduct[]> {
-  const products = await executeProductQuery((client) =>
-    client.from("storefront_products").select(productFields).eq("is_featured", true).order("display_order", { ascending: true })
+  let products = await executeProductQuery((client) =>
+    client.from("storefront_products").select(productFields).eq("is_featured", true).order("display_order", { ascending: true }).limit(4)
   );
+
+  // Fallback to top products if none are marked as featured yet
+  if (products.length === 0) {
+    products = await executeProductQuery((client) =>
+      client.from("storefront_products").select(productFields).order("display_order", { ascending: true }).limit(4)
+    );
+  }
+
   return attachPrimaryImages(products);
 }
 
@@ -164,7 +189,7 @@ async function fetchProductBySlug(slug: string): Promise<StorefrontProduct | nul
 
     if (!error && data) {
       const [product] = await attachPrimaryImages([
-        { ...(data as Omit<StorefrontProduct, "primary_image" | "images">), primary_image: null, images: [] },
+        { ...(data as Omit<StorefrontProduct, "primary_image" | "images">), primary_image: null, images: [], weight: null },
       ]);
       return product ?? null;
     }

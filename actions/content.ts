@@ -1,7 +1,7 @@
 "use server";
 
 import { randomUUID } from "node:crypto";
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireAdmin } from "@/lib/auth/admin";
 import {
@@ -40,6 +40,9 @@ function fail(path: string, message: string): never {
 }
 
 function ok(path: string, message?: string): never {
+  // Bust the content cache so WHO WE ARE images show immediately
+  // Next.js 16 revalidateTag requires (tag, profile) — use "default" profile
+  revalidateTag("content", "default");
   revalidatePath("/", "layout");
   revalidatePath("/");
   revalidatePath("/products");

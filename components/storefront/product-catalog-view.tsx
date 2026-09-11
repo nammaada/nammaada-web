@@ -233,14 +233,14 @@ export function ProductCatalogView({
             onClick={() => handleCategoryChange("all")}
             className={`h-[38px] shrink-0 inline-flex items-center gap-1.5 sm:gap-2 rounded-full border px-3.5 sm:px-4 text-xs sm:text-[13px] font-semibold transition-all duration-200 cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring ${
               selectedCategorySlug === "all"
-                ? "border-[#711e2c] bg-[#711e2c] text-[#fffcf2] shadow-xs"
-                : "border-[#e5d8c6] bg-[#fffdf8] text-[#711e2c] hover:border-[#711e2c]/50 hover:bg-white"
+                ? "border-[#711e2c] bg-[#711e2c] text-[#fffcf2] shadow-[0_6px_16px_-4px_rgba(113,30,44,0.35)] backdrop-blur-md"
+                : "border-white/60 bg-gradient-to-br from-white/65 via-[#fcf7ee]/40 to-[#f5e8d5]/25 backdrop-blur-md shadow-[0_4px_12px_-2px_rgba(43,23,25,0.06),inset_0_1px_1px_0_rgba(255,255,255,0.85)] text-[#711e2c] hover:border-white/80 hover:bg-white/75 hover:shadow-md"
             }`}
           >
             <span>All Products</span>
             <span
               className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold leading-none ${
-                selectedCategorySlug === "all" ? "bg-white/20 text-white" : "bg-[#f4efeb] text-[#711e2c]"
+                selectedCategorySlug === "all" ? "bg-white/20 text-white" : "bg-[#711e2c]/10 text-[#711e2c]"
               }`}
             >
               {categoryCounts["all"] || 0}
@@ -258,14 +258,14 @@ export function ProductCatalogView({
                 onClick={() => handleCategoryChange(category.slug)}
                 className={`h-[38px] shrink-0 inline-flex items-center gap-1.5 sm:gap-2 rounded-full border px-3.5 sm:px-4 text-xs sm:text-[13px] font-semibold transition-all duration-200 cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring ${
                   isSelected
-                    ? "border-[#711e2c] bg-[#711e2c] text-[#fffcf2] shadow-xs"
-                    : "border-[#e5d8c6] bg-[#fffdf8] text-[#711e2c] hover:border-[#711e2c]/50 hover:bg-white"
+                    ? "border-[#711e2c] bg-[#711e2c] text-[#fffcf2] shadow-[0_6px_16px_-4px_rgba(113,30,44,0.35)] backdrop-blur-md"
+                    : "border-white/60 bg-gradient-to-br from-white/65 via-[#fcf7ee]/40 to-[#f5e8d5]/25 backdrop-blur-md shadow-[0_4px_12px_-2px_rgba(43,23,25,0.06),inset_0_1px_1px_0_rgba(255,255,255,0.85)] text-[#711e2c] hover:border-white/80 hover:bg-white/75 hover:shadow-md"
                 }`}
               >
                 <span>{category.name}</span>
                 <span
                   className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold leading-none ${
-                    isSelected ? "bg-white/20 text-white" : "bg-[#f4efeb] text-[#711e2c]"
+                    isSelected ? "bg-white/20 text-white" : "bg-[#711e2c]/10 text-[#711e2c]"
                   }`}
                 >
                   {count}
@@ -288,10 +288,10 @@ export function ProductCatalogView({
                 setPriceDropdownOpen((prev) => !prev);
                 setSortDropdownOpen(false);
               }}
-              className={`h-[38px] inline-flex items-center justify-between gap-2 rounded-full border px-3.5 sm:px-4 text-xs sm:text-[13px] font-semibold transition-all duration-150 cursor-pointer select-none shadow-2xs ${
+              className={`h-[38px] inline-flex items-center justify-between gap-2 rounded-full border px-3.5 sm:px-4 text-xs sm:text-[13px] font-semibold transition-all duration-150 cursor-pointer select-none ${
                 selectedPriceRange !== "all" || priceDropdownOpen
-                  ? "border-[#711e2c] bg-white text-[#711e2c] ring-2 ring-[#711e2c]/10"
-                  : "border-[#e5d8c6] bg-[#fffdf8] text-[#2b1719] hover:border-[#711e2c]/40 hover:bg-white hover:text-[#711e2c]"
+                  ? "border-[#711e2c] bg-white text-[#711e2c] ring-2 ring-[#711e2c]/10 shadow-sm"
+                  : "border-white/60 bg-gradient-to-br from-white/65 via-[#fcf7ee]/40 to-[#f5e8d5]/25 backdrop-blur-md shadow-[0_4px_12px_-2px_rgba(43,23,25,0.06),inset_0_1px_1px_0_rgba(255,255,255,0.85)] text-[#2b1719] hover:border-white/80 hover:bg-white/75 hover:text-[#711e2c]"
               }`}
             >
               <span className="truncate">{currentPriceLabel}</span>
@@ -307,7 +307,7 @@ export function ProductCatalogView({
               <div
                 role="listbox"
                 aria-label="Filter by price"
-                className="absolute right-0 top-full mt-1.5 z-40 w-48 rounded-2xl border border-[#e5d8c6] bg-[#fffdf8] p-1.5 shadow-xl shadow-amber-950/10 animate-in fade-in zoom-in-95 duration-150"
+                className="absolute right-0 top-full mt-1.5 z-40 w-48 rounded-2xl border border-white/60 bg-[#fffdf8]/95 backdrop-blur-xl p-1.5 shadow-xl shadow-amber-950/10 animate-in fade-in zoom-in-95 duration-150"
               >
                 {PRICE_RANGES.map((range) => {
                   const isSelected = selectedPriceRange === range.id;
@@ -347,10 +347,10 @@ export function ProductCatalogView({
                 setSortDropdownOpen((prev) => !prev);
                 setPriceDropdownOpen(false);
               }}
-              className={`h-[38px] inline-flex items-center justify-between gap-2 rounded-full border px-3.5 sm:px-4 text-xs sm:text-[13px] font-semibold transition-all duration-150 cursor-pointer select-none shadow-2xs ${
+              className={`h-[38px] inline-flex items-center justify-between gap-2 rounded-full border px-3.5 sm:px-4 text-xs sm:text-[13px] font-semibold transition-all duration-150 cursor-pointer select-none ${
                 selectedSort !== "featured" || sortDropdownOpen
-                  ? "border-[#711e2c] bg-white text-[#711e2c] ring-2 ring-[#711e2c]/10"
-                  : "border-[#e5d8c6] bg-[#fffdf8] text-[#2b1719] hover:border-[#711e2c]/40 hover:bg-white hover:text-[#711e2c]"
+                  ? "border-[#711e2c] bg-white text-[#711e2c] ring-2 ring-[#711e2c]/10 shadow-sm"
+                  : "border-white/60 bg-gradient-to-br from-white/65 via-[#fcf7ee]/40 to-[#f5e8d5]/25 backdrop-blur-md shadow-[0_4px_12px_-2px_rgba(43,23,25,0.06),inset_0_1px_1px_0_rgba(255,255,255,0.85)] text-[#2b1719] hover:border-white/80 hover:bg-white/75 hover:text-[#711e2c]"
               }`}
             >
               <span className="truncate">Sort: {currentSortLabel}</span>
@@ -366,7 +366,7 @@ export function ProductCatalogView({
               <div
                 role="listbox"
                 aria-label="Sort products"
-                className="absolute right-0 top-full mt-1.5 z-40 w-52 rounded-2xl border border-[#e5d8c6] bg-[#fffdf8] p-1.5 shadow-xl shadow-amber-950/10 animate-in fade-in zoom-in-95 duration-150"
+                className="absolute right-0 top-full mt-1.5 z-40 w-52 rounded-2xl border border-white/60 bg-[#fffdf8]/95 backdrop-blur-xl p-1.5 shadow-xl shadow-amber-950/10 animate-in fade-in zoom-in-95 duration-150"
               >
                 {SORT_OPTIONS.map((opt) => {
                   const isSelected = selectedSort === opt.id;
@@ -420,7 +420,7 @@ export function ProductCatalogView({
               setMobileModalTab("category");
               setIsMobileFilterOpen(true);
             }}
-            className="inline-flex min-h-11 items-center justify-between gap-1.5 rounded-full border border-[#e5d8c6] bg-[#fffdf8] px-4 text-xs font-semibold text-[#711e2c] shadow-2xs active:scale-98 cursor-pointer"
+            className="inline-flex min-h-11 items-center justify-between gap-1.5 rounded-full border border-white/60 bg-gradient-to-br from-white/65 via-[#fcf7ee]/40 to-[#f5e8d5]/25 backdrop-blur-md px-4 text-xs font-semibold text-[#711e2c] shadow-[0_4px_12px_-2px_rgba(43,23,25,0.06),inset_0_1px_1px_0_rgba(255,255,255,0.85)] active:scale-98 cursor-pointer"
           >
             <div className="flex items-center gap-1.5 min-w-0">
               <Layers size={14} className="shrink-0 text-[#711e2c]" />
@@ -436,7 +436,7 @@ export function ProductCatalogView({
               setMobileModalTab("filters");
               setIsMobileFilterOpen(true);
             }}
-            className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-full border border-[#711e2c]/30 bg-[#fffdf8] px-3.5 text-xs font-semibold text-[#711e2c] shadow-2xs active:scale-98 cursor-pointer"
+            className="inline-flex min-h-11 items-center justify-center gap-1.5 rounded-full border border-white/60 bg-gradient-to-br from-white/65 via-[#fcf7ee]/40 to-[#f5e8d5]/25 backdrop-blur-md px-3.5 text-xs font-semibold text-[#711e2c] shadow-[0_4px_12px_-2px_rgba(43,23,25,0.06),inset_0_1px_1px_0_rgba(255,255,255,0.85)] active:scale-98 cursor-pointer"
           >
             <SlidersHorizontal size={14} />
             <span>Filters & Sort</span>

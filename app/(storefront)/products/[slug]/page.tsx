@@ -74,6 +74,11 @@ export default async function ProductPage({ params }: ProductPageProps) {
               <h1 className="mt-1.5 font-display text-2xl sm:text-4xl font-semibold leading-tight text-[#2b1719]">
                 {product.name}
               </h1>
+              {product.short_description && (
+                <p className="mt-2 text-sm sm:text-base text-[#6e5b55] leading-relaxed">
+                  {product.short_description}
+                </p>
+              )}
             </div>
 
             {/* Product Options, Price, Availability, Variants, Add-to-Cart CTA */}
@@ -81,12 +86,12 @@ export default async function ProductPage({ params }: ProductPageProps) {
               <ProductOptions product={product} variants={variants} />
             </div>
 
-            {/* Description */}
-            {(product.description || product.short_description) && (
+            {/* Full Description Section */}
+            {product.description && (
               <div className="rounded-2xl sm:rounded-3xl border border-white/70 bg-gradient-to-br from-white/80 via-white/60 to-white/40 p-5 sm:p-6 backdrop-blur-xl shadow-xl shadow-amber-950/8 space-y-2">
-                <h2 className="text-xs sm:text-sm font-bold uppercase tracking-wider text-[#2b1719]">About this delicacy</h2>
+                <h2 className="text-xs sm:text-sm font-bold uppercase tracking-wider text-[#2b1719]">Full Description</h2>
                 <p className="whitespace-pre-line text-xs sm:text-sm leading-relaxed text-[#6e5b55]">
-                  {product.description || product.short_description}
+                  {product.description}
                 </p>
               </div>
             )}
