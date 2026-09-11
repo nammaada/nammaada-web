@@ -95,7 +95,6 @@ export function ReelsCarousel({
                 className="h-full w-full"
                 isActive={isCenter && activeReelId === reel.id}
                 onActivate={() => setActiveReelId(reel.id)}
-                onDeactivate={() => setActiveReelId((curr) => (curr === reel.id ? null : curr))}
               />
             </div>
           );
@@ -145,7 +144,6 @@ export function ReelsCarousel({
               className="h-full w-full"
               isActive={activeReelId === reel.id}
               onActivate={() => setActiveReelId(reel.id)}
-              onDeactivate={() => setActiveReelId((curr) => (curr === reel.id ? null : curr))}
             />
           </div>
         ))}
