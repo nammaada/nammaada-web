@@ -140,3 +140,29 @@ export function loadYouTubeIFrameAPI(): Promise<void> {
   return ytApiLoadingPromise;
 }
 
+// Global registry to ensure ONLY ONE video player can ever produce audio across the page
+const activeYouTubePlayers = new Set<any>();
+
+export function registerYouTubePlayer(player: any) {
+  if (player) {
+    activeYouTubePlayers.add(player);
+  }
+}
+
+export function unregisterYouTubePlayer(player: any) {
+  if (player) {
+    activeYouTubePlayers.delete(player);
+  }
+}
+
+export function pauseAllOtherYouTubePlayers(activePlayer: any) {
+  activeYouTubePlayers.forEach((player) => {
+    if (player && player !== activePlayer) {
+      try {
+        player.pauseVideo();
+      } catch {}
+    }
+  });
+}
+
+

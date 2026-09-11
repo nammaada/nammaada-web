@@ -6,6 +6,9 @@ import {
   extractYouTubeId,
   getYouTubeThumbnailUrl,
   loadYouTubeIFrameAPI,
+  registerYouTubePlayer,
+  unregisterYouTubePlayer,
+  pauseAllOtherYouTubePlayers,
 } from "@/lib/youtube";
 
 export function ReelCardPlayer({
@@ -29,12 +32,18 @@ export function ReelCardPlayer({
   onActivate?: () => void;
   onDeactivate?: () => void;
 }) {
-  const containerRef = useRef<HTMLDivElement>(null);
+  const iframeRef = useRef<HTMLIFrameElement>(null);
   const playerRef = useRef<any>(null);
   const isInitializingRef = useRef<boolean>(false);
   const isReadyRef = useRef<boolean>(false);
-  const shouldPlayRef = useRef<boolean>(false);
   const isTouchRef = useRef<boolean>(false);
+  const isActiveRef = useRef<boolean>(isActive);
+
+  // Persistent unique element ID for this card's iframe
+  const playerIdRef = useRef<string>("");
+  if (!playerIdRef.current) {
+    playerIdRef.current = `yt-player-${Math.random().toString(36).slice(2, 9)}`;
+  }
 
   const [isPlayerMounted, setIsPlayerMounted] = useState<boolean>(false);
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
@@ -66,9 +75,10 @@ export function ReelCardPlayer({
     }
   };
 
-  // Safely trigger playback with browser autoplay policy handling
-  const safePlay = useCallback((player: any) => {
+  // Safe playback function that coordinates with all active players
+  const startPlayback = useCallback((player: any) => {
     if (!player) return;
+    pauseAllOtherYouTubePlayers(player);
     try {
       player.unMute();
       player.setVolume(100);
@@ -81,91 +91,35 @@ export function ReelCardPlayer({
     }
   }, []);
 
-  // Sync playback state with isActive prop
-  useEffect(() => {
-    shouldPlayRef.current = Boolean(isActive);
-
-    if (isActive) {
-      if (!isPlayerMounted) {
-        setIsPlayerMounted(true);
-        return;
-      }
-
-      if (playerRef.current && isReadyRef.current) {
-        safePlay(playerRef.current);
-      }
-    } else {
-      if (playerRef.current && isReadyRef.current) {
-        try {
-          playerRef.current.pauseVideo();
-        } catch {}
-      }
-      setIsPlaying(false);
-    }
-  }, [isActive, isPlayerMounted, safePlay]);
-
-  // Initialize single YouTube player instance when mounted
-  useEffect(() => {
-    if (!isPlayerMounted || !ytId || playerRef.current || isInitializingRef.current) {
-      return;
-    }
-
-    let isCancelled = false;
+  // When the React-rendered iframe finishes loading its document, bind the YT.Player instance
+  const handleIFrameLoad = useCallback(() => {
+    if (playerRef.current || isInitializingRef.current || !iframeRef.current) return;
     isInitializingRef.current = true;
 
     loadYouTubeIFrameAPI().then(() => {
-      if (isCancelled || !containerRef.current || playerRef.current) {
+      if (!iframeRef.current || playerRef.current) {
         isInitializingRef.current = false;
         return;
       }
 
-      // Create a dedicated mount point for YT.Player
-      containerRef.current.innerHTML = "";
-      const mountDiv = document.createElement("div");
-      mountDiv.style.width = "100%";
-      mountDiv.style.height = "100%";
-      containerRef.current.appendChild(mountDiv);
-
       try {
-        const player = new window.YT!.Player(mountDiv, {
-          videoId: ytId,
-          playerVars: {
-            controls: 0,
-            rel: 0,
-            playsinline: 1,
-            enablejsapi: 1,
-            autoplay: 0,
-            iv_load_policy: 3,
-            disablekb: 1,
-            fs: 0,
-            loop: 1,
-            playlist: ytId,
-            origin: typeof window !== "undefined" ? window.location.origin : undefined,
-          },
+        const player = new window.YT!.Player(playerIdRef.current, {
           events: {
             onReady: (event: any) => {
-              if (isCancelled) {
-                try {
-                  event.target.destroy();
-                } catch {}
-                return;
-              }
               isReadyRef.current = true;
               isInitializingRef.current = false;
+              playerRef.current = event.target;
+              registerYouTubePlayer(event.target);
 
-              // Only play if this card is still marked as active
-              if (shouldPlayRef.current) {
-                safePlay(event.target);
-              } else {
-                try {
-                  event.target.pauseVideo();
-                } catch {}
+              // Single source of truth: only play if this card is currently active
+              if (isActiveRef.current) {
+                startPlayback(event.target);
               }
             },
             onStateChange: (event: any) => {
-              if (isCancelled) return;
-              // YT.PlayerState: PLAYING = 1, PAUSED = 2, ENDED = 0
+              // 1 = PLAYING, 2 = PAUSED, 0 = ENDED
               if (event.data === 1) {
+                pauseAllOtherYouTubePlayers(event.target);
                 setIsPlaying(true);
               } else if (event.data === 2 || event.data === 0) {
                 setIsPlaying(false);
@@ -176,23 +130,40 @@ export function ReelCardPlayer({
             },
           },
         });
-
-        playerRef.current = player;
       } catch {
         isInitializingRef.current = false;
       }
     });
+  }, [startPlayback]);
 
-    return () => {
-      isCancelled = true;
-      isInitializingRef.current = false;
-    };
-  }, [isPlayerMounted, ytId, safePlay]);
+  // Sync playback state strictly with isActive prop
+  useEffect(() => {
+    isActiveRef.current = isActive;
 
-  // Clean up player on unmount or video ID change
+    if (isActive) {
+      if (!isPlayerMounted) {
+        setIsPlayerMounted(true);
+        return;
+      }
+
+      if (playerRef.current && isReadyRef.current) {
+        startPlayback(playerRef.current);
+      }
+    } else {
+      if (playerRef.current && isReadyRef.current) {
+        try {
+          playerRef.current.pauseVideo();
+        } catch {}
+      }
+      setIsPlaying(false);
+    }
+  }, [isActive, isPlayerMounted, startPlayback]);
+
+  // Clean up player on unmount
   useEffect(() => {
     return () => {
       if (playerRef.current) {
+        unregisterYouTubePlayer(playerRef.current);
         try {
           playerRef.current.destroy();
         } catch {}
@@ -200,36 +171,42 @@ export function ReelCardPlayer({
       }
       isReadyRef.current = false;
       isInitializingRef.current = false;
-      if (containerRef.current) {
-        containerRef.current.innerHTML = "";
-      }
     };
-  }, [ytId]);
+  }, []);
 
-  // Touch handling for mobile
+  // Detect touch interaction
   const handleTouchStart = () => {
     isTouchRef.current = true;
   };
 
   // Desktop hover-to-play:
-  // Mouse enter starts playback using the SINGLE player instance
+  // Strictly ignore on touch devices or if touch occurred
   const handleMouseEnter = () => {
+    if (typeof window !== "undefined" && window.matchMedia("(hover: none)").matches) {
+      return;
+    }
     if (isTouchRef.current) return;
     onActivate?.();
   };
 
-  // Mouse leave pauses playback immediately
+  // Desktop hover-leave: pauses playback immediately
   const handleMouseLeave = () => {
+    if (typeof window !== "undefined" && window.matchMedia("(hover: none)").matches) {
+      return;
+    }
     if (isTouchRef.current) return;
     onDeactivate?.();
   };
 
   // Card click / tap handler:
-  // - Desktop: opens configured Instagram Post URL in a new tab
-  // - Mobile: opens Instagram URL normally without starting duplicate players
+  // - Mobile / touch: opens Instagram URL directly (no hover, no video play)
+  // - Desktop: opens Instagram Post URL in a new tab
   const handleCardClick = () => {
-    if (isTouchRef.current) {
-      // Mobile tap opens Instagram directly
+    const isMobileDevice =
+      isTouchRef.current ||
+      (typeof window !== "undefined" && window.matchMedia("(hover: none)").matches);
+
+    if (isMobileDevice) {
       window.location.href = targetInstagramUrl;
       setTimeout(() => {
         isTouchRef.current = false;
@@ -237,7 +214,6 @@ export function ReelCardPlayer({
       return;
     }
 
-    // Desktop click opens in new tab
     window.open(targetInstagramUrl, "_blank", "noopener,noreferrer");
   };
 
@@ -260,15 +236,28 @@ export function ReelCardPlayer({
     >
       {ytId ? (
         <div className="relative h-full w-full bg-black overflow-hidden pointer-events-none">
-          {/* YouTube Player Container: mounted on interaction, full 9:16 aspect ratio preserved */}
-          <div
-            ref={containerRef}
-            className={`absolute inset-0 h-full w-full transition-opacity duration-300 pointer-events-none [&>iframe]:w-full [&>iframe]:h-full [&>iframe]:border-0 [&>iframe]:object-cover ${
-              isPlaying ? "opacity-100" : "opacity-0"
-            }`}
-          />
+          {/* 
+            Single React-Managed YouTube IFrame:
+            - Rendered once when active
+            - autoplay=0 prevents browser/URL clash
+            - Full 9:16 aspect ratio preserved without zoom or crop
+          */}
+          {isPlayerMounted && (
+            <iframe
+              ref={iframeRef}
+              id={playerIdRef.current}
+              src={`https://www.youtube-nocookie.com/embed/${ytId}?enablejsapi=1&autoplay=0&controls=0&rel=0&playsinline=1&iv_load_policy=3&disablekb=1&fs=0`}
+              title={title || "From our kitchen video"}
+              className={`absolute inset-0 h-full w-full border-0 object-cover pointer-events-none transition-opacity duration-300 ${
+                isPlaying ? "opacity-100" : "opacity-0"
+              }`}
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+              tabIndex={-1}
+              onLoad={handleIFrameLoad}
+            />
+          )}
 
-          {/* Clean Custom Preview Layer: YouTube thumbnail before playback */}
+          {/* Clean Custom Preview Layer: YouTube thumbnail shown before video is actively playing */}
           {thumbnailSrc && (
             // eslint-disable-next-line @next/next/no-img-element
             <img
