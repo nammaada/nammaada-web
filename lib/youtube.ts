@@ -1,13 +1,36 @@
-export function extractYouTubeId(url: string): string | null {
+export function extractYouTubeId(url?: string | null): string | null {
   if (!url) return null;
   const trimmed = url.trim();
+  if (!trimmed) return null;
+
+  // If already an 11-character YouTube video ID
   if (/^[\w-]{11}$/.test(trimmed)) {
     return trimmed;
   }
+
+  // Matches standard watch URLs, shorts, embed, youtu.be, and mobile URLs
   const match = trimmed.match(
-    /(?:youtu\.be\/|youtube(?:-nocookie)?\.com\/(?:embed\/|v\/|watch\?v=|shorts\/|watch\?.+&v=))([\w-]{11})/
+    /(?:youtu\.be\/|(?:www\.|m\.)?youtube(?:-nocookie)?\.com\/(?:embed\/|v\/|watch\?.*v=|shorts\/))([\w-]{11})/i
   );
-  return match ? match[1] : null;
+  if (match && match[1]) {
+    return match[1];
+  }
+
+  // Fallback for query parameter v or URL path segments
+  try {
+    const parsed = new URL(trimmed.startsWith("http") ? trimmed : `https://${trimmed}`);
+    const v = parsed.searchParams.get("v");
+    if (v && /^[\w-]{11}$/.test(v)) {
+      return v;
+    }
+    const parts = parsed.pathname.split("/").filter(Boolean);
+    const last = parts[parts.length - 1];
+    if (last && /^[\w-]{11}$/.test(last)) {
+      return last;
+    }
+  } catch {}
+
+  return null;
 }
 
 export function getYouTubeThumbnailUrl(
@@ -25,26 +48,35 @@ export function getYouTubeThumbnailUrl(
 
 export function getYouTubeEmbedUrl(
   id: string,
-  options?: { autoplay?: boolean; mute?: boolean; loop?: boolean; controls?: boolean }
+  options?: {
+    autoplay?: boolean;
+    mute?: boolean;
+    loop?: boolean;
+    controls?: boolean;
+    playsinline?: boolean;
+  }
 ): string {
   const autoplay = options?.autoplay ?? true;
-  const mute = options?.mute ?? true;
-  const loop = options?.loop ?? true;
-  const controls = options?.controls ?? false;
+  const mute = options?.mute ?? false;
+  const loop = options?.loop ?? false;
+  const controls = options?.controls ?? true;
+  const playsinline = options?.playsinline ?? true;
 
   const params = new URLSearchParams({
     autoplay: autoplay ? "1" : "0",
-    mute: mute ? "1" : "0",
-    controls: controls ? "1" : "0",
-    loop: loop ? "1" : "0",
-    playlist: id,
-    playsinline: "1",
+    playsinline: playsinline ? "1" : "0",
     rel: "0",
+    modestbranding: "1",
     enablejsapi: "1",
-    iv_load_policy: "3",
-    disablekb: "1",
-    fs: "0",
   });
+
+  if (mute) params.set("mute", "1");
+  if (!controls) params.set("controls", "0");
+  if (loop) {
+    params.set("loop", "1");
+    params.set("playlist", id);
+  }
+
   return `https://www.youtube-nocookie.com/embed/${id}?${params.toString()}`;
 }
 
