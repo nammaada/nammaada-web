@@ -114,9 +114,9 @@ export function ReelsCarousel({
                   title={reel.alt_text}
                   instagramUrl={reel.instagram_url || fallbackInstagramUrl}
                   className="h-full w-full"
-                  isActive={isCenter && activeReelId === reel.id}
+                  isActive={isMounted && !isDesktop && isCenter && activeReelId === reel.id}
                   onActivate={() => setActiveReelId(reel.id)}
-                  onDeactivate={() => setActiveReelId((curr) => (curr === reel.id ? null : curr))}
+                  onDeactivate={() => setActiveReelId(null)}
                 />
               </div>
             );
@@ -168,9 +168,9 @@ export function ReelsCarousel({
                 title={reel.alt_text}
                 instagramUrl={reel.instagram_url || fallbackInstagramUrl}
                 className="h-full w-full"
-                isActive={activeReelId === reel.id}
+                isActive={isMounted && isDesktop && activeReelId === reel.id}
                 onActivate={() => setActiveReelId(reel.id)}
-                onDeactivate={() => setActiveReelId((curr) => (curr === reel.id ? null : curr))}
+                onDeactivate={() => setActiveReelId(null)}
               />
             </div>
           ))}
