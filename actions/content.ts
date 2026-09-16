@@ -1,7 +1,7 @@
 "use server";
 
 import { randomUUID } from "node:crypto";
-import { revalidatePath, revalidateTag } from "next/cache";
+import { revalidatePath, revalidateTag, updateTag } from "next/cache";
 import { redirect } from "next/navigation";
 import { requireAdmin } from "@/lib/auth/admin";
 import {
@@ -20,6 +20,7 @@ import {
   WhoWeAreContent,
   WhoWeAreImage,
   extractYouTubeId,
+  fetchWhoWeAreContentDirect,
 } from "@/lib/storefront/content";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
@@ -42,10 +43,19 @@ function fail(path: string, message: string): never {
 
 function ok(path: string, message?: string): never {
   // Bust the content cache so WHO WE ARE images show immediately
-  // Next.js 16 revalidateTag requires (tag, profile) — use "default" profile
-  revalidateTag("content", "default");
+  try {
+    updateTag("content");
+  } catch {
+    // Non-fatal if outside server action context
+  }
+  try {
+    revalidateTag("content", "max");
+  } catch {
+    // Non-fatal fallback
+  }
   revalidatePath("/", "layout");
   revalidatePath("/");
+  revalidatePath("/about");
   revalidatePath("/products");
   revalidatePath(path);
   revalidatePath("/admin/our-story");
@@ -63,29 +73,7 @@ function ok(path: string, message?: string): never {
 // ---------------------------------------------------------------------------
 
 async function getRawWhoWeAre(): Promise<WhoWeAreContent> {
-  const client = createSupabaseAdminClient();
-  const { data } = await client
-    .from("site_settings")
-    .select("value")
-    .eq("key", "content_who_we_are")
-    .maybeSingle();
-
-  if (data?.value && typeof data.value === "object") {
-    const val = data.value as Partial<WhoWeAreContent>;
-    const images = Array.isArray(val.images) ? [...val.images] : [];
-    images.sort((a, b) => (a.display_order ?? 0) - (b.display_order ?? 0));
-    return {
-      label: val.label?.trim() || DEFAULT_WHO_WE_ARE.label,
-      heading: val.heading?.trim() || DEFAULT_WHO_WE_ARE.heading,
-      description: val.description?.trim() || DEFAULT_WHO_WE_ARE.description,
-      buttonText: val.buttonText?.trim() || DEFAULT_WHO_WE_ARE.buttonText,
-      buttonUrl: val.buttonUrl?.trim() || DEFAULT_WHO_WE_ARE.buttonUrl,
-      images,
-      primaryImageId: val.primaryImageId || images.find((i) => i.is_primary)?.id || images[0]?.id || null,
-    };
-  }
-
-  return { ...DEFAULT_WHO_WE_ARE };
+  return fetchWhoWeAreContentDirect();
 }
 
 export async function saveWhoWeAreContent(form: FormData) {
@@ -97,8 +85,19 @@ export async function saveWhoWeAreContent(form: FormData) {
   const buttonUrl = text(form, "button_url") || DEFAULT_WHO_WE_ARE.buttonUrl;
 
   const current = await getRawWhoWeAre();
+
+  // Guard against ever wiping existing images when only saving text copy
+  let images = current.images || [];
+  if (images.length === 0) {
+    const direct = await fetchWhoWeAreContentDirect();
+    if (direct.images && direct.images.length > 0) {
+      images = direct.images;
+    }
+  }
+
   const updated: WhoWeAreContent = {
     ...current,
+    images,
     label,
     heading,
     description,
