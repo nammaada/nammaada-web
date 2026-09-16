@@ -648,26 +648,30 @@ export async function createCodCheckoutSession(
       lineTotalPaise: i.lineTotalPaise,
     }));
 
-    sendOrderConfirmationEmails({
-      orderId: order.id,
-      orderNumber,
-      orderDate: new Date().toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }),
-      customerName: checkout.fullName.trim(),
-      customerPhone: checkout.phone.trim(),
-      customerEmail: checkout.email?.trim() || null,
-      deliveryAddress: checkout.address.trim(),
-      deliveryDistrictCity: checkout.city.trim(),
-      deliveryState: checkout.state.trim(),
-      deliveryCountry: "India",
-      deliveryPincode: checkout.pincode.trim(),
-      subtotalPaise,
-      shippingFeePaise,
-      totalAmountPaise,
-      paymentMethod: "COD",
-      paymentStatus: "pending",
-      orderStatus: "pending",
-      items: emailItems,
-    }).catch((eErr) => console.error("[Email] COD order confirmation emails dispatch failed:", eErr));
+    try {
+      await sendOrderConfirmationEmails({
+        orderId: order.id,
+        orderNumber,
+        orderDate: new Date().toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }),
+        customerName: checkout.fullName.trim(),
+        customerPhone: checkout.phone.trim(),
+        customerEmail: checkout.email?.trim() || null,
+        deliveryAddress: checkout.address.trim(),
+        deliveryDistrictCity: checkout.city.trim(),
+        deliveryState: checkout.state.trim(),
+        deliveryCountry: "India",
+        deliveryPincode: checkout.pincode.trim(),
+        subtotalPaise,
+        shippingFeePaise,
+        totalAmountPaise,
+        paymentMethod: "COD",
+        paymentStatus: "pending",
+        orderStatus: "pending",
+        items: emailItems,
+      });
+    } catch (eErr) {
+      console.error("[Email] COD order confirmation emails dispatch failed:", eErr);
+    }
 
     // 11. Revalidate admin and product caches
     revalidatePath("/admin/orders");
@@ -823,27 +827,31 @@ export async function verifyAndFinalizePayment(
       lineTotalPaise: i.line_total_paise || (i.quantity * i.unit_price_paise),
     }));
 
-    sendOrderConfirmationEmails({
-      orderId: order.id,
-      orderNumber: order.order_number,
-      orderDate: new Date().toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }),
-      customerName: order.customer_name_snapshot || "",
-      customerPhone: order.customer_phone_snapshot || "",
-      customerEmail: order.customer_email_snapshot || null,
-      deliveryAddress: order.delivery_address_snapshot || "",
-      deliveryDistrictCity: order.delivery_district_city || "",
-      deliveryState: order.delivery_state || "",
-      deliveryCountry: "India",
-      deliveryPincode: order.delivery_pincode || "",
-      subtotalPaise: order.subtotal_paise || order.total_amount_paise,
-      shippingFeePaise: order.shipping_fee_paise || 0,
-      totalAmountPaise: order.total_amount_paise,
-      paymentMethod: "ONLINE",
-      paymentStatus: "paid",
-      orderStatus: "confirmed",
-      razorpayPaymentId,
-      items: emailItems,
-    }).catch((eErr) => console.error("[Email] Paid order confirmation emails dispatch failed:", eErr));
+    try {
+      await sendOrderConfirmationEmails({
+        orderId: order.id,
+        orderNumber: order.order_number,
+        orderDate: new Date().toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }),
+        customerName: order.customer_name_snapshot || "",
+        customerPhone: order.customer_phone_snapshot || "",
+        customerEmail: order.customer_email_snapshot || null,
+        deliveryAddress: order.delivery_address_snapshot || "",
+        deliveryDistrictCity: order.delivery_district_city || "",
+        deliveryState: order.delivery_state || "",
+        deliveryCountry: "India",
+        deliveryPincode: order.delivery_pincode || "",
+        subtotalPaise: order.subtotal_paise || order.total_amount_paise,
+        shippingFeePaise: order.shipping_fee_paise || 0,
+        totalAmountPaise: order.total_amount_paise,
+        paymentMethod: "ONLINE",
+        paymentStatus: "paid",
+        orderStatus: "confirmed",
+        razorpayPaymentId,
+        items: emailItems,
+      });
+    } catch (eErr) {
+      console.error("[Email] Paid order confirmation emails dispatch failed:", eErr);
+    }
 
     // 7. Revalidate admin and product caches
     revalidatePath("/admin/orders");
