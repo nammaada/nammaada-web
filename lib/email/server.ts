@@ -5,16 +5,53 @@ import { renderAdminOrderEmail } from "./templates/admin-order-email";
 import { OrderEmailData } from "./types";
 import { getOrderMetadata, saveOrderMetadata } from "@/lib/orders/metadata";
 
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+
 const DEFAULT_ADMIN_EMAIL = "namaste@nammaada.com";
 const DEFAULT_SENDER_EMAIL = "adarshram.me@gmail.com";
 const DEFAULT_SENDER_NAME = "Namma Ada";
 
-function getBrevoConfig() {
+async function getBrevoConfig() {
+  const envKey = process.env.BREVO_API_KEY?.trim();
+  const envSender = process.env.BREVO_SENDER_EMAIL?.trim();
+  const envSenderName = process.env.BREVO_SENDER_NAME?.trim();
+  const envAdmin = process.env.ADMIN_NOTIFICATION_EMAIL?.trim();
+
+  if (envKey) {
+    return {
+      apiKey: envKey,
+      senderEmail: envSender || DEFAULT_SENDER_EMAIL,
+      senderName: envSenderName || DEFAULT_SENDER_NAME,
+      adminEmail: envAdmin || DEFAULT_ADMIN_EMAIL,
+    };
+  }
+
+  try {
+    const supabase = createSupabaseAdminClient();
+    const { data } = await supabase
+      .from("site_settings")
+      .select("value")
+      .eq("key", "brevo_config")
+      .maybeSingle();
+
+    if (data?.value && typeof data.value === "object") {
+      const v = data.value as Record<string, string>;
+      return {
+        apiKey: v.apiKey || "",
+        senderEmail: envSender || v.senderEmail || DEFAULT_SENDER_EMAIL,
+        senderName: envSenderName || v.senderName || DEFAULT_SENDER_NAME,
+        adminEmail: envAdmin || v.adminEmail || DEFAULT_ADMIN_EMAIL,
+      };
+    }
+  } catch (err) {
+    console.warn("[Brevo Email] Could not fetch brevo_config from DB:", err);
+  }
+
   return {
-    apiKey: process.env.BREVO_API_KEY?.trim() || "",
-    senderEmail: process.env.BREVO_SENDER_EMAIL?.trim() || DEFAULT_SENDER_EMAIL,
-    senderName: process.env.BREVO_SENDER_NAME?.trim() || DEFAULT_SENDER_NAME,
-    adminEmail: process.env.ADMIN_NOTIFICATION_EMAIL?.trim() || DEFAULT_ADMIN_EMAIL,
+    apiKey: "",
+    senderEmail: envSender || DEFAULT_SENDER_EMAIL,
+    senderName: envSenderName || DEFAULT_SENDER_NAME,
+    adminEmail: envAdmin || DEFAULT_ADMIN_EMAIL,
   };
 }
 
@@ -39,7 +76,7 @@ async function sendBrevoEmail({
   subject: string;
   htmlContent: string;
 }): Promise<boolean> {
-  const config = getBrevoConfig();
+  const config = await getBrevoConfig();
 
   if (!config.apiKey) {
     console.info(`[Brevo Email] BREVO_API_KEY not configured. Skipping live delivery to ${toEmail} ("${subject}")`);
@@ -140,7 +177,7 @@ export async function sendCustomerCodOrderEmail(data: OrderEmailData): Promise<b
  * Sends Admin Notification for Paid Order via Brevo to namaste@nammaada.com
  */
 export async function sendAdminPaidOrderEmail(data: OrderEmailData): Promise<boolean> {
-  const config = getBrevoConfig();
+  const config = await getBrevoConfig();
   const subject = `Namma Ada — New PAID Order #${data.orderNumber}`;
   const htmlContent = renderAdminOrderEmail({
     ...data,
@@ -160,7 +197,7 @@ export async function sendAdminPaidOrderEmail(data: OrderEmailData): Promise<boo
  * Sends Admin Notification for COD Order via Brevo to namaste@nammaada.com
  */
 export async function sendAdminCodOrderEmail(data: OrderEmailData): Promise<boolean> {
-  const config = getBrevoConfig();
+  const config = await getBrevoConfig();
   const subject = `Namma Ada — New COD Order #${data.orderNumber}`;
   const htmlContent = renderAdminOrderEmail({
     ...data,
