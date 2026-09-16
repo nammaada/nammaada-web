@@ -1,8 +1,8 @@
-import { getWhoWeAreContent } from "@/lib/storefront/content";
+import { connection } from "next/server";
+import { getAdminWhoWeAreContent } from "@/lib/storefront/content";
 import { PageHeader } from "@/components/admin/page-header";
 import { OurStoryForm } from "./our-story-form";
 
-// searchParams (error/success flash) is URL data read at request time — block until available.
 export const instant = false;
 
 export default async function OurStoryPage({
@@ -10,8 +10,9 @@ export default async function OurStoryPage({
 }: {
   searchParams: Promise<{ error?: string; success?: string }>;
 }) {
+  await connection();
   const [content, params] = await Promise.all([
-    getWhoWeAreContent(),
+    getAdminWhoWeAreContent(),
     searchParams,
   ]);
 

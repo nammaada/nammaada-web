@@ -75,8 +75,7 @@ export const DEFAULT_FROM_OUR_KITCHEN: FromOurKitchenContent = {
   reels: [],
 };
 
-async function fetchWhoWeAreContent(): Promise<WhoWeAreContent> {
-  // Use admin client — cookies() is blocked inside unstable_cache with cacheComponents.
+export async function fetchWhoWeAreContentDirect(): Promise<WhoWeAreContent> {
   try {
     const supabase = createSupabaseAdminClient();
     const { data, error } = await supabase
@@ -85,27 +84,46 @@ async function fetchWhoWeAreContent(): Promise<WhoWeAreContent> {
       .eq("key", "content_who_we_are")
       .maybeSingle();
 
-    if (!error && data?.value && typeof data.value === "object") {
-      const val = data.value as Partial<WhoWeAreContent>;
-      const images = Array.isArray(val.images) ? val.images : [];
-      // Sort images by display_order
-      images.sort((a, b) => (a.display_order ?? 0) - (b.display_order ?? 0));
+    if (!error && data?.value) {
+      let val = data.value as any;
+      if (typeof val === "string") {
+        try {
+          val = JSON.parse(val);
+        } catch {
+          // fallback
+        }
+      }
 
-      return {
-        label: val.label?.trim() || DEFAULT_WHO_WE_ARE.label,
-        heading: val.heading?.trim() || DEFAULT_WHO_WE_ARE.heading,
-        description: val.description?.trim() || DEFAULT_WHO_WE_ARE.description,
-        buttonText: val.buttonText?.trim() || DEFAULT_WHO_WE_ARE.buttonText,
-        buttonUrl: val.buttonUrl?.trim() || DEFAULT_WHO_WE_ARE.buttonUrl,
-        images,
-        primaryImageId: val.primaryImageId || images.find((img) => img.is_primary)?.id || images[0]?.id || null,
-      };
+      if (val && typeof val === "object") {
+        const images = Array.isArray(val.images) ? [...val.images] : [];
+        // Sort images by display_order
+        images.sort((a, b) => (a.display_order ?? 0) - (b.display_order ?? 0));
+
+        return {
+          label: val.label?.trim() || DEFAULT_WHO_WE_ARE.label,
+          heading: val.heading?.trim() || DEFAULT_WHO_WE_ARE.heading,
+          description: val.description?.trim() || DEFAULT_WHO_WE_ARE.description,
+          buttonText: val.buttonText?.trim() || DEFAULT_WHO_WE_ARE.buttonText,
+          buttonUrl: val.buttonUrl?.trim() || DEFAULT_WHO_WE_ARE.buttonUrl,
+          images,
+          primaryImageId: val.primaryImageId || images.find((img) => img.is_primary)?.id || images[0]?.id || null,
+        };
+      }
     }
-  } catch {
-    // Fail safely
+  } catch (err) {
+    console.error("[WhoWeAre] Error fetching content:", err);
   }
 
   return DEFAULT_WHO_WE_ARE;
+}
+
+export async function getAdminWhoWeAreContent(): Promise<WhoWeAreContent> {
+  // Always query database directly for admin portal (never serve stale cache to admin)
+  return fetchWhoWeAreContentDirect();
+}
+
+async function fetchWhoWeAreContent(): Promise<WhoWeAreContent> {
+  return fetchWhoWeAreContentDirect();
 }
 
 export const getWhoWeAreContent = unstable_cache(
@@ -114,8 +132,7 @@ export const getWhoWeAreContent = unstable_cache(
   { tags: ["content"], revalidate: 300 }
 );
 
-async function fetchFromOurKitchenContent(): Promise<FromOurKitchenContent> {
-  // Use admin client — cookies() is blocked inside unstable_cache with cacheComponents.
+export async function fetchFromOurKitchenContentDirect(): Promise<FromOurKitchenContent> {
   try {
     const supabase = createSupabaseAdminClient();
     const { data, error } = await supabase
@@ -124,47 +141,65 @@ async function fetchFromOurKitchenContent(): Promise<FromOurKitchenContent> {
       .eq("key", "content_from_our_kitchen")
       .maybeSingle();
 
-    if (!error && data?.value && typeof data.value === "object") {
-      const val = data.value as Partial<FromOurKitchenContent>;
-      let reels: KitchenReel[] = Array.isArray(val.reels) ? [...val.reels] : [];
-
-      // If no reels array yet, but legacy single reel exists, convert it
-      if (reels.length === 0 && val.reelVideoUrl) {
-        reels.push({
-          id: "legacy-reel-1",
-          video_url: val.reelVideoUrl,
-          cloudinary_public_id: val.reelVideoPublicId || "",
-          alt_text: val.reelVideoAltText || "Namma Ada Kitchen Reel",
-          instagram_url: val.instagramUrl || DEFAULT_FROM_OUR_KITCHEN.instagramUrl,
-          display_order: 1,
-          is_published: true,
-          created_at: "2025-01-01T00:00:00.000Z", // static — avoids Date.now() inside cache
-        });
+    if (!error && data?.value) {
+      let val = data.value as any;
+      if (typeof val === "string") {
+        try {
+          val = JSON.parse(val);
+        } catch {
+          // fallback
+        }
       }
 
-      reels.sort((a, b) => (a.display_order ?? 0) - (b.display_order ?? 0));
-      reels = reels.slice(0, 3).map((r) => ({
-        ...r,
-        youtube_id: r.youtube_id || extractYouTubeId(r.youtube_url || r.video_url) || undefined,
-      }));
+      if (val && typeof val === "object") {
+        let reels: KitchenReel[] = Array.isArray(val.reels) ? [...val.reels] : [];
 
-      return {
-        label: val.label?.trim() || DEFAULT_FROM_OUR_KITCHEN.label,
-        heading: val.heading?.trim() || DEFAULT_FROM_OUR_KITCHEN.heading,
-        description: val.description?.trim() || DEFAULT_FROM_OUR_KITCHEN.description,
-        instagramButtonText: val.instagramButtonText?.trim() || DEFAULT_FROM_OUR_KITCHEN.instagramButtonText,
-        instagramUrl: val.instagramUrl?.trim() || DEFAULT_FROM_OUR_KITCHEN.instagramUrl,
-        reelVideoUrl: val.reelVideoUrl || reels[0]?.video_url || null,
-        reelVideoPublicId: val.reelVideoPublicId || reels[0]?.cloudinary_public_id || null,
-        reelVideoAltText: val.reelVideoAltText || reels[0]?.alt_text || null,
-        reels,
-      };
+        // If no reels array yet, but legacy single reel exists, convert it
+        if (reels.length === 0 && val.reelVideoUrl) {
+          reels.push({
+            id: "legacy-reel-1",
+            video_url: val.reelVideoUrl,
+            cloudinary_public_id: val.reelVideoPublicId || "",
+            alt_text: val.reelVideoAltText || "Namma Ada Kitchen Reel",
+            instagram_url: val.instagramUrl || DEFAULT_FROM_OUR_KITCHEN.instagramUrl,
+            display_order: 1,
+            is_published: true,
+            created_at: "2025-01-01T00:00:00.000Z", // static — avoids Date.now() inside cache
+          });
+        }
+
+        reels.sort((a, b) => (a.display_order ?? 0) - (b.display_order ?? 0));
+        reels = reels.slice(0, 3).map((r) => ({
+          ...r,
+          youtube_id: r.youtube_id || extractYouTubeId(r.youtube_url || r.video_url) || undefined,
+        }));
+
+        return {
+          label: val.label?.trim() || DEFAULT_FROM_OUR_KITCHEN.label,
+          heading: val.heading?.trim() || DEFAULT_FROM_OUR_KITCHEN.heading,
+          description: val.description?.trim() || DEFAULT_FROM_OUR_KITCHEN.description,
+          instagramButtonText: val.instagramButtonText?.trim() || DEFAULT_FROM_OUR_KITCHEN.instagramButtonText,
+          instagramUrl: val.instagramUrl?.trim() || DEFAULT_FROM_OUR_KITCHEN.instagramUrl,
+          reelVideoUrl: val.reelVideoUrl || reels[0]?.video_url || null,
+          reelVideoPublicId: val.reelVideoPublicId || reels[0]?.cloudinary_public_id || null,
+          reelVideoAltText: val.reelVideoAltText || reels[0]?.alt_text || null,
+          reels,
+        };
+      }
     }
-  } catch {
-    // Fail safely
+  } catch (err) {
+    console.error("[FromOurKitchen] Error fetching content:", err);
   }
 
   return DEFAULT_FROM_OUR_KITCHEN;
+}
+
+export async function getAdminFromOurKitchenContent(): Promise<FromOurKitchenContent> {
+  return fetchFromOurKitchenContentDirect();
+}
+
+async function fetchFromOurKitchenContent(): Promise<FromOurKitchenContent> {
+  return fetchFromOurKitchenContentDirect();
 }
 
 export const getFromOurKitchenContent = unstable_cache(
