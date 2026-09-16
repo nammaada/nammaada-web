@@ -240,16 +240,6 @@ export function ProductForm({
           />
         </div>
 
-        <AdminField helperText="Select shipping availability boundary" label="Delivery scope" name="delivery_scope">
-          <select
-            className="min-h-11 w-full rounded-xl border border-input bg-card px-3.5 text-sm font-medium text-foreground outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30"
-            defaultValue={product?.delivery_scope ?? "all_india"}
-            name="delivery_scope"
-          >
-            <option value="all_india">All India Shipping</option>
-            <option value="bangalore_only">Bangalore Only</option>
-          </select>
-        </AdminField>
       </FormSection>
 
       {/* 4. Product Images (Inside Main Form) */}

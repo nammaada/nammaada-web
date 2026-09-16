@@ -15,6 +15,7 @@ import {
   Building2,
   Film,
   Video,
+  Settings,
 } from "lucide-react";
 
 type NavGroup = {
@@ -41,6 +42,7 @@ const navGroups: NavGroup[] = [
   {
     title: "OPERATIONS",
     items: [
+      { label: "Store Settings", href: "/admin/settings", icon: Settings },
       { label: "Shipping", href: "/admin/shipping", icon: Truck },
       { label: "Orders", href: "/admin/orders", icon: ShoppingCart },
       { label: "Customers", href: "/admin/customers", icon: Users },

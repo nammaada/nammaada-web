@@ -33,10 +33,66 @@ function ok(path: string): never {
   revalidatePath(path);
   redirect(path);
 }
+import {
+  getCategoryDeliveryScopes,
+  resolveCategoryScope,
+  saveCategoryDeliveryScope,
+} from "@/lib/delivery/restricted-locations";
+
 function required(form: FormData, key: string, label: string, max: number, failPath = "/admin") { const value = text(form, key); if (!value || value.length > max) return fail(failPath, `${label} is required and must be ${max} characters or fewer.`); return value; }
 function dbMessage() { return "Unable to save this change. Check the values and try again."; }
 
-export async function saveCategory(form: FormData) { await requireAdmin(); const id = uuid(form, "id"); const name = required(form, "name", "Name", 120); const slug = text(form, "slug").toLowerCase(); if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)) fail("/admin/categories", "Enter a valid lowercase slug."); const client = createSupabaseAdminClient(); const values = { name, slug, description: text(form, "description") || null, is_active: bool(form, "is_active"), display_order: integer(form, "display_order") }; const result = id ? await client.from("categories").update(values).eq("id", id) : await client.from("categories").insert(values); if (result.error) fail("/admin/categories", dbMessage()); ok("/admin/categories"); }
+export async function saveCategory(form: FormData) {
+  await requireAdmin();
+  const id = uuid(form, "id");
+  const name = required(form, "name", "Name", 120);
+  const slug = text(form, "slug").toLowerCase();
+  if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)) fail("/admin/categories", "Enter a valid lowercase slug.");
+
+  const deliveryScope =
+    text(form, "delivery_scope") === "bangalore_only" || text(form, "delivery_scope") === "RESTRICTED_LOCATION"
+      ? "bangalore_only"
+      : "all_india";
+
+  const client = createSupabaseAdminClient();
+  const values: Record<string, unknown> = {
+    name,
+    slug,
+    description: text(form, "description") || null,
+    is_active: bool(form, "is_active"),
+    display_order: integer(form, "display_order"),
+    delivery_scope: deliveryScope,
+  };
+
+  let catId = id;
+  if (id) {
+    const result = await client.from("categories").update(values).eq("id", id);
+    if (result.error) {
+      delete values.delivery_scope;
+      const resFallback = await client.from("categories").update(values).eq("id", id);
+      if (resFallback.error) fail("/admin/categories", dbMessage());
+    }
+  } else {
+    const result = await client.from("categories").insert(values).select("id").single();
+    if (result.error) {
+      delete values.delivery_scope;
+      const resFallback = await client.from("categories").insert(values).select("id").single();
+      if (resFallback.error) fail("/admin/categories", dbMessage());
+      catId = resFallback.data?.id ?? null;
+    } else {
+      catId = result.data?.id ?? null;
+    }
+  }
+
+  // Authoritative sync: whenever a category's delivery availability is set,
+  // update site_settings and update all products in that category automatically!
+  if (catId) {
+    await saveCategoryDeliveryScope(catId, deliveryScope);
+    await client.from("products").update({ delivery_scope: deliveryScope }).eq("category_id", catId);
+  }
+
+  ok("/admin/categories");
+}
 export async function deleteCategory(form: FormData) { await requireAdmin(); const id = uuid(form, "id"); if (!id) fail("/admin/categories", "Invalid category."); const client = createSupabaseAdminClient(); const result = await client.from("categories").delete().eq("id", id); if (result.error) fail("/admin/categories", "This category cannot be deleted while products still reference it."); ok("/admin/categories"); }
 
 export async function saveProduct(form: FormData) {
@@ -48,16 +104,32 @@ export async function saveProduct(form: FormData) {
   if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)) fail(failPath, "Enter a valid lowercase slug.");
   const price = moneyPaise(form, "price");
   if (price < 0) fail(failPath, "Enter a valid INR price.");
+  const categoryId = uuid(form, "category_id");
   const client = createSupabaseAdminClient();
+
+  // Delivery scope is determined automatically by the category
+  let deliveryScope: "all_india" | "bangalore_only" = "all_india";
+  if (categoryId) {
+    const scopesMap = await getCategoryDeliveryScopes();
+    const { data: cat } = await client
+      .from("categories")
+      .select("id, name, delivery_scope")
+      .eq("id", categoryId)
+      .maybeSingle();
+    if (cat) {
+      deliveryScope = resolveCategoryScope(cat, scopesMap);
+    }
+  }
+
   const values = {
-    category_id: uuid(form, "category_id"),
+    category_id: categoryId,
     name,
     slug,
     short_description: text(form, "short_description") || null,
     description: text(form, "description") || null,
     price_paise: price,
     stock_quantity: integer(form, "stock_quantity"),
-    delivery_scope: text(form, "delivery_scope") === "bangalore_only" ? "bangalore_only" : "all_india",
+    delivery_scope: deliveryScope,
     is_free_shipping: bool(form, "is_free_shipping"),
     is_active: bool(form, "is_active"),
     is_featured: bool(form, "is_featured"),

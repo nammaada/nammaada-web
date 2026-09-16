@@ -21,6 +21,7 @@ type ProductRow = {
   slug: string;
   price_paise: number;
   stock_quantity: number;
+  delivery_scope?: string;
   is_active: boolean;
   is_featured: boolean;
 };
@@ -116,11 +117,22 @@ export default async function AdminProductsPage({ searchParams }: { searchParams
                       <td className="px-5 py-4 font-semibold text-foreground">{formatINR(row.price_paise)}</td>
                       <td className="px-5 py-4 font-medium text-foreground">{row.stock_quantity} units</td>
                       <td className="px-5 py-4">
-                        <div className="flex items-center gap-2">
-                          <StatusBadge status={row.is_active ? "active" : "inactive"} />
-                          {row.is_featured && (
-                            <span className="rounded-full bg-accent/20 px-2.5 py-0.5 text-[11px] font-bold text-accent-foreground">
-                              ★ Featured
+                        <div className="flex flex-col gap-1 items-start">
+                          <div className="flex items-center gap-2">
+                            <StatusBadge status={row.is_active ? "active" : "inactive"} />
+                            {row.is_featured && (
+                              <span className="rounded-full bg-accent/20 px-2.5 py-0.5 text-[11px] font-bold text-accent-foreground">
+                                ★ Featured
+                              </span>
+                            )}
+                          </div>
+                          {row.delivery_scope === "bangalore_only" ? (
+                            <span className="rounded-md bg-amber-500/15 text-amber-900 border border-amber-500/30 px-2 py-0.5 text-[10px] font-bold">
+                              Restricted Location
+                            </span>
+                          ) : (
+                            <span className="rounded-md bg-secondary text-muted-foreground border border-border px-2 py-0.5 text-[10px] font-medium">
+                              India Wide
                             </span>
                           )}
                         </div>
@@ -199,6 +211,10 @@ export default async function AdminProductsPage({ searchParams }: { searchParams
               details={[
                 { label: "Price", value: formatINR(row.price_paise) },
                 { label: "Stock", value: `${row.stock_quantity} units` },
+                {
+                  label: "Delivery",
+                  value: row.delivery_scope === "bangalore_only" ? "Restricted Location" : "India Wide",
+                },
               ]}
               subtitle={row.slug}
               thumbnail={
