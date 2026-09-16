@@ -1,9 +1,12 @@
+import { Suspense } from "react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { CheckCircle2, PackageCheck, MapPin, Phone, Mail, ArrowRight, MessageCircle } from "lucide-react";
 import { Container } from "@/components/ui/container";
+import { OrderClearCart } from "@/components/storefront/order-clear-cart";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import OrderSuccessLoading from "./loading";
 
 export const metadata: Metadata = {
   title: "Order Confirmed | Namma Ada",
@@ -17,7 +20,7 @@ function formatINR(paise: number) {
   }).format(paise / 100);
 }
 
-export default async function OrderSuccessPage({
+async function OrderSuccessContent({
   params,
 }: {
   params: Promise<{ orderNumber: string }>;
@@ -27,13 +30,15 @@ export default async function OrderSuccessPage({
 
   const { data: order, error } = await supabase
     .from("orders")
-    .select("*, order_items(*), payments(razorpay_payment_id, status)")
+    .select("*, order_items(*), payments!payments_order_id_fkey(razorpay_payment_id, status)")
     .eq("order_number", orderNumber)
     .maybeSingle();
 
   if (error || !order) {
     notFound();
   }
+
+  const isCod = order.payment_method === "COD" || order.payment_status === "pending";
 
   const items = (order.order_items as unknown as Array<{
     id: string;
@@ -54,18 +59,25 @@ export default async function OrderSuccessPage({
 
   return (
     <div className="relative py-10 sm:py-16">
+      {/* Safely clear cart upon success mount without blinking empty cart page on checkout */}
+      <OrderClearCart />
+
       <Container className="max-w-3xl mx-auto px-4 sm:px-6">
         {/* Celebration Header */}
         <div className="text-center space-y-3 mb-8">
           <div className="inline-flex size-16 sm:size-20 items-center justify-center rounded-full bg-emerald-100 text-emerald-700 shadow-inner">
             <CheckCircle2 size={36} className="sm:size-10" />
           </div>
-          <p className="eyebrow text-emerald-800 font-bold tracking-wider">Payment Received & Verified</p>
+          <p className="eyebrow text-emerald-800 font-bold tracking-wider">
+            {isCod ? "Order Received • Cash on Delivery" : "Payment Received & Verified"}
+          </p>
           <h1 className="text-3xl sm:text-4xl md:text-5xl font-serif font-bold text-[#2b1719]">
             Thank You for Your Order!
           </h1>
           <p className="text-xs sm:text-sm text-[#2b1719]/75 max-w-md mx-auto">
-            Your delicacies are being carefully prepared with authentic tradition. A confirmation has been recorded.
+            {isCod
+              ? `Your delicacies are being carefully prepared with authentic tradition. Please keep ${formatINR(order.total_amount_paise)} ready to pay upon delivery.`
+              : "Your delicacies are being carefully prepared with authentic tradition. A confirmation has been recorded."}
           </p>
         </div>
 
@@ -77,15 +89,24 @@ export default async function OrderSuccessPage({
           </div>
 
           <div className="flex items-center gap-2">
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 border border-emerald-200 px-3 py-1 text-xs font-semibold text-emerald-800">
-              <span className="size-2 rounded-full bg-emerald-500 animate-pulse" />
-              Paid via Razorpay
-            </span>
-            {latestPayment?.razorpay_payment_id ? (
-              <span className="font-mono text-[11px] text-[#6e5b55] bg-[#f4efeb] px-2.5 py-1 rounded-md border border-[#eedec8]">
-                ID: {latestPayment.razorpay_payment_id}
+            {isCod ? (
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 border border-amber-200 px-3 py-1 text-xs font-semibold text-amber-800">
+                <span className="size-2 rounded-full bg-amber-500 animate-pulse" />
+                Cash on Delivery (Pay upon arrival)
               </span>
-            ) : null}
+            ) : (
+              <>
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 border border-emerald-200 px-3 py-1 text-xs font-semibold text-emerald-800">
+                  <span className="size-2 rounded-full bg-emerald-500 animate-pulse" />
+                  Paid via Razorpay
+                </span>
+                {latestPayment?.razorpay_payment_id ? (
+                  <span className="font-mono text-[11px] text-[#6e5b55] bg-[#f4efeb] px-2.5 py-1 rounded-md border border-[#eedec8]">
+                    ID: {latestPayment.razorpay_payment_id}
+                  </span>
+                ) : null}
+              </>
+            )}
           </div>
         </div>
 
@@ -135,7 +156,7 @@ export default async function OrderSuccessPage({
               </span>
             </div>
             <div className="flex justify-between text-sm sm:text-base font-bold text-[#2b1719] border-t border-[#eedec8]/80 pt-2">
-              <span>Total Paid</span>
+              <span>{isCod ? "Amount Due on Delivery" : "Total Paid"}</span>
               <span className="text-[#711e2c] text-lg font-serif">{formatINR(order.total_amount_paise)}</span>
             </div>
           </div>
@@ -194,5 +215,17 @@ export default async function OrderSuccessPage({
         </div>
       </Container>
     </div>
+  );
+}
+
+export default function OrderSuccessPage({
+  params,
+}: {
+  params: Promise<{ orderNumber: string }>;
+}) {
+  return (
+    <Suspense fallback={<OrderSuccessLoading />}>
+      <OrderSuccessContent params={params} />
+    </Suspense>
   );
 }

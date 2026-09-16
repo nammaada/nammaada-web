@@ -14,6 +14,7 @@ type Category = {
   description: string | null;
   is_active: boolean;
   display_order: number;
+  delivery_scope?: string;
 };
 
 export function EditCategoryModal({ category }: { category: Category }) {
@@ -33,6 +34,22 @@ export function EditCategoryModal({ category }: { category: Category }) {
           <AdminField defaultValue={category.slug} helperText="Lowercase letters and hyphens" label="Slug" name="slug" required />
           <AdminField defaultValue={category.description || ""} label="Description" name="description" placeholder="Brief category description..." />
           <AdminField defaultValue={category.display_order} label="Display order" name="display_order" type="number" />
+          
+          <AdminField
+            helperText="Restricted Location: Deliverable only to configured Bangalore locations via COD. India Wide: Deliverable across India."
+            label="Delivery Availability"
+            name="delivery_scope"
+          >
+            <select
+              className="min-h-11 w-full rounded-xl border border-input bg-card px-3.5 text-sm font-medium text-foreground outline-none focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/30"
+              defaultValue={category.delivery_scope ?? "all_india"}
+              name="delivery_scope"
+            >
+              <option value="all_india">India Wide</option>
+              <option value="bangalore_only">Restricted Location</option>
+            </select>
+          </AdminField>
+
           <CheckField defaultChecked={category.is_active} label="Active" name="is_active" />
 
           <div className="flex justify-end gap-3 pt-3 border-t border-border mt-2">

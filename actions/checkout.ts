@@ -4,11 +4,20 @@ import crypto from "crypto";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { checkoutSchema } from "@/lib/checkout/schema";
+import {
+  toDeliveryType,
+  validatePincodeAvailability,
+  type DeliveryType,
+  type PincodeValidationResult,
+} from "@/lib/delivery/restricted-locations";
+import { saveOrderMetadata } from "@/lib/orders/metadata";
 import { createRazorpayOrder, getRazorpayCredentials, verifyRazorpaySignature } from "@/lib/razorpay/server";
 import { getSafeErrorMessage } from "@/lib/server/errors";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { quantitySchema, uuidSchema } from "@/lib/validation/schemas";
 import { sendOrderConfirmationWhatsApp } from "@/lib/whatsapp/server";
+import { sendOrderConfirmationEmails } from "@/lib/email/server";
+import type { EmailOrderItem } from "@/lib/email/types";
 
 const checkoutSessionInputSchema = z.object({
   idempotencyKey: uuidSchema,
@@ -31,6 +40,30 @@ function generateOrderNumber(): string {
   return `NA-${timestamp}${random}`;
 }
 
+const locationValidationInputSchema = z.object({
+  pincode: z.string().trim().regex(/^[1-9][0-9]{5}$/, "Enter a valid 6-digit Indian pincode."),
+  productIds: z.array(uuidSchema).min(1),
+});
+
+/**
+ * Server action to validate customer delivery pincode dynamically against
+ * database product delivery types and admin-configured restricted delivery locations.
+ */
+export async function validateCheckoutLocation(input: unknown): Promise<PincodeValidationResult> {
+  const parsed = locationValidationInputSchema.safeParse(input);
+  if (!parsed.success) {
+    return {
+      isValid: false,
+      message: parsed.error.issues[0]?.message || "Please enter a valid 6-digit pincode.",
+      hasRestrictedProducts: false,
+      unavailableProducts: [],
+      allowedPaymentMethods: [],
+    };
+  }
+
+  return validatePincodeAvailability(parsed.data.pincode, parsed.data.productIds);
+}
+
 export type CreateRazorpaySessionResult =
   | {
       ok: true;
@@ -47,8 +80,9 @@ export type CreateRazorpaySessionResult =
 
 /**
  * Creates an authoritative pending order in the database and initiates a Razorpay Order.
- * CRITICAL SECURITY: All prices, subtotals, shipping, and totals are computed strictly
- * on the server from the database. Client prices are never accepted or trusted.
+ * CRITICAL SECURITY & RESTRICTION ENFORCEMENT:
+ * 1. Online payment (Razorpay) is STRICTLY FORBIDDEN for any cart containing restricted delicacies.
+ * 2. All prices, subtotals, shipping, and totals are computed strictly on the server from the database.
  */
 export async function createRazorpayCheckoutSession(
   input: unknown
@@ -64,7 +98,7 @@ export async function createRazorpayCheckoutSession(
   try {
     const { keyId } = getRazorpayCredentials();
 
-    // 1. Check if an order already exists for this idempotency key
+    // 1. Check if a payment already exists for this idempotency key
     const { data: existingPayment } = await supabase
       .from("payments")
       .select("order_id, razorpay_order_id, amount_paise, status, orders(order_number, payment_status)")
@@ -95,6 +129,17 @@ export async function createRazorpayCheckoutSession(
 
     if (prodErr || !dbProducts || dbProducts.length === 0) {
       return { ok: false, message: "One or more items in your cart are no longer available." };
+    }
+
+    // STRICT BACKEND RESTRICTION: No restricted products allowed for online Razorpay payment!
+    const hasRestrictedProduct = dbProducts.some(
+      (p) => toDeliveryType(p.delivery_scope) === "RESTRICTED_LOCATION"
+    );
+    if (hasRestrictedProduct) {
+      return {
+        ok: false,
+        message: "Restricted delicacies are Cash on Delivery only. Online payment is not allowed for these items.",
+      };
     }
 
     const productMap = new Map(dbProducts.map((p) => [p.id, p]));
@@ -132,6 +177,7 @@ export async function createRazorpayCheckoutSession(
       unitPricePaise: number;
       quantity: number;
       lineTotalPaise: number;
+      deliveryType: DeliveryType;
     }> = [];
 
     for (const item of items) {
@@ -179,6 +225,7 @@ export async function createRazorpayCheckoutSession(
         unitPricePaise,
         quantity: item.quantity,
         lineTotalPaise: lineTotal,
+        deliveryType: toDeliveryType(product.delivery_scope),
       });
     }
 
@@ -198,8 +245,7 @@ export async function createRazorpayCheckoutSession(
       if (matchingRule) {
         shippingFeePaise = matchingRule.charge_paise;
       } else {
-        // Standard baseline delivery charge across India if state not explicitly customized
-        shippingFeePaise = 0; // Or standard default rate
+        shippingFeePaise = 0;
       }
     }
 
@@ -271,6 +317,17 @@ export async function createRazorpayCheckoutSession(
       return { ok: false, message: "Could not record order items. Please try again." };
     }
 
+    // Preserve historical delivery types and payment method snapshot
+    const itemsDeliveryType: Record<string, DeliveryType> = {};
+    for (const item of resolvedItems) {
+      itemsDeliveryType[item.productId] = item.deliveryType;
+    }
+    await saveOrderMetadata({
+      orderId: order.id,
+      paymentMethod: "RAZORPAY",
+      itemsDeliveryType,
+    });
+
     // 8. Create Razorpay Order via Razorpay API
     const razorpayOrder = await createRazorpayOrder({
       amountPaise: totalAmountPaise,
@@ -308,6 +365,319 @@ export async function createRazorpayCheckoutSession(
     };
   } catch (error) {
     console.error("Checkout session creation exception:", error);
+    return { ok: false, message: getSafeErrorMessage(error) };
+  }
+}
+
+export type CreateCodSessionResult =
+  | { ok: true; orderNumber: string }
+  | {
+      ok: false;
+      message: string;
+      code?: string;
+      unavailableProducts?: Array<{ productId: string; productName: string }>;
+    };
+
+/**
+ * Creates an authoritative Cash on Delivery (COD) order.
+ * - Dynamic location validation for restricted items
+ * - Preserves item delivery types in historical snapshot
+ * - Decrements stock atomically
+ * - Dispatches WhatsApp notification
+ */
+export async function createCodCheckoutSession(
+  input: unknown
+): Promise<CreateCodSessionResult> {
+  const parsed = checkoutSessionInputSchema.safeParse(input);
+  if (!parsed.success) {
+    return { ok: false, message: "Please check your details and cart items before continuing." };
+  }
+
+  const { checkout, items } = parsed.data;
+  const supabase = createSupabaseAdminClient();
+
+  try {
+    // 1. Fetch authoritative products and variants directly from the database
+    const productIds = Array.from(new Set(items.map((i) => i.productId)));
+    const { data: dbProducts, error: prodErr } = await supabase
+      .from("products")
+      .select("id, name, price_paise, stock_quantity, is_active, is_free_shipping, delivery_scope")
+      .in("id", productIds)
+      .eq("is_active", true);
+
+    if (prodErr || !dbProducts || dbProducts.length === 0) {
+      return { ok: false, message: "One or more items in your cart are no longer available." };
+    }
+
+    // 2. Dynamic Location Validation: If any restricted products are present, validate pincode
+    const validation = await validatePincodeAvailability(checkout.pincode, productIds);
+    if (!validation.isValid) {
+      return {
+        ok: false,
+        code: validation.code,
+        message: validation.message || "Some products are not available in your location.",
+        unavailableProducts: validation.unavailableProducts,
+      };
+    }
+
+    const productMap = new Map(dbProducts.map((p) => [p.id, p]));
+
+    // Fetch variants if applicable
+    const variantIds = items
+      .map((i) => i.variantId)
+      .filter((v): v is string => typeof v === "string" && v.length > 0);
+
+    let variantMap = new Map<string, { id: string; name: string; sku: string | null; price_paise: number; stock_quantity: number; is_active: boolean }>();
+
+    if (variantIds.length > 0) {
+      const { data: dbVariants, error: varErr } = await supabase
+        .from("product_variants")
+        .select("id, product_id, name, sku, price_paise, stock_quantity, is_active")
+        .in("id", variantIds)
+        .eq("is_active", true);
+
+      if (varErr || !dbVariants) {
+        return { ok: false, message: "Selected product options are unavailable. Please review your cart." };
+      }
+
+      variantMap = new Map(dbVariants.map((v) => [v.id, v]));
+    }
+
+    // 3. Validate stock and calculate authoritative prices
+    let subtotalPaise = 0;
+    let allFreeShipping = true;
+    const resolvedItems: Array<{
+      productId: string;
+      variantId: string | null;
+      productName: string;
+      variantName: string | null;
+      sku: string | null;
+      unitPricePaise: number;
+      quantity: number;
+      lineTotalPaise: number;
+      deliveryType: DeliveryType;
+    }> = [];
+
+    for (const item of items) {
+      const product = productMap.get(item.productId);
+      if (!product) {
+        return { ok: false, message: "An item in your cart is no longer available." };
+      }
+
+      let unitPricePaise = product.price_paise;
+      let availableStock = product.stock_quantity;
+      let variantName: string | null = null;
+      let sku: string | null = null;
+
+      if (item.variantId) {
+        const variant = variantMap.get(item.variantId);
+        if (!variant) {
+          return { ok: false, message: `The selected variant for "${product.name}" is no longer available.` };
+        }
+        unitPricePaise = variant.price_paise;
+        availableStock = variant.stock_quantity;
+        variantName = variant.name;
+        sku = variant.sku;
+      }
+
+      if (availableStock < item.quantity) {
+        return {
+          ok: false,
+          message: `Only ${availableStock} units of "${product.name}${variantName ? ` (${variantName})` : ""}" are available in stock.`,
+        };
+      }
+
+      if (!product.is_free_shipping) {
+        allFreeShipping = false;
+      }
+
+      const lineTotal = unitPricePaise * item.quantity;
+      subtotalPaise += lineTotal;
+
+      resolvedItems.push({
+        productId: product.id,
+        variantId: item.variantId ?? null,
+        productName: product.name,
+        variantName,
+        sku,
+        unitPricePaise,
+        quantity: item.quantity,
+        lineTotalPaise: lineTotal,
+        deliveryType: toDeliveryType(product.delivery_scope),
+      });
+    }
+
+    // 4. Calculate authoritative shipping fee
+    let shippingFeePaise = 0;
+    if (!allFreeShipping) {
+      const customerState = checkout.state.trim().toLowerCase();
+      const { data: shippingRules } = await supabase
+        .from("shipping_rules")
+        .select("state_name, charge_paise")
+        .eq("is_active", true);
+
+      const matchingRule = shippingRules?.find(
+        (r) => r.state_name.trim().toLowerCase() === customerState
+      );
+
+      if (matchingRule) {
+        shippingFeePaise = matchingRule.charge_paise;
+      } else {
+        shippingFeePaise = 0;
+      }
+    }
+
+    const totalAmountPaise = subtotalPaise + shippingFeePaise;
+    const orderNumber = generateOrderNumber();
+
+    // 5. Insert Customer Record
+    const { data: customer, error: custErr } = await supabase
+      .from("customers")
+      .insert({
+        full_name: checkout.fullName.trim(),
+        phone: checkout.phone.trim(),
+        email: checkout.email?.trim() || null,
+        address: checkout.address.trim(),
+        district_city: checkout.city.trim(),
+        state: checkout.state.trim(),
+        pincode: checkout.pincode.trim(),
+      })
+      .select("id")
+      .single();
+
+    if (custErr || !customer) {
+      console.error("Customer creation error:", custErr);
+      return { ok: false, message: "Unable to record customer details. Please try again." };
+    }
+
+    // 6. Insert Order Record (Separate Order Status and Payment Status: both 'pending' for COD)
+    const { data: order, error: orderErr } = await supabase
+      .from("orders")
+      .insert({
+        order_number: orderNumber,
+        customer_id: customer.id,
+        subtotal_paise: subtotalPaise,
+        shipping_fee_paise: shippingFeePaise,
+        total_amount_paise: totalAmountPaise,
+        order_status: "pending",
+        payment_status: "pending",
+        customer_name_snapshot: checkout.fullName.trim(),
+        customer_phone_snapshot: checkout.phone.trim(),
+        customer_email_snapshot: checkout.email?.trim() || null,
+        delivery_address_snapshot: checkout.address.trim(),
+        delivery_district_city: checkout.city.trim(),
+        delivery_state: checkout.state.trim(),
+        delivery_pincode: checkout.pincode.trim(),
+      })
+      .select("id")
+      .single();
+
+    if (orderErr || !order) {
+      console.error("Order creation error:", orderErr);
+      return { ok: false, message: "Could not create order. Please try again." };
+    }
+
+    // 7. Insert Order Items Record
+    const itemInserts = resolvedItems.map((item) => ({
+      order_id: order.id,
+      product_id: item.productId,
+      product_variant_id: item.variantId,
+      product_name_snapshot: item.productName,
+      variant_name_snapshot: item.variantName,
+      sku_snapshot: item.sku,
+      unit_price_paise: item.unitPricePaise,
+      quantity: item.quantity,
+    }));
+
+    const { error: itemsErr } = await supabase.from("order_items").insert(itemInserts);
+    if (itemsErr) {
+      console.error("Order items creation error:", itemsErr);
+      return { ok: false, message: "Could not record order items. Please try again." };
+    }
+
+    // 8. Save Order Metadata: preserve payment method COD and historical delivery types
+    const itemsDeliveryType: Record<string, DeliveryType> = {};
+    for (const item of resolvedItems) {
+      itemsDeliveryType[item.productId] = item.deliveryType;
+    }
+
+    await saveOrderMetadata({
+      orderId: order.id,
+      paymentMethod: "COD",
+      itemsDeliveryType,
+    });
+
+    // 9. Atomically decrement stock
+    for (const item of resolvedItems) {
+      if (item.productId) {
+        try {
+          await supabase.rpc("decrement_stock", {
+            p_product_id: item.productId,
+            p_product_variant_id: item.variantId,
+            p_quantity: item.quantity,
+          });
+        } catch (stockErr) {
+          console.error("Stock decrement error for COD item:", item, stockErr);
+        }
+      }
+    }
+
+    // 10. Send WhatsApp notification
+    if (checkout.phone) {
+      const whatsappItems = resolvedItems.map((i) => ({
+        name: i.productName,
+        variantName: i.variantName,
+        quantity: i.quantity,
+        unitPricePaise: i.unitPricePaise,
+      }));
+
+      sendOrderConfirmationWhatsApp({
+        phone: checkout.phone,
+        orderNumber,
+        totalAmountPaise,
+        items: whatsappItems,
+      }).catch((wErr) => console.error("WhatsApp notification dispatch failed:", wErr));
+    }
+
+    // 10b. Dispatch branded Namma Ada customer & admin order notification emails
+    const emailItems: EmailOrderItem[] = resolvedItems.map((i) => ({
+      name: i.productName,
+      variantName: i.variantName,
+      quantity: i.quantity,
+      unitPricePaise: i.unitPricePaise,
+      lineTotalPaise: i.lineTotalPaise,
+    }));
+
+    sendOrderConfirmationEmails({
+      orderId: order.id,
+      orderNumber,
+      orderDate: new Date().toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }),
+      customerName: checkout.fullName.trim(),
+      customerPhone: checkout.phone.trim(),
+      customerEmail: checkout.email?.trim() || null,
+      deliveryAddress: checkout.address.trim(),
+      deliveryDistrictCity: checkout.city.trim(),
+      deliveryState: checkout.state.trim(),
+      deliveryCountry: "India",
+      deliveryPincode: checkout.pincode.trim(),
+      subtotalPaise,
+      shippingFeePaise,
+      totalAmountPaise,
+      paymentMethod: "COD",
+      paymentStatus: "pending",
+      orderStatus: "pending",
+      items: emailItems,
+    }).catch((eErr) => console.error("[Email] COD order confirmation emails dispatch failed:", eErr));
+
+    // 11. Revalidate admin and product caches
+    revalidatePath("/admin/orders");
+    revalidatePath(`/admin/orders/${order.id}`);
+    revalidatePath("/products");
+    revalidatePath("/");
+
+    return { ok: true, orderNumber };
+  } catch (error) {
+    console.error("COD checkout exception:", error);
     return { ok: false, message: getSafeErrorMessage(error) };
   }
 }
@@ -367,7 +737,7 @@ export async function verifyAndFinalizePayment(
     // 2. Lookup Order
     const { data: order, error: orderErr } = await supabase
       .from("orders")
-      .select("id, order_number, total_amount_paise, payment_status, customer_phone_snapshot, order_items(id, product_id, product_variant_id, product_name_snapshot, variant_name_snapshot, quantity, unit_price_paise)")
+      .select("id, order_number, subtotal_paise, shipping_fee_paise, total_amount_paise, payment_status, customer_name_snapshot, customer_phone_snapshot, customer_email_snapshot, delivery_address_snapshot, delivery_district_city, delivery_state, delivery_pincode, order_items(id, product_id, product_variant_id, product_name_snapshot, variant_name_snapshot, quantity, unit_price_paise, line_total_paise)")
       .eq("order_number", orderNumber)
       .maybeSingle();
 
@@ -409,6 +779,7 @@ export async function verifyAndFinalizePayment(
       variant_name_snapshot: string | null;
       quantity: number;
       unit_price_paise: number;
+      line_total_paise: number;
     }>) || [];
 
     for (const item of orderItems) {
@@ -442,6 +813,37 @@ export async function verifyAndFinalizePayment(
         items: whatsappItems,
       }).catch((wErr) => console.error("WhatsApp notification dispatch failed:", wErr));
     }
+
+    // 6b. Dispatch branded customer & admin order notification emails
+    const emailItems: EmailOrderItem[] = orderItems.map((i) => ({
+      name: i.product_name_snapshot,
+      variantName: i.variant_name_snapshot,
+      quantity: i.quantity,
+      unitPricePaise: i.unit_price_paise,
+      lineTotalPaise: i.line_total_paise || (i.quantity * i.unit_price_paise),
+    }));
+
+    sendOrderConfirmationEmails({
+      orderId: order.id,
+      orderNumber: order.order_number,
+      orderDate: new Date().toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" }),
+      customerName: order.customer_name_snapshot || "",
+      customerPhone: order.customer_phone_snapshot || "",
+      customerEmail: order.customer_email_snapshot || null,
+      deliveryAddress: order.delivery_address_snapshot || "",
+      deliveryDistrictCity: order.delivery_district_city || "",
+      deliveryState: order.delivery_state || "",
+      deliveryCountry: "India",
+      deliveryPincode: order.delivery_pincode || "",
+      subtotalPaise: order.subtotal_paise || order.total_amount_paise,
+      shippingFeePaise: order.shipping_fee_paise || 0,
+      totalAmountPaise: order.total_amount_paise,
+      paymentMethod: "ONLINE",
+      paymentStatus: "paid",
+      orderStatus: "confirmed",
+      razorpayPaymentId,
+      items: emailItems,
+    }).catch((eErr) => console.error("[Email] Paid order confirmation emails dispatch failed:", eErr));
 
     // 7. Revalidate admin and product caches
     revalidatePath("/admin/orders");
