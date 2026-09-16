@@ -8,6 +8,7 @@ import { StatusBadge } from "@/components/admin/status-badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { adminRow, adminRows, formatINR } from "@/lib/admin/data";
+import { getOrderMetadata } from "@/lib/orders/metadata";
 
 export const instant = false;
 
@@ -37,6 +38,7 @@ type Order = {
 type OrderItem = {
   id: string;
   order_id: string;
+  product_id: string | null;
   product_name_snapshot: string;
   variant_name_snapshot: string | null;
   sku_snapshot: string | null;
@@ -48,9 +50,10 @@ type OrderItem = {
 export default async function OrderDetailPage({ params }: { params: Promise<{ id: string }> }) {
   await connection();
   const { id } = await params;
-  const [order, allItems] = await Promise.all([
+  const [order, allItems, orderMeta] = await Promise.all([
     adminRow<Order>("admin_orders", id),
     adminRows<OrderItem>("admin_order_items"),
+    getOrderMetadata(id),
   ]);
 
   if (!order) notFound();
@@ -96,28 +99,46 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
                 <thead className="border-b border-border bg-secondary/60 text-xs font-bold tracking-wider uppercase text-muted-foreground">
                   <tr>
                     <th className="p-3.5">Item</th>
+                    <th className="p-3.5">Delivery Type</th>
                     <th className="p-3.5 text-right">Unit price</th>
                     <th className="p-3.5 text-center">Qty</th>
                     <th className="p-3.5 text-right">Line total</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
-                  {items.map((item) => (
-                    <tr key={item.id}>
-                      <td className="p-3.5">
-                        <p className="font-semibold text-foreground">{item.product_name_snapshot}</p>
-                        {item.variant_name_snapshot && (
-                          <p className="text-xs text-muted-foreground">Variant: {item.variant_name_snapshot}</p>
-                        )}
-                        {item.sku_snapshot && (
-                          <p className="text-[11px] font-mono text-muted-foreground/80">SKU: {item.sku_snapshot}</p>
-                        )}
-                      </td>
-                      <td className="p-3.5 text-right font-medium text-foreground">{formatINR(item.unit_price_paise)}</td>
-                      <td className="p-3.5 text-center font-semibold text-foreground">{item.quantity}</td>
-                      <td className="p-3.5 text-right font-semibold text-primary">{formatINR(item.line_total_paise)}</td>
-                    </tr>
-                  ))}
+                  {items.map((item) => {
+                    const itemDeliveryType =
+                      (item.product_id && orderMeta?.itemsDeliveryType[item.product_id]) ||
+                      "INDIA_WIDE";
+
+                    return (
+                      <tr key={item.id}>
+                        <td className="p-3.5">
+                          <p className="font-semibold text-foreground">{item.product_name_snapshot}</p>
+                          {item.variant_name_snapshot && (
+                            <p className="text-xs text-muted-foreground">Variant: {item.variant_name_snapshot}</p>
+                          )}
+                          {item.sku_snapshot && (
+                            <p className="text-[11px] font-mono text-muted-foreground/80">SKU: {item.sku_snapshot}</p>
+                          )}
+                        </td>
+                        <td className="p-3.5">
+                          {itemDeliveryType === "RESTRICTED_LOCATION" ? (
+                            <span className="rounded-md bg-amber-500/15 text-amber-900 border border-amber-500/30 px-2 py-0.5 text-[10px] font-bold inline-block">
+                              Restricted Location
+                            </span>
+                          ) : (
+                            <span className="rounded-md bg-secondary text-muted-foreground border border-border px-2 py-0.5 text-[10px] font-medium inline-block">
+                              India Wide
+                            </span>
+                          )}
+                        </td>
+                        <td className="p-3.5 text-right font-medium text-foreground">{formatINR(item.unit_price_paise)}</td>
+                        <td className="p-3.5 text-center font-semibold text-foreground">{item.quantity}</td>
+                        <td className="p-3.5 text-right font-semibold text-primary">{formatINR(item.line_total_paise)}</td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
@@ -191,6 +212,21 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
             </h2>
 
             <div className="grid gap-4 mb-6">
+              <div>
+                <span className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Payment Method</span>
+                <div className="mt-1 flex items-center gap-2">
+                  {orderMeta?.paymentMethod === "COD" || order.order_number.startsWith("NA-COD") ? (
+                    <span className="inline-flex items-center gap-1.5 rounded-md bg-amber-500/15 text-amber-950 border border-amber-500/30 px-2.5 py-1 text-xs font-bold">
+                      Cash on Delivery (COD)
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1.5 rounded-md bg-emerald-500/15 text-emerald-950 border border-emerald-500/30 px-2.5 py-1 text-xs font-bold">
+                      Online (Razorpay)
+                    </span>
+                  )}
+                </div>
+              </div>
+
               <div>
                 <span className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Payment Status</span>
                 <div className="mt-1">

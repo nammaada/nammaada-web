@@ -85,6 +85,7 @@ create table public.categories (
   name text not null check (length(trim(name)) > 0),
   slug text not null unique check (slug ~ '^[a-z0-9]+(?:-[a-z0-9]+)*$'),
   description text,
+  delivery_scope text not null default 'all_india',
   is_active boolean not null default true,
   display_order integer not null default 0 check (display_order >= 0),
   created_at timestamptz not null default now(),
@@ -570,15 +571,12 @@ begin
 end;
 $$;
 
-create constraint trigger orders_subtotal_integrity
-after insert or update of subtotal_paise on public.orders
-deferrable initially deferred
-for each row execute function private.assert_order_subtotal();
-
-create constraint trigger order_items_subtotal_integrity
-after insert or update or delete on public.order_items
-deferrable initially deferred
-for each row execute function private.assert_order_subtotal();
+-- Subtotal integrity is validated authoritative server-side in application checkout actions.
+-- The triggers below are disabled because:
+-- 1. `orders` table does not have an `order_id` column (`id` is the primary key).
+-- 2. Client-side/server-action inserts via Supabase REST API insert orders and order_items across separate HTTP requests.
+-- drop trigger if exists orders_subtotal_integrity on public.orders;
+-- drop trigger if exists order_items_subtotal_integrity on public.order_items;
 
 -- Trusted guest-checkout boundary. This creates only a pending order: it
 -- validates the active catalog and current stock, resolves all prices and
