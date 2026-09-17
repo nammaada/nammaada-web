@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
 import {
+  checkCartStock,
   createCodCheckoutSession,
   createRazorpayCheckoutSession,
   validateCheckoutLocation,
@@ -189,6 +190,7 @@ function CheckoutContent() {
   const [values, setValues] = useState<CheckoutFormValues>(initialValues);
   const [errors, setErrors] = useState<Partial<Record<keyof CheckoutFormValues, string>>>({});
   const [serverMessage, setServerMessage] = useState("");
+  const [stockError, setStockError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const messageRef = useRef<HTMLDivElement>(null);
   const idempotencyKeyRef = useRef<string | null>(null);
@@ -259,6 +261,32 @@ function CheckoutContent() {
     return activeItems.reduce((total, item) => total + item.unitPricePaise * item.quantity, 0);
   }, [activeItems]);
 
+  // Check stock availability for active checkout items
+  useEffect(() => {
+    if (activeItems.length === 0) {
+      setStockError(null);
+      return;
+    }
+    let isMounted = true;
+    checkCartStock(
+      activeItems.map((i) => ({
+        productId: i.productId,
+        variantId: i.variantId,
+        quantity: i.quantity,
+      }))
+    ).then((res) => {
+      if (!isMounted) return;
+      if (!res.inStock) {
+        setStockError(res.message || "One or more items in your cart are out of stock.");
+      } else {
+        setStockError(null);
+      }
+    });
+    return () => {
+      isMounted = false;
+    };
+  }, [activeItems]);
+
   // Dynamic location check when 6-digit pincode is entered
   useEffect(() => {
     const cleanPin = values.pincode.trim();
@@ -314,6 +342,8 @@ function CheckoutContent() {
   }
 
   function handleRemoveSingleItem(lineId: string) {
+    setStockError(null);
+    setServerMessage("");
     if (isBuyNow) {
       setBuyNowRemoved(true);
     } else {
@@ -322,8 +352,8 @@ function CheckoutContent() {
   }
 
   useEffect(() => {
-    if (serverMessage) messageRef.current?.focus();
-  }, [serverMessage]);
+    if (stockError || serverMessage) messageRef.current?.focus();
+  }, [stockError, serverMessage]);
 
   // Pre-load Razorpay script
   useEffect(() => {
@@ -412,7 +442,12 @@ function CheckoutContent() {
 
         if (!codResult.ok) {
           setIsSubmitting(false);
-          setServerMessage(codResult.message);
+          if (codResult.message.toLowerCase().includes("stock")) {
+            setStockError(codResult.message);
+            setServerMessage("");
+          } else {
+            setServerMessage(codResult.message);
+          }
           if (codResult.unavailableProducts && codResult.unavailableProducts.length > 0) {
             setLocationValidation({
               isValid: false,
@@ -447,7 +482,12 @@ function CheckoutContent() {
 
       if (!sessionResult.ok) {
         setIsSubmitting(false);
-        setServerMessage(sessionResult.message);
+        if (sessionResult.message.toLowerCase().includes("stock")) {
+          setStockError(sessionResult.message);
+          setServerMessage("");
+        } else {
+          setServerMessage(sessionResult.message);
+        }
         return;
       }
 
@@ -759,7 +799,7 @@ function CheckoutContent() {
             </div>
 
             {/* Error / Status banner */}
-            {serverMessage && (
+            {serverMessage && !stockError && (
               <div
                 aria-live="polite"
                 className="rounded-xl border border-red-300 bg-red-50 p-4 text-xs sm:text-sm text-red-800 font-medium animate-in fade-in"
@@ -770,27 +810,46 @@ function CheckoutContent() {
               </div>
             )}
 
-            {/* Submit CTA */}
+            {/* Submit CTA or Out of Stock Display */}
             <div className="space-y-2">
-              <Button
-                className="w-full sm:w-auto min-h-12 px-8 cursor-pointer shadow-md text-sm font-bold"
-                disabled={isSubmitting || Boolean(hasUnavailableProducts)}
-                size="lg"
-                type="submit"
-              >
-                {isSubmitting
-                  ? paymentMethod === "COD" || isRestrictedCodOnly
-                    ? "Placing COD order..."
-                    : "Connecting to Razorpay..."
-                  : paymentMethod === "COD" || isRestrictedCodOnly
-                  ? `Place Order with Cash on Delivery (${formatPrice(activeSubtotal)})`
-                  : `Pay ${formatPrice(activeSubtotal)} with Razorpay`}
-              </Button>
-              <p className="text-[11px] text-[#6e5b55]">
-                {paymentMethod === "COD" || isRestrictedCodOnly
-                  ? "✓ Cash on Delivery available for verified local addresses."
-                  : "🔒 100% Secure Payment via Razorpay (UPI, Cards, NetBanking, Wallets)."}
-              </p>
+              {stockError ? (
+                <div
+                  aria-live="assertive"
+                  ref={messageRef}
+                  tabIndex={-1}
+                  className="w-full rounded-2xl bg-[#711e2c] p-4 sm:p-5 text-center text-sm sm:text-base font-bold text-white shadow-md space-y-1.5 animate-in fade-in"
+                >
+                  <p className="flex items-center justify-center gap-2">
+                    <span className="text-amber-300 text-base">⚠</span>
+                    <span>{stockError}</span>
+                  </p>
+                  <p className="text-xs font-normal text-white/80">
+                    This product is currently out of stock. Please remove it from the order summary above to continue.
+                  </p>
+                </div>
+              ) : (
+                <>
+                  <Button
+                    className="w-full sm:w-auto min-h-12 px-8 cursor-pointer shadow-md text-sm font-bold"
+                    disabled={isSubmitting || Boolean(hasUnavailableProducts)}
+                    size="lg"
+                    type="submit"
+                  >
+                    {isSubmitting
+                      ? paymentMethod === "COD" || isRestrictedCodOnly
+                        ? "Placing COD order..."
+                        : "Connecting to Razorpay..."
+                      : paymentMethod === "COD" || isRestrictedCodOnly
+                      ? `Place Order with Cash on Delivery (${formatPrice(activeSubtotal)})`
+                      : `Pay ${formatPrice(activeSubtotal)} with Razorpay`}
+                  </Button>
+                  <p className="text-[11px] text-[#6e5b55]">
+                    {paymentMethod === "COD" || isRestrictedCodOnly
+                      ? "✓ Cash on Delivery available for verified local addresses."
+                      : "🔒 100% Secure Payment via Razorpay (UPI, Cards, NetBanking, Wallets)."}
+                  </p>
+                </>
+              )}
             </div>
           </form>
 
