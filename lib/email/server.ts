@@ -8,7 +8,7 @@ import { getOrderMetadata, saveOrderMetadata } from "@/lib/orders/metadata";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 
 const DEFAULT_ADMIN_EMAIL = "namaste@nammaada.com";
-const DEFAULT_SENDER_EMAIL = "adarshram.me@gmail.com";
+const DEFAULT_SENDER_EMAIL = "namaste@nammaada.com";
 const DEFAULT_SENDER_NAME = "Namma Ada";
 
 async function getBrevoConfig() {
@@ -98,7 +98,7 @@ async function sendBrevoEmail({
         },
         replyTo: {
           name: config.senderName,
-          email: "orders@nammaada.com",
+          email: config.senderEmail || DEFAULT_SENDER_EMAIL,
         },
         to: [
           {
