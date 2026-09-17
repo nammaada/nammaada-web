@@ -11,6 +11,7 @@ export type OrderMetadata = {
   itemsDeliveryType: Record<string, DeliveryType>;
   customerEmailSent?: boolean;
   adminEmailSent?: boolean;
+  userId?: string;
   createdAt?: string;
 };
 
@@ -32,6 +33,7 @@ export async function saveOrderMetadata(meta: OrderMetadata): Promise<boolean> {
       itemsDeliveryType: meta.itemsDeliveryType,
       customerEmailSent: Boolean(meta.customerEmailSent),
       adminEmailSent: Boolean(meta.adminEmailSent),
+      userId: meta.userId || null,
       createdAt: meta.createdAt || new Date().toISOString(),
     },
     updated_at: new Date().toISOString(),
@@ -68,6 +70,7 @@ export async function getOrderMetadata(orderId: string): Promise<OrderMetadata |
     itemsDeliveryType: (val.itemsDeliveryType as Record<string, DeliveryType>) || {},
     customerEmailSent: Boolean(val.customerEmailSent),
     adminEmailSent: Boolean(val.adminEmailSent),
+    userId: typeof val.userId === "string" ? val.userId : undefined,
     createdAt: typeof val.createdAt === "string" ? val.createdAt : undefined,
   };
 }
@@ -101,6 +104,7 @@ export async function batchGetOrderMetadata(
         itemsDeliveryType: (val.itemsDeliveryType as Record<string, DeliveryType>) || {},
         customerEmailSent: Boolean(val.customerEmailSent),
         adminEmailSent: Boolean(val.adminEmailSent),
+        userId: typeof val.userId === "string" ? val.userId : undefined,
         createdAt: typeof val.createdAt === "string" ? val.createdAt : undefined,
       });
     }

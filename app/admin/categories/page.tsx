@@ -1,3 +1,4 @@
+﻿import { connection } from "next/server";
 import { deleteCategory, saveCategory } from "@/actions/admin";
 import { AdminField, CheckField, Submit } from "@/components/admin/admin-form";
 import { ConfirmDialog } from "@/components/admin/confirm-dialog";
@@ -8,6 +9,8 @@ import { StatusBadge } from "@/components/admin/status-badge";
 import { Card } from "@/components/ui/card";
 import { adminRows } from "@/lib/admin/data";
 import { getCategoryDeliveryScopes, resolveCategoryScope } from "@/lib/delivery/restricted-locations";
+
+export const instant = false;
 
 type Category = {
   id: string;
@@ -20,6 +23,7 @@ type Category = {
 };
 
 export default async function AdminCategoriesPage({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
+  await connection();
   const [rawRows, scopesMap] = await Promise.all([
     adminRows<Category>("categories"),
     getCategoryDeliveryScopes(),

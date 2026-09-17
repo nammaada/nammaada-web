@@ -2,7 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
-import { isAdminUser } from "@/lib/auth/admin";
+import { isAdminUser, setAdminSession, clearAdminSession } from "@/lib/auth/admin";
 
 export type LoginState = {
   message?: string;
@@ -33,18 +33,22 @@ export async function loginAction(_state: LoginState, formData: FormData): Promi
 
   const supabase = await createSupabaseServerClient();
   await supabase.auth.signOut();
+  await clearAdminSession();
   const { data, error } = await supabase.auth.signInWithPassword({ email, password });
 
   if (error || !data.user || !(await isAdminUser(data.user.id))) {
     await supabase.auth.signOut();
+    await clearAdminSession();
     return { message: "Unable to sign in with these credentials." };
   }
 
+  await setAdminSession(data.user.id);
   redirect("/admin");
 }
 
 export async function logoutAction() {
   const supabase = await createSupabaseServerClient();
   await supabase.auth.signOut();
+  await clearAdminSession();
   redirect("/auth/login");
 }

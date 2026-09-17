@@ -1,3 +1,4 @@
+﻿import { connection } from "next/server";
 import { Mail, Phone } from "lucide-react";
 import { updateEnquiry } from "@/actions/admin";
 import { EmptyState } from "@/components/admin/empty-state";
@@ -7,6 +8,8 @@ import { StatusBadge } from "@/components/admin/status-badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { adminRows } from "@/lib/admin/data";
+
+export const instant = false;
 
 type EnquiryRow = {
   id: string;
@@ -20,6 +23,7 @@ type EnquiryRow = {
 };
 
 export default async function EnquiriesPage() {
+  await connection();
   const rows = await adminRows<EnquiryRow>("admin_bulk_enquiries");
 
   return (

@@ -1,30 +1,76 @@
 "use client";
 
-import { useActionState } from "react";
-import { loginAction, type LoginState } from "@/actions/auth";
+import { useState, type FormEvent } from "react";
+import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
+import { checkIsAdminSessionAction } from "@/actions/check-admin-session";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
-const initialState: LoginState = {};
-
 export function LoginForm() {
-  const [state, action, pending] = useActionState(loginAction, initialState);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [errorMsg, setErrorMsg] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  async function handleSubmit(e: FormEvent) {
+    e.preventDefault();
+    if (!email || !password) {
+      setErrorMsg("Please enter both email and password.");
+      return;
+    }
+
+    setErrorMsg("");
+    setLoading(true);
+
+    try {
+      const supabase = createSupabaseBrowserClient();
+
+      // Cleanly clear any stale customer session from localStorage and cookies
+      await supabase.auth.signOut();
+
+      // Sign in directly in browser to properly update both localStorage and cookies
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: email.trim().toLowerCase(),
+        password,
+      });
+
+      if (error || !data.user) {
+        setErrorMsg(error?.message || "Invalid email or password.");
+        setLoading(false);
+        return;
+      }
+
+      // Verify the authenticated user is an authorized administrator and set admin cookie
+      const isAdmin = await checkIsAdminSessionAction(data.user.id);
+      if (!isAdmin) {
+        await supabase.auth.signOut();
+        setErrorMsg("Access denied. Only authorized administrator accounts can sign in here.");
+        setLoading(false);
+        return;
+      }
+
+      // Navigate to /admin with full page refresh to synchronize server state
+      window.location.href = "/admin";
+    } catch {
+      setErrorMsg("An unexpected error occurred. Please try again.");
+      setLoading(false);
+    }
+  }
 
   return (
-    <form action={action} className="space-y-5" noValidate>
+    <form onSubmit={handleSubmit} className="space-y-5" noValidate>
       <div className="space-y-2">
         <Label htmlFor="email">Email</Label>
         <Input
           autoComplete="email"
           id="email"
           name="email"
-          placeholder="admin@example.com"
           type="email"
-          aria-describedby={state.fieldErrors?.email ? "email-error" : undefined}
-          error={Boolean(state.fieldErrors?.email)}
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          required
         />
-        {state.fieldErrors?.email ? <p className="text-sm text-red-900" id="email-error">{state.fieldErrors.email}</p> : null}
       </div>
 
       <div className="space-y-2">
@@ -34,16 +80,20 @@ export function LoginForm() {
           id="password"
           name="password"
           type="password"
-          aria-describedby={state.fieldErrors?.password ? "password-error" : undefined}
-          error={Boolean(state.fieldErrors?.password)}
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          required
         />
-        {state.fieldErrors?.password ? <p className="text-sm text-red-900" id="password-error">{state.fieldErrors.password}</p> : null}
       </div>
 
-      {state.message ? <p className="text-sm text-red-900" role="alert">{state.message}</p> : null}
+      {errorMsg ? (
+        <p className="text-sm font-medium text-red-700 bg-red-50 border border-red-200 rounded-xl p-3" role="alert">
+          {errorMsg}
+        </p>
+      ) : null}
 
-      <Button className="w-full" disabled={pending} type="submit">
-        {pending ? "Signing in…" : "Sign in"}
+      <Button className="w-full min-h-11 rounded-xl" disabled={loading} type="submit">
+        {loading ? "Signing in…" : "Sign in"}
       </Button>
     </form>
   );

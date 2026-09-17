@@ -3,12 +3,25 @@
 import Link from "next/link";
 import { useState, type ReactNode } from "react";
 import { LogOut, Menu, X, ShieldCheck } from "lucide-react";
+import { createSupabaseBrowserClient } from "@/lib/supabase/browser";
 import { logoutAction } from "@/actions/auth";
 import { AdminNav } from "@/components/admin/admin-nav";
 import { Button } from "@/components/ui/button";
 
 export function AdminShell({ children }: { children: ReactNode }) {
   const [mobileOpen, setMobileOpen] = useState(false);
+
+  async function handleSignOut() {
+    try {
+      const supabase = createSupabaseBrowserClient();
+      await supabase.auth.signOut();
+    } catch {}
+    try {
+      await logoutAction();
+    } catch {
+      window.location.href = "/auth/login";
+    }
+  }
 
   return (
     <div className="min-h-screen bg-background selection:bg-[#eedec8] selection:text-[#2b1719]">
@@ -33,15 +46,14 @@ export function AdminShell({ children }: { children: ReactNode }) {
 
         {/* Logout Section */}
         <div className="mt-auto pt-6 border-t border-border/80">
-          <form action={logoutAction}>
-            <button
-              className="flex w-full min-h-10 items-center justify-between rounded-lg px-3 py-2 text-sm font-semibold text-muted-foreground hover:bg-primary/10 hover:text-primary transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              type="submit"
-            >
-              <span>Sign out</span>
-              <LogOut size={16} />
-            </button>
-          </form>
+          <button
+            onClick={handleSignOut}
+            className="flex w-full min-h-10 items-center justify-between rounded-lg px-3 py-2 text-sm font-semibold text-muted-foreground hover:bg-primary/10 hover:text-primary transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring cursor-pointer"
+            type="button"
+          >
+            <span>Sign out</span>
+            <LogOut size={16} />
+          </button>
         </div>
       </aside>
 
@@ -94,12 +106,10 @@ export function AdminShell({ children }: { children: ReactNode }) {
             <AdminNav onNavClick={() => setMobileOpen(false)} />
 
             <div className="mt-auto pt-6 border-t border-border">
-              <form action={logoutAction}>
-                <Button className="w-full justify-between" variant="outline" type="submit">
-                  <span>Sign out</span>
-                  <LogOut size={16} />
-                </Button>
-              </form>
+              <Button className="w-full justify-between cursor-pointer" variant="outline" type="button" onClick={handleSignOut}>
+                <span>Sign out</span>
+                <LogOut size={16} />
+              </Button>
             </div>
           </div>
         </div>

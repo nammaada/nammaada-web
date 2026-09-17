@@ -14,6 +14,7 @@ import { saveOrderMetadata } from "@/lib/orders/metadata";
 import { createRazorpayOrder, getRazorpayCredentials, verifyRazorpaySignature } from "@/lib/razorpay/server";
 import { getSafeErrorMessage } from "@/lib/server/errors";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { createSupabaseServerClient } from "@/lib/supabase/server";
 import { quantitySchema, uuidSchema } from "@/lib/validation/schemas";
 import { sendOrderConfirmationWhatsApp } from "@/lib/whatsapp/server";
 import { sendOrderConfirmationEmails } from "@/lib/email/server";
@@ -322,10 +323,22 @@ export async function createRazorpayCheckoutSession(
     for (const item of resolvedItems) {
       itemsDeliveryType[item.productId] = item.deliveryType;
     }
+    let authUserId: string | undefined = undefined;
+    try {
+      const serverSupabase = await createSupabaseServerClient();
+      const { data: authData } = await serverSupabase.auth.getUser();
+      if (authData?.user?.id) {
+        authUserId = authData.user.id;
+      }
+    } catch {
+      // Unauthenticated guest customer, no auth user ID
+    }
+
     await saveOrderMetadata({
       orderId: order.id,
       paymentMethod: "RAZORPAY",
       itemsDeliveryType,
+      userId: authUserId,
     });
 
     // 8. Create Razorpay Order via Razorpay API
@@ -601,10 +614,22 @@ export async function createCodCheckoutSession(
       itemsDeliveryType[item.productId] = item.deliveryType;
     }
 
+    let authUserId: string | undefined = undefined;
+    try {
+      const serverSupabase = await createSupabaseServerClient();
+      const { data: authData } = await serverSupabase.auth.getUser();
+      if (authData?.user?.id) {
+        authUserId = authData.user.id;
+      }
+    } catch {
+      // Unauthenticated guest customer, no auth user ID
+    }
+
     await saveOrderMetadata({
       orderId: order.id,
       paymentMethod: "COD",
       itemsDeliveryType,
+      userId: authUserId,
     });
 
     // 9. Atomically decrement stock
