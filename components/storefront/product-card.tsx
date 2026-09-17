@@ -43,25 +43,23 @@ export function ProductCard({
   horizontal?: boolean;
   showDescription?: boolean;
 }) {
-  const { addItem, items } = useCart();
+  const { addItem, items, setQuantity, removeItem } = useCart();
   const [isAdding, setIsAdding] = useState(false);
 
   // Read current cart count for this product
   const cartItem = items.find((item) => item.productId === product.id);
   const cartQty = cartItem ? cartItem.quantity : 0;
 
-  // Local adjustment if the customer taps +/- on the card directly
+  // Local adjustment if the customer taps +/- before adding to cart
   const [manualAdjustment, setManualAdjustment] = useState(0);
 
-  // When product is removed from cart or cart count becomes 0, reset to 1
+  // When cart count changes or becomes 0, reset local manual adjustment
   useEffect(() => {
-    if (cartQty === 0) {
-      setManualAdjustment(0);
-    }
+    setManualAdjustment(0);
   }, [cartQty]);
 
-  // If 0 in cart -> shows 1. If N in cart -> shows N + 1. Plus any manual adjustment.
-  const displayQuantity = Math.max(1, (cartQty === 0 ? 1 : cartQty + 1) + manualAdjustment);
+  // If in cart -> shows exact cartQty. If not in cart -> shows 1. Plus any local adjustment.
+  const displayQuantity = Math.max(1, (cartQty === 0 ? 1 : cartQty) + manualAdjustment);
 
   const { rating, reviewCount } = getProductRating(product.id, index);
   const weight = product.weight || extractWeight(product.name, product.short_description);
@@ -81,9 +79,11 @@ export function ProductCard({
     e.preventDefault();
     e.stopPropagation();
 
+    if (!product.is_in_stock) return;
+
     setIsAdding(true);
 
-    // Add 1 to cart
+    const qtyToAdd = cartItem ? 1 : displayQuantity;
     addItem({
       productId: product.id,
       slug: product.slug,
@@ -92,10 +92,9 @@ export function ProductCard({
       variantName: null,
       unitPricePaise: product.price_paise,
       image: product.primary_image,
-      quantity: 1,
+      quantity: qtyToAdd,
     });
 
-    // Reset manual adjustment so displayed quantity naturally reflects cartQty + 1
     setManualAdjustment(0);
 
     setTimeout(() => {
@@ -106,15 +105,29 @@ export function ProductCard({
   const handleDecrease = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    if (displayQuantity > 1) {
-      setManualAdjustment((prev) => prev - 1);
+    if (!product.is_in_stock) return;
+    if (cartItem) {
+      if (cartItem.quantity > 1) {
+        setQuantity(cartItem.lineId, cartItem.quantity - 1);
+      } else {
+        removeItem(cartItem.lineId);
+      }
+    } else {
+      if (displayQuantity > 1) {
+        setManualAdjustment((prev) => prev - 1);
+      }
     }
   };
 
   const handleIncrease = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    setManualAdjustment((prev) => prev + 1);
+    if (!product.is_in_stock) return;
+    if (cartItem) {
+      setQuantity(cartItem.lineId, cartItem.quantity + 1);
+    } else {
+      setManualAdjustment((prev) => prev + 1);
+    }
   };
 
   // ─── HORIZONTAL card (desktop home page) ─────────────────────────────────────
@@ -212,24 +225,29 @@ export function ProductCard({
             {/* Quantity + Cart */}
             <div className="flex items-center gap-2">
               {/* Quantity Selector */}
-              <div className="flex items-center rounded-xl border border-white/70 bg-white/70 backdrop-blur-xs p-1 shrink-0 shadow-2xs">
+              <div
+                className={`flex items-center rounded-xl border border-white/70 bg-white/70 backdrop-blur-xs p-1 shrink-0 shadow-2xs ${
+                  !product.is_in_stock ? "opacity-40 pointer-events-none" : ""
+                }`}
+              >
                 <button
                   type="button"
                   onClick={handleDecrease}
-                  disabled={displayQuantity <= 1}
+                  disabled={!product.is_in_stock || displayQuantity <= 1}
                   aria-label="Decrease quantity"
-                  className="flex size-7 items-center justify-center rounded text-[#6e5b55] hover:bg-[#f4efeb] hover:text-[#2b1719] transition-colors cursor-pointer disabled:opacity-30"
+                  className="flex size-7 items-center justify-center rounded text-[#6e5b55] hover:bg-[#f4efeb] hover:text-[#2b1719] transition-colors cursor-pointer disabled:opacity-30 disabled:pointer-events-none"
                 >
                   <Minus size={12} />
                 </button>
                 <span className="w-6 text-center font-bold text-xs text-[#2b1719]">
-                  {displayQuantity}
+                  {product.is_in_stock ? displayQuantity : 0}
                 </span>
                 <button
                   type="button"
                   onClick={handleIncrease}
+                  disabled={!product.is_in_stock}
                   aria-label="Increase quantity"
-                  className="flex size-7 items-center justify-center rounded text-[#6e5b55] hover:bg-[#f4efeb] hover:text-[#2b1719] transition-colors cursor-pointer"
+                  className="flex size-7 items-center justify-center rounded text-[#6e5b55] hover:bg-[#f4efeb] hover:text-[#2b1719] transition-colors cursor-pointer disabled:opacity-30 disabled:pointer-events-none"
                 >
                   <Plus size={12} />
                 </button>
@@ -240,13 +258,15 @@ export function ProductCard({
                 type="button"
                 onClick={handleAddToCart}
                 disabled={!product.is_in_stock}
-                aria-label={`Add ${product.name} to cart`}
-                className={`inline-flex min-h-9 items-center justify-center gap-1.5 rounded-xl bg-[#711e2c] px-3.5 py-2 text-xs font-bold text-white shadow-xs hover:bg-[#5a1723] active:scale-95 transition-all cursor-pointer whitespace-nowrap ${
-                  isAdding ? "scale-95 opacity-90" : ""
-                } disabled:opacity-50 disabled:pointer-events-none`}
+                aria-label={product.is_in_stock ? `Add ${product.name} to cart` : `${product.name} is out of stock`}
+                className={`inline-flex min-h-9 items-center justify-center gap-1.5 rounded-xl px-3.5 py-2 text-xs font-bold shadow-xs transition-all whitespace-nowrap ${
+                  product.is_in_stock
+                    ? "bg-[#711e2c] text-white hover:bg-[#5a1723] active:scale-95 cursor-pointer"
+                    : "bg-[#711e2c]/35 text-white/80 border border-[#711e2c]/20 cursor-not-allowed pointer-events-none"
+                } ${isAdding ? "scale-95 opacity-90" : ""}`}
               >
                 <ShoppingCart size={13} className="shrink-0" />
-                Add to Cart
+                {product.is_in_stock ? "Add to Cart" : "Out of Stock"}
               </button>
             </div>
           </div>
@@ -339,24 +359,29 @@ export function ProductCard({
         {/* Action Controls: Quantity [-] qty [+] & Add to Cart */}
         <div className="mt-auto pt-2 sm:pt-3 border-t border-white/50 flex items-center justify-between gap-1 sm:gap-2">
           {/* Quantity Selector */}
-          <div className="flex items-center rounded-lg sm:rounded-xl border border-white/70 bg-white/70 backdrop-blur-xs text-xs font-bold text-[#2b1719] p-0.5 sm:p-1 shrink-0 shadow-2xs">
+          <div
+            className={`flex items-center rounded-lg sm:rounded-xl border border-white/70 bg-white/70 backdrop-blur-xs text-xs font-bold text-[#2b1719] p-0.5 sm:p-1 shrink-0 shadow-2xs ${
+              !product.is_in_stock ? "opacity-40 pointer-events-none" : ""
+            }`}
+          >
             <button
               type="button"
               onClick={handleDecrease}
-              disabled={displayQuantity <= 1}
+              disabled={!product.is_in_stock || displayQuantity <= 1}
               aria-label="Decrease quantity"
-              className="flex size-5 sm:size-7 items-center justify-center rounded text-[#6e5b55] hover:bg-[#f4efeb] hover:text-[#2b1719] transition-colors cursor-pointer disabled:opacity-30"
+              className="flex size-5 sm:size-7 items-center justify-center rounded text-[#6e5b55] hover:bg-[#f4efeb] hover:text-[#2b1719] transition-colors cursor-pointer disabled:opacity-30 disabled:pointer-events-none"
             >
               <Minus size={10} className="sm:w-3 sm:h-3" />
             </button>
             <span className="w-4 sm:w-6 text-center font-bold text-[10px] sm:text-xs text-[#2b1719]">
-              {displayQuantity}
+              {product.is_in_stock ? displayQuantity : 0}
             </span>
             <button
               type="button"
               onClick={handleIncrease}
+              disabled={!product.is_in_stock}
               aria-label="Increase quantity"
-              className="flex size-5 sm:size-7 items-center justify-center rounded text-[#6e5b55] hover:bg-[#f4efeb] hover:text-[#2b1719] transition-colors cursor-pointer"
+              className="flex size-5 sm:size-7 items-center justify-center rounded text-[#6e5b55] hover:bg-[#f4efeb] hover:text-[#2b1719] transition-colors cursor-pointer disabled:opacity-30 disabled:pointer-events-none"
             >
               <Plus size={10} className="sm:w-3 sm:h-3" />
             </button>
@@ -367,14 +392,22 @@ export function ProductCard({
             type="button"
             onClick={handleAddToCart}
             disabled={!product.is_in_stock}
-            aria-label={`Add ${product.name} to cart`}
-            className={`flex-1 min-w-0 h-7 sm:min-h-10 inline-flex items-center justify-center gap-1 sm:gap-1.5 rounded-lg sm:rounded-xl bg-[#711e2c] px-1.5 sm:px-3.5 py-1 sm:py-2 text-[10px] sm:text-xs font-bold text-white shadow-xs hover:bg-[#5a1723] active:scale-95 transition-all cursor-pointer whitespace-nowrap overflow-hidden ${
-              isAdding ? "scale-95 opacity-90" : ""
-            } disabled:opacity-50 disabled:pointer-events-none`}
+            aria-label={product.is_in_stock ? `Add ${product.name} to cart` : `${product.name} is out of stock`}
+            className={`flex-1 min-w-0 h-7 sm:min-h-10 inline-flex items-center justify-center gap-1 sm:gap-1.5 rounded-lg sm:rounded-xl px-1.5 sm:px-3.5 py-1 sm:py-2 text-[10px] sm:text-xs font-bold shadow-xs transition-all whitespace-nowrap overflow-hidden ${
+              product.is_in_stock
+                ? "bg-[#711e2c] text-white hover:bg-[#5a1723] active:scale-95 cursor-pointer"
+                : "bg-[#711e2c]/35 text-white/80 border border-[#711e2c]/20 cursor-not-allowed pointer-events-none"
+            } ${isAdding ? "scale-95 opacity-90" : ""}`}
           >
             <ShoppingCart size={11} className="shrink-0 sm:w-3.5 sm:h-3.5" />
-            <span className="sm:hidden whitespace-nowrap">Add</span>
-            <span className="hidden sm:inline whitespace-nowrap">Add to Cart</span>
+            {product.is_in_stock ? (
+              <>
+                <span className="sm:hidden whitespace-nowrap">Add</span>
+                <span className="hidden sm:inline whitespace-nowrap">Add to Cart</span>
+              </>
+            ) : (
+              <span className="whitespace-nowrap">Out of Stock</span>
+            )}
           </button>
         </div>
       </div>

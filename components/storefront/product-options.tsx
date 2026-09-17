@@ -23,7 +23,7 @@ function Availability({ available }: { available: boolean }) {
 
 export function ProductOptions({ product, variants = [] }: { product: StorefrontProduct; variants?: StorefrontProductVariant[] }) {
   const router = useRouter();
-  const { addItem, items } = useCart();
+  const { addItem, items, setQuantity, removeItem } = useCart();
   const [statusMessage, setStatusMessage] = useState("");
   const available = product.is_in_stock;
 
@@ -32,22 +32,20 @@ export function ProductOptions({ product, variants = [] }: { product: Storefront
   const cartQty = cartItem ? cartItem.quantity : 0;
   const [manualAdjustment, setManualAdjustment] = useState(0);
 
-  // When product is removed from cart or cart count becomes 0, reset to 1
+  // When cart count changes or becomes 0, reset local adjustment
   useEffect(() => {
-    if (cartQty === 0) {
-      setManualAdjustment(0);
-    }
+    setManualAdjustment(0);
   }, [cartQty]);
 
-  // Displayed quantity: 1 when not in cart, cartQty + 1 when in cart, plus manual adjustment
-  const displayQuantity = Math.max(1, (cartQty === 0 ? 1 : cartQty + 1) + manualAdjustment);
+  // If in cart -> shows exact cartQty. If not in cart -> shows 1. Plus any local adjustment.
+  const displayQuantity = Math.max(1, (cartQty === 0 ? 1 : cartQty) + manualAdjustment);
 
   function handleAddToCart() {
     if (!available) {
       return;
     }
 
-    // Add 1 item to cart
+    const qtyToAdd = cartItem ? 1 : displayQuantity;
     addItem({
       productId: product.id,
       slug: product.slug,
@@ -56,23 +54,36 @@ export function ProductOptions({ product, variants = [] }: { product: Storefront
       variantName: null,
       unitPricePaise: product.price_paise,
       image: product.primary_image,
-      quantity: 1,
+      quantity: qtyToAdd,
     });
 
-    // Reset manual adjustment so displayed quantity naturally reflects cartQty + 1
     setManualAdjustment(0);
 
     setStatusMessage(`${product.name} added to your cart.`);
   }
 
   function handleDecrease() {
-    if (displayQuantity > 1) {
-      setManualAdjustment((prev) => prev - 1);
+    if (!available) return;
+    if (cartItem) {
+      if (cartItem.quantity > 1) {
+        setQuantity(cartItem.lineId, cartItem.quantity - 1);
+      } else {
+        removeItem(cartItem.lineId);
+      }
+    } else {
+      if (displayQuantity > 1) {
+        setManualAdjustment((prev) => prev - 1);
+      }
     }
   }
 
   function handleIncrease() {
-    setManualAdjustment((prev) => prev + 1);
+    if (!available) return;
+    if (cartItem) {
+      setQuantity(cartItem.lineId, cartItem.quantity + 1);
+    } else {
+      setManualAdjustment((prev) => prev + 1);
+    }
   }
 
   function handleBuyNow() {
@@ -132,49 +143,65 @@ export function ProductOptions({ product, variants = [] }: { product: Storefront
       <div className="space-y-3 pt-2">
         <div className="flex flex-wrap sm:flex-nowrap items-center gap-3">
           {/* Quantity Selector: [-] qty [+] */}
-          <div className="flex items-center rounded-xl border border-[#dfd0bd] bg-white text-sm font-bold text-[#2b1719] px-2 py-1 h-12 shadow-2xs">
+          <div
+            className={`flex items-center rounded-xl border border-[#dfd0bd] bg-white text-sm font-bold text-[#2b1719] px-2 py-1 h-12 shadow-2xs ${
+              !available ? "opacity-40 pointer-events-none" : ""
+            }`}
+          >
             <button
               type="button"
               onClick={handleDecrease}
-              disabled={displayQuantity <= 1}
+              disabled={!available || displayQuantity <= 1}
               aria-label="Decrease quantity"
-              className="flex size-9 items-center justify-center rounded-lg text-[#6e5b55] hover:bg-[#f4efeb] hover:text-[#2b1719] transition-colors cursor-pointer disabled:opacity-30"
+              className="flex size-9 items-center justify-center rounded-lg text-[#6e5b55] hover:bg-[#f4efeb] hover:text-[#2b1719] transition-colors cursor-pointer disabled:opacity-30 disabled:pointer-events-none"
             >
               <Minus size={15} />
             </button>
             <span className="w-8 text-center font-bold text-sm text-[#2b1719]">
-              {displayQuantity}
+              {available ? displayQuantity : 0}
             </span>
             <button
               type="button"
               onClick={handleIncrease}
+              disabled={!available}
               aria-label="Increase quantity"
-              className="flex size-9 items-center justify-center rounded-lg text-[#6e5b55] hover:bg-[#f4efeb] hover:text-[#2b1719] transition-colors cursor-pointer"
+              className="flex size-9 items-center justify-center rounded-lg text-[#6e5b55] hover:bg-[#f4efeb] hover:text-[#2b1719] transition-colors cursor-pointer disabled:opacity-30 disabled:pointer-events-none"
             >
               <Plus size={15} />
             </button>
           </div>
 
-          <Button
-            className="flex-1 sm:w-auto min-h-12 px-8 cursor-pointer flex items-center justify-center gap-2"
-            disabled={!available}
-            onClick={handleAddToCart}
-            type="button"
-          >
-            <ShoppingCart size={16} />
-            <span>Add to Cart</span>
-          </Button>
+          {available ? (
+            <>
+              <Button
+                className="flex-1 sm:w-auto min-h-12 px-8 cursor-pointer flex items-center justify-center gap-2"
+                onClick={handleAddToCart}
+                type="button"
+              >
+                <ShoppingCart size={16} />
+                <span>Add to Cart</span>
+              </Button>
 
-          <Button
-            variant="secondary"
-            className="w-full sm:w-auto min-h-12 px-8 cursor-pointer flex items-center justify-center gap-2 border border-[#711e2c]/30 text-[#711e2c] hover:bg-[#711e2c]/5"
-            disabled={!available}
-            onClick={handleBuyNow}
-            type="button"
-          >
-            <Zap size={16} />
-            <span>Buy Now</span>
-          </Button>
+              <Button
+                variant="secondary"
+                className="w-full sm:w-auto min-h-12 px-8 cursor-pointer flex items-center justify-center gap-2 border border-[#711e2c]/30 text-[#711e2c] hover:bg-[#711e2c]/5"
+                onClick={handleBuyNow}
+                type="button"
+              >
+                <Zap size={16} />
+                <span>Buy Now</span>
+              </Button>
+            </>
+          ) : (
+            <button
+              type="button"
+              disabled
+              className="flex-1 min-h-12 px-8 rounded-full font-bold text-sm bg-[#711e2c]/35 text-white/80 border border-[#711e2c]/20 flex items-center justify-center gap-2 cursor-not-allowed pointer-events-none shadow-none select-none"
+            >
+              <ShoppingCart size={16} />
+              <span>Out of Stock</span>
+            </button>
+          )}
         </div>
 
         {statusMessage ? (
