@@ -226,7 +226,6 @@ export function HeroSlider({ banners }: HeroSliderProps) {
                   <span className="text-[11px] sm:text-xs font-bold uppercase tracking-[0.22em] text-[#711e2c]">
                     A TASTE OF HOME
                   </span>
-                  <span className="h-[1.5px] w-10 sm:w-14 bg-[#711e2c]/40 rounded-full" />
                 </div>
 
                 <h1 className="mt-2.5 sm:mt-3 font-display text-[25px] xs:text-[27px] sm:text-3xl lg:text-4xl font-bold tracking-tight text-[#2b1719] leading-[1.16] sm:leading-[1.2]">
@@ -392,7 +391,6 @@ export function HeroSlider({ banners }: HeroSliderProps) {
                     <span className="text-[11px] sm:text-xs font-bold uppercase tracking-[0.22em] text-[#711e2c]">
                       {currentBanner.eyebrow || "A TASTE OF HOME"}
                     </span>
-                    <span className="h-[1.5px] w-10 sm:w-14 bg-[#711e2c]/40 rounded-full" />
                   </div>
 
                   <h1 className="mt-2.5 sm:mt-3 font-display text-[25px] xs:text-[27px] sm:text-3xl lg:text-4xl font-bold tracking-tight text-[#2b1719] leading-[1.16] sm:leading-[1.2]">
