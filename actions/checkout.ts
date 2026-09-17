@@ -65,6 +65,41 @@ export async function validateCheckoutLocation(input: unknown): Promise<PincodeV
   return validatePincodeAvailability(parsed.data.pincode, parsed.data.productIds);
 }
 
+export async function checkCartStock(
+  items: { productId: string; variantId?: string | null; quantity: number }[]
+): Promise<{ inStock: boolean; message?: string }> {
+  if (!items || items.length === 0) return { inStock: true };
+  try {
+    const supabase = createSupabaseAdminClient();
+    const productIds = Array.from(new Set(items.map((i) => i.productId)));
+    const { data: products, error } = await supabase
+      .from("products")
+      .select("id, name, stock_quantity, is_active")
+      .in("id", productIds);
+
+    if (error || !products) return { inStock: true };
+
+    const productMap = new Map(products.map((p) => [p.id, p]));
+    for (const item of items) {
+      const p = productMap.get(item.productId);
+      if (p) {
+        if (!p.is_active || p.stock_quantity < item.quantity) {
+          return {
+            inStock: false,
+            message:
+              p.stock_quantity <= 0
+                ? `Only 0 units of "${p.name}" are available in stock.`
+                : `Only ${p.stock_quantity} units of "${p.name}" are available in stock.`,
+          };
+        }
+      }
+    }
+    return { inStock: true };
+  } catch {
+    return { inStock: true };
+  }
+}
+
 export type CreateRazorpaySessionResult =
   | {
       ok: true;
