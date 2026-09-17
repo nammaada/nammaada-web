@@ -27,9 +27,11 @@ export async function updateSupabaseSession(request: NextRequest) {
   // getUser validates the session with Supabase Auth and refreshes it when needed.
   const { data } = await supabase.auth.getUser();
 
+  const hasAdminSession = Boolean(request.cookies.get("namma_admin_session")?.value);
+
   // This is only an early unauthenticated redirect. The admin allowlist check
   // remains authoritative in the server-side admin layout and database RLS.
-  if (request.nextUrl.pathname.startsWith("/admin") && !data.user) {
+  if (request.nextUrl.pathname.startsWith("/admin") && !data.user && !hasAdminSession) {
     const redirectResponse = NextResponse.redirect(new URL("/auth/login?next=/admin", request.url));
     redirectResponse.headers.set("Cache-Control", "private, no-store");
     return redirectResponse;

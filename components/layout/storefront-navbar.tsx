@@ -2,13 +2,15 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { Menu, Search, ShoppingBag, X } from "lucide-react";
+import { Menu, Search, ShoppingBag, X, User, LogIn, UserPlus, Package } from "lucide-react";
 import { usePathname } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { siteConfig, storefrontRoutes } from "@/lib/constants/site";
 import { Container } from "@/components/ui/container";
 import { useCart } from "@/components/cart/cart-provider";
 import { ProductSearchModal } from "@/components/storefront/product-search-modal";
+import { AccountAvatarDropdown } from "@/components/layout/account-avatar-dropdown";
+import { useCustomerAuth } from "@/lib/auth/customer-context";
 
 function isActivePath(pathname: string, href: string) {
   return href === "/" ? pathname === href : pathname.startsWith(href);
@@ -19,6 +21,7 @@ export function StorefrontNavbar({ isVideoHero = false }: { isVideoHero?: boolea
   const isHome = pathname === "/";
   const isCreamNavbar = isHome && isVideoHero;
   const { itemCount, openCart } = useCart();
+  const { user } = useCustomerAuth();
   const [menuOpen, setMenuOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const menuButtonRef = useRef<HTMLButtonElement>(null);
@@ -113,12 +116,12 @@ export function StorefrontNavbar({ isVideoHero = false }: { isVideoHero?: boolea
               })}
             </nav>
 
-            {/* ACTIONS: SEARCH + CART + ORDER NOW (Desktop) / MENU TOGGLE (Mobile) */}
-            <div className="flex items-center gap-2 sm:gap-3">
+            {/* ACTIONS: SEARCH + CART + AVATAR + ORDER NOW (Desktop) / MENU TOGGLE (Mobile) */}
+            <div className="flex items-center gap-1.5 xs:gap-2 sm:gap-3">
               {/* Search Button (Desktop & Mobile) */}
               <button
                 aria-label="Search delicacies"
-                className={`inline-flex min-h-11 min-w-11 items-center justify-center rounded-full text-[#711e2c] transition-all focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring active:scale-95 cursor-pointer ${
+                className={`inline-flex min-h-10 min-w-10 sm:min-h-11 sm:min-w-11 items-center justify-center rounded-full text-[#711e2c] transition-all focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring active:scale-95 cursor-pointer ${
                   isCreamNavbar
                     ? "border border-[#e5d8c6] bg-white/80 shadow-xs hover:bg-white"
                     : "border border-white/60 bg-white/40 shadow-xs hover:bg-white/65 hover:border-white/80"
@@ -137,7 +140,7 @@ export function StorefrontNavbar({ isVideoHero = false }: { isVideoHero?: boolea
                     ? `Cart with ${itemCount} ${itemCount === 1 ? "item" : "items"}`
                     : "Cart, empty"
                 }
-                className={`inline-flex min-h-11 min-w-11 items-center justify-center gap-2 rounded-full px-3.5 sm:px-4 text-xs sm:text-sm font-semibold text-[#711e2c] transition-all focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring active:scale-95 cursor-pointer ${
+                className={`inline-flex min-h-10 min-w-10 sm:min-h-11 sm:min-w-11 items-center justify-center gap-2 rounded-full px-2.5 sm:px-4 text-xs sm:text-sm font-semibold text-[#711e2c] transition-all focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring active:scale-95 cursor-pointer ${
                   isCreamNavbar
                     ? "border border-[#e5d8c6] bg-white/80 shadow-xs hover:bg-white"
                     : "border border-white/60 bg-white/40 shadow-xs hover:bg-white/65 hover:border-white/80"
@@ -161,6 +164,9 @@ export function StorefrontNavbar({ isVideoHero = false }: { isVideoHero?: boolea
                 <span className="hidden sm:inline">Cart</span>
               </button>
 
+              {/* Customer Account Avatar Dropdown (Desktop & Mobile) */}
+              <AccountAvatarDropdown isCreamNavbar={isCreamNavbar} />
+
               {/* Order Now CTA (Desktop only) */}
               <Link
                 className="hidden min-h-11 items-center justify-center rounded-full bg-[#711e2c] px-5 sm:px-6 text-xs sm:text-sm font-semibold text-white shadow-xs transition-all duration-200 hover:bg-[#5a1723] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring active:scale-95 lg:inline-flex"
@@ -170,13 +176,13 @@ export function StorefrontNavbar({ isVideoHero = false }: { isVideoHero?: boolea
                 Order Now
               </Link>
 
-              {/* Mobile Menu Toggle Button [Logo] [Search] [Cart] [Menu] */}
+              {/* Mobile Menu Toggle Button [Logo] [Search] [Cart] [Avatar] [Menu] */}
               <button
                 ref={menuButtonRef}
                 aria-controls="mobile-storefront-drawer"
                 aria-expanded={menuOpen}
                 aria-label={menuOpen ? "Close navigation menu" : "Open navigation menu"}
-                className={`inline-flex min-h-11 min-w-11 items-center justify-center rounded-full text-[#711e2c] transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring lg:hidden active:scale-95 ${
+                className={`inline-flex min-h-10 min-w-10 sm:min-h-11 sm:min-w-11 items-center justify-center rounded-full text-[#711e2c] transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring lg:hidden active:scale-95 ${
                   isCreamNavbar
                     ? "border border-[#e5d8c6] bg-white/80 hover:bg-white shadow-xs"
                     : "border border-white/60 bg-white/40 hover:bg-white/70 shadow-xs"
@@ -277,6 +283,57 @@ export function StorefrontNavbar({ isVideoHero = false }: { isVideoHero?: boolea
                       </span>
                     )}
                   </button>
+
+                  {/* Account Options in Mobile Drawer */}
+                  <div className="border-t border-[#e5d8c6] my-2 pt-2">
+                    {user ? (
+                      <>
+                        <Link
+                          href="/account"
+                          onClick={closeMenu}
+                          className="flex min-h-12 items-center rounded-2xl px-5 text-base font-semibold text-[#2b1719] hover:bg-[#f4efeb]"
+                        >
+                          <span className="flex items-center gap-2.5">
+                            <User size={19} className="text-[#711e2c]" />
+                            My Account
+                          </span>
+                        </Link>
+                        <Link
+                          href="/account/orders"
+                          onClick={closeMenu}
+                          className="flex min-h-12 items-center rounded-2xl px-5 text-base font-semibold text-[#2b1719] hover:bg-[#f4efeb]"
+                        >
+                          <span className="flex items-center gap-2.5">
+                            <Package size={19} className="text-[#711e2c]" />
+                            My Orders
+                          </span>
+                        </Link>
+                      </>
+                    ) : (
+                      <>
+                        <Link
+                          href="/account/login"
+                          onClick={closeMenu}
+                          className="flex min-h-12 items-center rounded-2xl px-5 text-base font-semibold text-[#2b1719] hover:bg-[#f4efeb]"
+                        >
+                          <span className="flex items-center gap-2.5">
+                            <LogIn size={19} className="text-[#711e2c]" />
+                            Sign In
+                          </span>
+                        </Link>
+                        <Link
+                          href="/account/register"
+                          onClick={closeMenu}
+                          className="flex min-h-12 items-center rounded-2xl px-5 text-base font-semibold text-[#711e2c] hover:bg-[#711e2c]/10"
+                        >
+                          <span className="flex items-center gap-2.5">
+                            <UserPlus size={19} className="text-[#711e2c]" />
+                            Create Account
+                          </span>
+                        </Link>
+                      </>
+                    )}
+                  </div>
                 </nav>
               </div>
 

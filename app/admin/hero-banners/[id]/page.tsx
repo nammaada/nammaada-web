@@ -1,3 +1,4 @@
+import { connection } from "next/server";
 import { notFound } from "next/navigation";
 import { HeroBannerForm } from "@/components/admin/hero-banner-form";
 import { PageHeader } from "@/components/admin/page-header";
@@ -5,7 +6,10 @@ import { Card } from "@/components/ui/card";
 import { getCloudinaryCloudName } from "@/lib/env/server";
 import { getHeroBannerById } from "@/lib/storefront/hero";
 
+export const instant = false;
+
 export default async function EditHeroBannerPage({ params }: { params: Promise<{ id: string }> }) {
+  await connection();
   const { id } = await params;
   const banner = await getHeroBannerById(id);
 

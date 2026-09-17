@@ -1,3 +1,4 @@
+﻿import { connection } from "next/server";
 import { ShieldCheck, ShieldAlert } from "lucide-react";
 import { EmptyState } from "@/components/admin/empty-state";
 import { MobileDataCard } from "@/components/admin/mobile-data-card";
@@ -5,6 +6,8 @@ import { PageHeader } from "@/components/admin/page-header";
 import { StatusBadge } from "@/components/admin/status-badge";
 import { Card } from "@/components/ui/card";
 import { adminRows, formatINR } from "@/lib/admin/data";
+
+export const instant = false;
 
 type PaymentRow = {
   id: string;
@@ -19,6 +22,7 @@ type PaymentRow = {
 };
 
 export default async function PaymentsPage() {
+  await connection();
   const rows = await adminRows<PaymentRow>("admin_payments");
 
   return (

@@ -1,3 +1,4 @@
+﻿import { connection } from "next/server";
 import { getFromOurKitchenContent } from "@/lib/storefront/content";
 import { PageHeader } from "@/components/admin/page-header";
 import { KitchenReelsManager } from "./kitchen-reels-manager";
@@ -10,6 +11,7 @@ export default async function KitchenReelsPage({
 }: {
   searchParams: Promise<{ error?: string; success?: string }>;
 }) {
+  await connection();
   const [content, params] = await Promise.all([
     getFromOurKitchenContent(),
     searchParams,

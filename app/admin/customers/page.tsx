@@ -1,9 +1,12 @@
+﻿import { connection } from "next/server";
 import { Mail, MapPin, Phone } from "lucide-react";
 import { EmptyState } from "@/components/admin/empty-state";
 import { MobileDataCard } from "@/components/admin/mobile-data-card";
 import { PageHeader } from "@/components/admin/page-header";
 import { Card } from "@/components/ui/card";
 import { adminRows } from "@/lib/admin/data";
+
+export const instant = false;
 
 type CustomerRow = {
   id: string;
@@ -18,6 +21,7 @@ type CustomerRow = {
 };
 
 export default async function CustomersPage() {
+  await connection();
   const rows = await adminRows<CustomerRow>("admin_customers");
 
   return (

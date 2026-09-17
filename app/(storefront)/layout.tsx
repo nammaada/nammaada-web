@@ -3,6 +3,7 @@ import { StorefrontFooter } from "@/components/layout/storefront-footer";
 import { StorefrontNavbar } from "@/components/layout/storefront-navbar";
 import { WhatsAppSticky } from "@/components/shared/whatsapp-sticky";
 import { CartProvider } from "@/components/cart/cart-provider";
+import { CustomerAuthProvider } from "@/lib/auth/customer-context";
 import { getActiveHeroBanners } from "@/lib/storefront/hero";
 
 export default async function StorefrontLayout({ children }: Readonly<{ children: ReactNode }>) {
@@ -10,7 +11,8 @@ export default async function StorefrontLayout({ children }: Readonly<{ children
   const isVideoHero = activeBanners.length > 0 && activeBanners[0].media_type === "video";
 
   return (
-    <CartProvider>
+    <CustomerAuthProvider>
+      <CartProvider>
       <div className="relative min-h-screen flex flex-col bg-[#fbf7ef] overflow-x-hidden selection:bg-[#eedec8] selection:text-[#2b1719]">
         {/* AUTHORITATIVE SINGLE PAGE SCROLLING BACKGROUND ARTWORK MATCHING MOCKUP */}
         <div
@@ -38,6 +40,7 @@ export default async function StorefrontLayout({ children }: Readonly<{ children
         </div>
       </div>
     </CartProvider>
+    </CustomerAuthProvider>
   );
 }
 
