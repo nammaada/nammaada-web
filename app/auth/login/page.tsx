@@ -5,12 +5,17 @@ import { LoginForm } from "@/components/auth/login-form";
 
 export const instant = false;
 
-export default async function LoginPage() {
+export default async function LoginPage({
+  searchParams,
+}: {
+  searchParams?: Promise<{ error?: string; next?: string }>;
+}) {
   await connection();
+  const params = searchParams ? await searchParams : {};
 
   const user = await getAuthenticatedUser();
   if (user && (await isAdminUser(user.id))) {
-    redirect("/admin");
+    redirect(params.next || "/admin");
   }
 
   return (
@@ -22,6 +27,11 @@ export default async function LoginPage() {
           <p className="mt-3 text-sm leading-6 text-muted-foreground">
             Sign in with the authorized administrator account.
           </p>
+          {params.error === "not_admin" && (
+            <div className="mt-4 rounded-xl border border-amber-300 bg-amber-50 p-3.5 text-xs text-amber-900 leading-relaxed">
+              <strong>Admin privileges required:</strong> Please sign in with an authorized administrator account to access the admin panel.
+            </div>
+          )}
         </div>
         <LoginForm />
       </section>

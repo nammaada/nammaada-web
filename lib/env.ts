@@ -3,17 +3,16 @@ type PublicEnv = {
   supabaseAnonKey: string;
 };
 
-function requirePublicEnv(name: "NEXT_PUBLIC_SUPABASE_URL" | "NEXT_PUBLIC_SUPABASE_ANON_KEY") {
-  const value = process.env[name]?.trim();
-  if (!value) {
-    throw new Error(`Missing required public configuration: ${name}`);
-  }
-  return value;
-}
-
 export function getPublicEnv(): PublicEnv {
-  const supabaseUrl = requirePublicEnv("NEXT_PUBLIC_SUPABASE_URL");
-  const supabaseAnonKey = requirePublicEnv("NEXT_PUBLIC_SUPABASE_ANON_KEY");
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim();
+
+  if (!supabaseUrl) {
+    throw new Error("Missing required public configuration: NEXT_PUBLIC_SUPABASE_URL");
+  }
+  if (!supabaseAnonKey) {
+    throw new Error("Missing required public configuration: NEXT_PUBLIC_SUPABASE_ANON_KEY");
+  }
 
   try {
     const parsedUrl = new URL(supabaseUrl);

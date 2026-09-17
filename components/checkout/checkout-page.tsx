@@ -11,6 +11,7 @@ import {
   verifyAndFinalizePayment,
 } from "@/actions/checkout";
 import { useCart } from "@/components/cart/cart-provider";
+import { useCustomerAuth } from "@/lib/auth/customer-context";
 import { Button } from "@/components/ui/button";
 import { Container } from "@/components/ui/container";
 import { Input } from "@/components/ui/input";
@@ -183,12 +184,26 @@ function CheckoutContent() {
   const searchParams = useSearchParams();
   const { items: cartItems, hydrated, clearCart, removeItem } = useCart();
 
+  const { profile } = useCustomerAuth();
+
   const [values, setValues] = useState<CheckoutFormValues>(initialValues);
   const [errors, setErrors] = useState<Partial<Record<keyof CheckoutFormValues, string>>>({});
   const [serverMessage, setServerMessage] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const messageRef = useRef<HTMLDivElement>(null);
   const idempotencyKeyRef = useRef<string | null>(null);
+
+  // Auto-fill logged-in customer profile details if fields are empty
+  useEffect(() => {
+    if (profile) {
+      setValues((current) => ({
+        ...current,
+        fullName: current.fullName || profile.fullName || "",
+        email: current.email || profile.email || "",
+        phone: current.phone || profile.phone || "",
+      }));
+    }
+  }, [profile]);
 
   useEffect(() => {
     setIsSubmitting(false);
@@ -546,7 +561,7 @@ function CheckoutContent() {
                     error={Boolean(errors.phone)}
                     autoComplete="tel"
                     inputMode="tel"
-                    placeholder="e.g. 9995811622"
+                    placeholder="e.g. 9876543210"
                     onChange={(event) => updateValue("phone", event.target.value)}
                     value={values.phone}
                   />

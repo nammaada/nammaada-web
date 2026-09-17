@@ -1,3 +1,4 @@
+﻿import { connection } from "next/server";
 import { ArrowDown, ArrowUp } from "lucide-react";
 import { deleteTestimonial, moveTestimonial, saveTestimonial, toggleTestimonialActive } from "@/actions/admin";
 import { AdminField, CheckField, Submit } from "@/components/admin/admin-form";
@@ -9,6 +10,8 @@ import { StatusBadge } from "@/components/admin/status-badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { createSupabaseServerClient } from "@/lib/supabase/server";
+
+export const instant = false;
 
 type TestimonialRow = {
   id: string;
@@ -38,6 +41,7 @@ async function getAdminTestimonials(): Promise<TestimonialRow[]> {
 }
 
 export default async function TestimonialsPage({ searchParams }: { searchParams: Promise<{ error?: string }> }) {
+  await connection();
   const rows = await getAdminTestimonials();
   const q = await searchParams;
 

@@ -3,12 +3,14 @@ import { connection } from "next/server";
 import { Package, CheckCircle2, Star, ShoppingCart, Clock, Truck, Check, Inbox, Plus, ArrowUpRight } from "lucide-react";
 import { PageHeader } from "@/components/admin/page-header";
 import { Card } from "@/components/ui/card";
-import { createSupabaseServerClient } from "@/lib/supabase/server";
+import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { resolveBaseTable } from "@/lib/admin/data";
 
 export const instant = false;
 
 async function count(table: string, filters?: [string, string][]) {
-  let query = (await createSupabaseServerClient()).from(table).select("id", { count: "exact", head: true });
+  const baseTable = resolveBaseTable(table);
+  let query = createSupabaseAdminClient().from(baseTable).select("id", { count: "exact", head: true });
   for (const [key, value] of filters ?? []) query = query.eq(key, value);
   const result = await query;
   return result.count ?? 0;
@@ -53,8 +55,7 @@ export default async function AdminPage() {
   const quickActions = [
     { title: "Add product", description: "Create a new product listing", href: "/admin/products/new", icon: Plus },
     { title: "Manage products", description: "Update catalogue and pricing", href: "/admin/products", icon: Package },
-    { title: "Manage shipping", description: "State shipping rates and zones", href: "/admin/shipping", icon: Truck },
-    { title: "View orders", description: "Fulfill pending guest purchases", href: "/admin/orders", icon: ShoppingCart },
+    { title: "View orders", description: "Fulfill pending purchases", href: "/admin/orders", icon: ShoppingCart },
   ];
 
   return (
