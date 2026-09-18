@@ -1,11 +1,12 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Play, ArrowUpRight } from "lucide-react";
 import {
   extractYouTubeId,
   getYouTubeThumbnailUrl,
   getYouTubeEmbedUrl,
+  preloadYouTubeConnection,
 } from "@/lib/youtube";
 
 function InstagramIcon({ className = "size-3.5" }: { className?: string }) {
@@ -50,6 +51,8 @@ export function ReelCardPlayer({
 }) {
   const targetInstagramUrl = instagramUrl || "https://www.instagram.com/namma_ada/";
   const ytId = youtubeId || extractYouTubeId(youtubeUrl || src || "");
+  const iframeRef = useRef<HTMLIFrameElement>(null);
+  const [isIframeLoading, setIsIframeLoading] = useState(false);
 
   // Progressive thumbnail fallback: maxresdefault -> hqdefault
   const [thumbnailSrc, setThumbnailSrc] = useState<string>(() =>
@@ -57,10 +60,43 @@ export function ReelCardPlayer({
   );
 
   useEffect(() => {
+    preloadYouTubeConnection();
+    return () => {
+      // Ensure iframe is completely stopped on component unmount
+      if (iframeRef.current) {
+        try {
+          iframeRef.current.contentWindow?.postMessage(
+            '{"event":"command","func":"stopVideo","args":""}',
+            "*"
+          );
+          iframeRef.current.src = "about:blank";
+        } catch {}
+      }
+    };
+  }, []);
+
+  useEffect(() => {
     if (ytId) {
       setThumbnailSrc(getYouTubeThumbnailUrl(ytId, "maxres"));
     }
   }, [ytId]);
+
+  useEffect(() => {
+    if (isActive) {
+      setIsIframeLoading(true);
+    } else {
+      setIsIframeLoading(false);
+      if (iframeRef.current) {
+        try {
+          iframeRef.current.contentWindow?.postMessage(
+            '{"event":"command","func":"stopVideo","args":""}',
+            "*"
+          );
+          iframeRef.current.src = "about:blank";
+        } catch {}
+      }
+    }
+  }, [isActive]);
 
   const handleThumbnailError = () => {
     if (ytId && thumbnailSrc.includes("maxresdefault")) {
@@ -103,24 +139,34 @@ export function ReelCardPlayer({
       {ytId ? (
         <div className="relative h-full w-full bg-black overflow-hidden">
           {/*
-            LAZY-LOADED YOUTUBE IFRAME:
-            - Rendered ONLY when the user clicks Play (isActive === true)
-            - Unmounted completely when deactivated (kills all audio and network immediately)
-            - Official embed parameters: autoplay=1, playsinline=1, rel=0, modestbranding=1
-            - Exactly ONE iframe exists across the app
+            FAST LAZY-LOADED YOUTUBE IFRAME:
+            - Rendered when user clicks Play (isActive === true)
+            - Shows subtle loading spinner until iframe DOM finishes loading
+            - Terminated and stopped completely when deactivated or page navigated
           */}
           {isActive ? (
-            <iframe
-              src={getYouTubeEmbedUrl(ytId, {
-                autoplay: true,
-                playsinline: true,
-                controls: true,
-              })}
-              title={title || "From our kitchen video"}
-              className="absolute inset-0 h-full w-full border-0 object-cover"
-              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-              allowFullScreen
-            />
+            <>
+              {isIframeLoading && (
+                <div className="absolute inset-0 z-20 flex flex-col items-center justify-center bg-black/70 backdrop-blur-xs">
+                  <div className="size-8 rounded-full border-2 border-white/20 border-t-white animate-spin mb-2" />
+                  <span className="text-[10px] font-medium text-white/75">Loading video...</span>
+                </div>
+              )}
+              <iframe
+                ref={iframeRef}
+                src={getYouTubeEmbedUrl(ytId, {
+                  autoplay: true,
+                  playsinline: true,
+                  controls: true,
+                })}
+                onLoad={() => setIsIframeLoading(false)}
+                title={title || "From our kitchen video"}
+                className="absolute inset-0 h-full w-full border-0 object-cover"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                allowFullScreen
+                loading="eager"
+              />
+            </>
           ) : (
             /* Lightweight Thumbnail Layer: Initially rendered without YouTube JS/iframe */
             thumbnailSrc && (

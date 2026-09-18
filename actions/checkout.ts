@@ -319,6 +319,7 @@ export async function createRazorpayCheckoutSession(
         total_amount_paise: totalAmountPaise,
         order_status: "pending",
         payment_status: "pending",
+        payment_method: "RAZORPAY",
         customer_name_snapshot: checkout.fullName.trim(),
         customer_phone_snapshot: checkout.phone.trim(),
         customer_email_snapshot: checkout.email?.trim() || null,
@@ -831,6 +832,7 @@ export async function verifyAndFinalizePayment(
       .update({
         payment_status: "paid",
         order_status: "processing",
+        payment_method: "RAZORPAY",
         updated_at: new Date().toISOString(),
       })
       .eq("id", order.id);

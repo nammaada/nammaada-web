@@ -38,8 +38,6 @@ async function OrderSuccessContent({
     notFound();
   }
 
-  const isCod = order.payment_method === "COD" || order.payment_status === "pending";
-
   const items = (order.order_items as unknown as Array<{
     id: string;
     product_name_snapshot: string;
@@ -55,6 +53,18 @@ async function OrderSuccessContent({
   }>) || [];
 
   const latestPayment = payments[0];
+
+  // Determine authoritative payment method:
+  // If order or payment is paid, or payment_method is RAZORPAY/ONLINE, or has a razorpay_payment_id:
+  const isOnlinePaid =
+    order.payment_status === "paid" ||
+    order.payment_method === "RAZORPAY" ||
+    order.payment_method === "ONLINE" ||
+    Boolean(latestPayment?.razorpay_payment_id) ||
+    latestPayment?.status === "paid";
+
+  const isCod = !isOnlinePaid && (order.payment_method === "COD" || order.payment_status === "pending");
+
   const whatsappUrl = `https://wa.me/919995811622?text=Hi%20Namma%20Ada,%20I%20have%20a%20question%20regarding%20my%20order%20%23${order.order_number}`;
 
   return (
@@ -77,7 +87,7 @@ async function OrderSuccessContent({
           <p className="text-xs sm:text-sm text-[#2b1719]/75 max-w-md mx-auto">
             {isCod
               ? `Your delicacies are being carefully prepared with authentic tradition. Please keep ${formatINR(order.total_amount_paise)} ready to pay upon delivery.`
-              : "Your delicacies are being carefully prepared with authentic tradition. A confirmation has been recorded."}
+              : `Your delicacies are being carefully prepared with authentic tradition. Your payment of ${formatINR(order.total_amount_paise)} via Razorpay (UPI / NetBanking / Cards) has been successfully received.`}
           </p>
         </div>
 
@@ -98,7 +108,7 @@ async function OrderSuccessContent({
               <>
                 <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 border border-emerald-200 px-3 py-1 text-xs font-semibold text-emerald-800">
                   <span className="size-2 rounded-full bg-emerald-500 animate-pulse" />
-                  Paid via Razorpay
+                  Paid Online via Razorpay
                 </span>
                 {latestPayment?.razorpay_payment_id ? (
                   <span className="font-mono text-[11px] text-[#6e5b55] bg-[#f4efeb] px-2.5 py-1 rounded-md border border-[#eedec8]">
