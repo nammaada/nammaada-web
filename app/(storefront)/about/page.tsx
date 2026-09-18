@@ -2,16 +2,46 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { ArrowRight, Heart, Leaf, UtensilsCrossed } from "lucide-react";
 import { Container } from "@/components/ui/container";
+import { JsonLd, ORGANIZATION_SCHEMA } from "@/lib/seo/structured-data";
 
 export const metadata: Metadata = {
-  title: "About Us | Namma Ada",
+  title: "About Us - Kerala Food & Handcrafted Delicacies in Bangalore",
   description:
-    "A little taste of home, made with a whole lot of love. Learn about Namma Ada's authentic Kerala delicacies, mission, vision, and team in Bangalore.",
+    "Learn about Namma Ada, a Bangalore-based Kerala delicacy brand inspired by generation-old recipes. Handcrafted Palada Payasam, soft Unniyappam, and traditional snacks made fresh in Kalyan Nagar, Bangalore.",
+  alternates: {
+    canonical: "https://nammaada.com/about",
+  },
+  openGraph: {
+    title: "About Namma Ada | Authentic Kerala Delicacies in Bangalore",
+    description:
+      "A little taste of home, made with a whole lot of love. Handcrafted Palada Payasam, soft Unniyappam, and traditional Kerala snacks made fresh in Bangalore.",
+    url: "https://nammaada.com/about",
+    type: "website",
+    images: [
+      {
+        url: "https://res.cloudinary.com/htzxecwe/image/upload/v1789553679/namma_ada_email_logo.png",
+        width: 800,
+        height: 600,
+        alt: "About Namma Ada - Authentic Kerala Delicacies in Bangalore",
+      },
+    ],
+  },
+};
+
+const ABOUT_SCHEMA = {
+  "@context": "https://schema.org",
+  "@type": "AboutPage",
+  name: "About Namma Ada",
+  url: "https://nammaada.com/about",
+  description:
+    "Learn about Namma Ada, our mission, generation-old Kerala recipes, and our kitchen in Kalyan Nagar, Bangalore.",
+  mainEntity: ORGANIZATION_SCHEMA,
 };
 
 export default function AboutPage() {
   return (
     <div className="py-8 sm:py-14 lg:py-16">
+      <JsonLd data={ABOUT_SCHEMA} />
       <Container className="max-w-3xl mx-auto">
         {/* Main Editorial Glass Card */}
         <div className="rounded-3xl border border-white/50 bg-gradient-to-br from-white/60 via-[#fcf7ee]/35 to-[#f5e8d5]/25 p-6 sm:p-10 lg:p-12 backdrop-blur-xl [transform:translateZ(0)] shadow-[0_16px_36px_-10px_rgba(43,23,25,0.08),inset_0_1px_1.5px_0_rgba(255,255,255,0.75)] text-center space-y-8">

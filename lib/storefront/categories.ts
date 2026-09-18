@@ -36,3 +36,8 @@ export const getStorefrontCategories = unstable_cache(
   { tags: ["categories"], revalidate: 300 }
 );
 
+export async function getCategoryBySlug(slug: string): Promise<StorefrontCategory | null> {
+  const categories = await getStorefrontCategories();
+  return categories.find((c) => c.slug.toLowerCase() === slug.toLowerCase()) || null;
+}
+

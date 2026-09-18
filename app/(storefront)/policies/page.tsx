@@ -2,15 +2,38 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Container } from "@/components/ui/container";
 import { PoliciesScrollHandler } from "@/components/policies/policies-scroll-handler";
+import { JsonLd, ORGANIZATION_SCHEMA } from "@/lib/seo/structured-data";
 
 export const metadata: Metadata = {
-  title: "Policies | Namma Ada",
-  description: "Official policies for Namma Ada: Return & Refund Policy, Shipping Policy, Terms & Conditions, and Privacy Policy.",
+  title: "Policies - Bengaluru Shipping, Returns & Terms",
+  description:
+    "Official customer policies for Namma Ada: Delivery across Bengaluru Wednesday to Sunday, return & refund terms for fresh food within 2 hours, terms and privacy guidelines.",
+  alternates: {
+    canonical: "https://nammaada.com/policies",
+  },
+  openGraph: {
+    title: "Customer Policies, Shipping & Returns | Namma Ada Bengaluru",
+    description:
+      "Official customer policies for Namma Ada: Delivery across Bengaluru Wednesday to Sunday, return & refund guidelines, and terms of service.",
+    url: "https://nammaada.com/policies",
+    type: "website",
+  },
+};
+
+const POLICIES_SCHEMA = {
+  "@context": "https://schema.org",
+  "@type": "WebPage",
+  name: "Policies - Namma Ada",
+  url: "https://nammaada.com/policies",
+  description:
+    "Shipping policies across Bengaluru, perishable food return & refund conditions, and terms of service for Namma Ada.",
+  publisher: ORGANIZATION_SCHEMA,
 };
 
 export default function PoliciesPage() {
   return (
     <div className="py-8 sm:py-14 lg:py-16">
+      <JsonLd data={POLICIES_SCHEMA} />
       <PoliciesScrollHandler />
       <Container className="max-w-4xl mx-auto">
         {/* Main Editorial Glass Card */}
