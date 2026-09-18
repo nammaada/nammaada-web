@@ -1,3 +1,21 @@
+export function preloadYouTubeConnection() {
+  if (typeof document === "undefined") return;
+  const domains = [
+    "https://www.youtube-nocookie.com",
+    "https://i.ytimg.com",
+    "https://www.google.com",
+  ];
+  domains.forEach((href) => {
+    if (!document.querySelector(`link[href="${href}"]`)) {
+      const link = document.createElement("link");
+      link.rel = "preconnect";
+      link.href = href;
+      link.crossOrigin = "anonymous";
+      document.head.appendChild(link);
+    }
+  });
+}
+
 export function extractYouTubeId(url?: string | null): string | null {
   if (!url) return null;
   const trimmed = url.trim();
@@ -194,6 +212,31 @@ export function pauseAllOtherYouTubePlayers(activePlayer: any) {
         player.pauseVideo();
       } catch {}
     }
+  });
+}
+
+export function stopAllYouTubeVideos() {
+  if (typeof document === "undefined") return;
+
+  // 1. Stop any registered YT.Player instances
+  activeYouTubePlayers.forEach((player) => {
+    try {
+      if (typeof player.stopVideo === "function") {
+        player.stopVideo();
+      } else if (typeof player.pauseVideo === "function") {
+        player.pauseVideo();
+      }
+    } catch {}
+  });
+
+  // 2. Post stop command to all YouTube iframes and clear their source
+  const iframes = document.querySelectorAll<HTMLIFrameElement>('iframe[src*="youtube"]');
+  iframes.forEach((iframe) => {
+    try {
+      iframe.contentWindow?.postMessage('{"event":"command","func":"stopVideo","args":""}', "*");
+      iframe.contentWindow?.postMessage('{"event":"command","func":"pauseVideo","args":""}', "*");
+      iframe.src = "about:blank";
+    } catch {}
   });
 }
 

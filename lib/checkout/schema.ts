@@ -9,7 +9,13 @@ const phone = z.string()
   .max(20, "Enter a valid phone number.")
   .refine((value) => /^[+()0-9\s-]+$/.test(value) && (value.match(/[0-9]/g)?.length ?? 0) >= 7, "Enter a valid phone number.");
 
-const optionalEmail = z.union([emailSchema, z.literal("")]).transform((value) => value || undefined);
+const optionalEmail = z
+  .string()
+  .trim()
+  .email("Enter a valid email address.")
+  .optional()
+  .or(z.literal("").transform(() => undefined))
+  .or(z.undefined());
 
 export const checkoutSchema = z.object({
   fullName: requiredText("Full name", 120),
