@@ -224,18 +224,16 @@ export function renderAdminOrderEmail(data: OrderEmailData): string {
                   `
                       : ""
                   }
-                  ${
-                    data.customerEmail
-                      ? `
                   <tr>
                     <td style="font-size: 12px; color: #6e5b55;">Email:</td>
-                    <td style="font-size: 13px; color: #2b1719;">
-                      <a href="mailto:${data.customerEmail}" style="color: #711e2c; text-decoration: none;">${data.customerEmail}</a>
+                    <td style="font-size: 13px; color: ${data.customerEmail ? "#2b1719" : "#8c7e7a"}; font-style: ${data.customerEmail ? "normal" : "italic"};">
+                      ${
+                        data.customerEmail
+                          ? `<a href="mailto:${data.customerEmail}" style="color: #711e2c; text-decoration: none;">${data.customerEmail}</a>`
+                          : "Not provided by customer"
+                      }
                     </td>
                   </tr>
-                  `
-                      : ""
-                  }
                 </table>
               </td>
             </tr>

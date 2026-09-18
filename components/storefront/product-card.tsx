@@ -358,10 +358,10 @@ export function ProductCard({
 
         {/* Action Controls: Quantity [-] qty [+] & Add to Cart */}
         <div className="mt-auto pt-2 sm:pt-3 border-t border-white/50 flex items-center justify-between gap-1 sm:gap-2">
-          {/* Quantity Selector */}
+          {/* Quantity Selector: hidden on mobile when out of stock to allow full button width */}
           <div
-            className={`flex items-center rounded-lg sm:rounded-xl border border-white/70 bg-white/70 backdrop-blur-xs text-xs font-bold text-[#2b1719] p-0.5 sm:p-1 shrink-0 shadow-2xs ${
-              !product.is_in_stock ? "opacity-40 pointer-events-none" : ""
+            className={`items-center rounded-lg sm:rounded-xl border border-white/70 bg-white/70 backdrop-blur-xs text-xs font-bold text-[#2b1719] p-0.5 sm:p-1 shrink-0 shadow-2xs ${
+              !product.is_in_stock ? "hidden sm:flex opacity-40 pointer-events-none" : "flex"
             }`}
           >
             <button
@@ -387,26 +387,26 @@ export function ProductCard({
             </button>
           </div>
 
-          {/* Add to Cart Button */}
+          {/* Add to Cart / Out of Stock Button */}
           <button
             type="button"
             onClick={handleAddToCart}
             disabled={!product.is_in_stock}
             aria-label={product.is_in_stock ? `Add ${product.name} to cart` : `${product.name} is out of stock`}
-            className={`flex-1 min-w-0 h-7 sm:min-h-10 inline-flex items-center justify-center gap-1 sm:gap-1.5 rounded-lg sm:rounded-xl px-1.5 sm:px-3.5 py-1 sm:py-2 text-[10px] sm:text-xs font-bold shadow-xs transition-all whitespace-nowrap overflow-hidden ${
+            className={`w-full sm:flex-1 min-w-0 h-7 sm:min-h-10 inline-flex items-center justify-center gap-1 sm:gap-1.5 rounded-lg sm:rounded-xl px-1.5 sm:px-3.5 py-1 sm:py-2 text-[10px] sm:text-xs font-bold shadow-xs transition-all whitespace-nowrap overflow-hidden ${
               product.is_in_stock
                 ? "bg-[#711e2c] text-white hover:bg-[#5a1723] active:scale-95 cursor-pointer"
-                : "bg-[#711e2c]/35 text-white/80 border border-[#711e2c]/20 cursor-not-allowed pointer-events-none"
+                : "bg-[#711e2c]/35 text-white/90 border border-[#711e2c]/20 cursor-not-allowed pointer-events-none"
             } ${isAdding ? "scale-95 opacity-90" : ""}`}
           >
-            <ShoppingCart size={11} className="shrink-0 sm:w-3.5 sm:h-3.5" />
             {product.is_in_stock ? (
               <>
+                <ShoppingCart size={11} className="shrink-0 sm:w-3.5 sm:h-3.5" />
                 <span className="sm:hidden whitespace-nowrap">Add</span>
                 <span className="hidden sm:inline whitespace-nowrap">Add to Cart</span>
               </>
             ) : (
-              <span className="whitespace-nowrap">Out of Stock</span>
+              <span className="whitespace-nowrap font-semibold">Out of Stock</span>
             )}
           </button>
         </div>

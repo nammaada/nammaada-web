@@ -1,8 +1,10 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
+import { usePathname } from "next/navigation";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { ReelCardPlayer } from "./reel-card-player";
+import { stopAllYouTubeVideos } from "@/lib/youtube";
 import type { KitchenReel } from "@/lib/storefront/content";
 
 export function ReelsCarousel({
@@ -12,6 +14,7 @@ export function ReelsCarousel({
   reels: KitchenReel[];
   fallbackInstagramUrl?: string;
 }) {
+  const pathname = usePathname();
   const [activeReelId, setActiveReelId] = useState<string | null>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isDesktop, setIsDesktop] = useState(false);
@@ -22,6 +25,39 @@ export function ReelsCarousel({
 
   const displayReels = (reels || []).slice(0, 3);
   const total = displayReels.length;
+
+  // Immediately kill any playing video when user navigates to another page
+  useEffect(() => {
+    setActiveReelId(null);
+    stopAllYouTubeVideos();
+  }, [pathname]);
+
+  // Kill video playback if tab is hidden, page is closed, or component unmounts
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        setActiveReelId(null);
+        stopAllYouTubeVideos();
+      }
+    };
+
+    const handleBeforeUnload = () => {
+      setActiveReelId(null);
+      stopAllYouTubeVideos();
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    window.addEventListener("pagehide", handleBeforeUnload);
+
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+      window.removeEventListener("pagehide", handleBeforeUnload);
+      setActiveReelId(null);
+      stopAllYouTubeVideos();
+    };
+  }, []);
 
   useEffect(() => {
     setIsMounted(true);
@@ -36,11 +72,13 @@ export function ReelsCarousel({
   const handlePrev = useCallback(() => {
     setCurrentIndex((prev) => (prev - 1 + total) % total);
     setActiveReelId(null);
+    stopAllYouTubeVideos();
   }, [total]);
 
   const handleNext = useCallback(() => {
     setCurrentIndex((prev) => (prev + 1) % total);
     setActiveReelId(null);
+    stopAllYouTubeVideos();
   }, [total]);
 
   const handleTouchStart = (e: React.TouchEvent) => {
