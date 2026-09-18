@@ -2,6 +2,7 @@
 
 import { useMemo, useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { SlidersHorizontal, X, Check, RotateCcw, ChevronDown, Layers } from "lucide-react";
 import { ProductCard } from "@/components/storefront/product-card";
@@ -28,15 +29,17 @@ const SORT_OPTIONS: { id: SortOptionKey; label: string }[] = [
 export function ProductCatalogView({
   categories,
   initialProducts,
+  defaultCategorySlug,
 }: {
   categories: StorefrontCategory[];
   initialProducts: StorefrontProduct[];
+  defaultCategorySlug?: string;
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
 
-  // Read initial values from URL query if available
-  const initialCategory = searchParams?.get("category") || "all";
+  // Read initial values from prop or URL query if available
+  const initialCategory = defaultCategorySlug || searchParams?.get("category") || "all";
   const initialPrice = (searchParams?.get("price") as PriceRangeKey) || "all";
   const initialSort = (searchParams?.get("sort") as SortOptionKey) || "featured";
   const searchQuery = searchParams?.get("search") || searchParams?.get("q") || "";
@@ -44,6 +47,15 @@ export function ProductCatalogView({
   const [selectedCategorySlug, setSelectedCategorySlug] = useState<string>(initialCategory);
   const [selectedPriceRange, setSelectedPriceRange] = useState<PriceRangeKey>(initialPrice);
   const [selectedSort, setSelectedSort] = useState<SortOptionKey>(initialSort);
+
+  // Sync category selection when defaultCategorySlug prop changes (e.g. route transitions)
+  useEffect(() => {
+    if (defaultCategorySlug) {
+      setSelectedCategorySlug(defaultCategorySlug);
+    } else if (!searchParams?.get("category")) {
+      setSelectedCategorySlug("all");
+    }
+  }, [defaultCategorySlug, searchParams]);
 
   // Desktop dropdown open states
   const [priceDropdownOpen, setPriceDropdownOpen] = useState(false);
@@ -117,17 +129,17 @@ export function ProductCatalogView({
     };
   }, []);
 
-  // Sync state with URL without full page reload
+  // Sync state with URL: routes to /categories/[slug] for SEO, /products for all
   function updateQuery(category: string, price: string, sort: string) {
     const params = new URLSearchParams();
-    if (category && category !== "all") params.set("category", category);
     if (price && price !== "all") params.set("price", price);
     if (sort && sort !== "featured") params.set("sort", sort);
     if (searchQuery) params.set("search", searchQuery);
 
     const queryStr = params.toString();
-    const newPath = queryStr ? `/products?${queryStr}` : "/products";
-    router.replace(newPath, { scroll: false });
+    const basePath = category && category !== "all" ? `/categories/${category}` : "/products";
+    const newPath = queryStr ? `${basePath}?${queryStr}` : basePath;
+    router.push(newPath, { scroll: false });
   }
 
   function handleCategoryChange(slug: string) {
@@ -228,9 +240,24 @@ export function ProductCatalogView({
           className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto scrollbar-none py-0.5 min-w-0 flex-1"
         >
           {/* All Products Pill */}
-          <button
-            type="button"
-            onClick={() => handleCategoryChange("all")}
+          <Link
+            href={
+              (selectedPriceRange !== "all" || selectedSort !== "featured" || searchQuery)
+                ? (() => {
+                    const p = new URLSearchParams();
+                    if (selectedPriceRange !== "all") p.set("price", selectedPriceRange);
+                    if (selectedSort !== "featured") p.set("sort", selectedSort);
+                    if (searchQuery) p.set("search", searchQuery);
+                    return `/products?${p.toString()}`;
+                  })()
+                : "/products"
+            }
+            onClick={(e) => {
+              if (!e.metaKey && !e.ctrlKey && !e.shiftKey && !e.altKey) {
+                e.preventDefault();
+                handleCategoryChange("all");
+              }
+            }}
             className={`h-[38px] shrink-0 inline-flex items-center gap-1.5 sm:gap-2 rounded-full border px-3.5 sm:px-4 text-xs sm:text-[13px] font-semibold transition-all duration-200 cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring ${
               selectedCategorySlug === "all"
                 ? "border-[#711e2c] bg-[#711e2c] text-[#fffcf2] shadow-[0_6px_16px_-4px_rgba(113,30,44,0.35)] backdrop-blur-md"
@@ -245,17 +272,33 @@ export function ProductCatalogView({
             >
               {categoryCounts["all"] || 0}
             </span>
-          </button>
+          </Link>
 
           {/* Specific Category Pills (PAYASAM, OIL, UNNIYAPPAM, CHIPS, PICKLES) */}
           {categories.map((category) => {
             const isSelected = selectedCategorySlug === category.slug;
             const count = categoryCounts[category.slug] || 0;
+            const categoryHref =
+              (selectedPriceRange !== "all" || selectedSort !== "featured" || searchQuery)
+                ? (() => {
+                    const p = new URLSearchParams();
+                    if (selectedPriceRange !== "all") p.set("price", selectedPriceRange);
+                    if (selectedSort !== "featured") p.set("sort", selectedSort);
+                    if (searchQuery) p.set("search", searchQuery);
+                    return `/categories/${category.slug}?${p.toString()}`;
+                  })()
+                : `/categories/${category.slug}`;
+
             return (
-              <button
+              <Link
                 key={category.id}
-                type="button"
-                onClick={() => handleCategoryChange(category.slug)}
+                href={categoryHref}
+                onClick={(e) => {
+                  if (!e.metaKey && !e.ctrlKey && !e.shiftKey && !e.altKey) {
+                    e.preventDefault();
+                    handleCategoryChange(category.slug);
+                  }
+                }}
                 className={`h-[38px] shrink-0 inline-flex items-center gap-1.5 sm:gap-2 rounded-full border px-3.5 sm:px-4 text-xs sm:text-[13px] font-semibold transition-all duration-200 cursor-pointer focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring ${
                   isSelected
                     ? "border-[#711e2c] bg-[#711e2c] text-[#fffcf2] shadow-[0_6px_16px_-4px_rgba(113,30,44,0.35)] backdrop-blur-md"
@@ -270,7 +313,7 @@ export function ProductCatalogView({
                 >
                   {count}
                 </span>
-              </button>
+              </Link>
             );
           })}
         </nav>
@@ -628,11 +671,24 @@ export function ProductCatalogView({
                   <p className="text-xs font-semibold text-[#6e5b55] mb-2">Select a category to view:</p>
                   
                   {/* All Products Option */}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      handleCategoryChange("all");
-                      setIsMobileFilterOpen(false);
+                  <Link
+                    href={
+                      (selectedPriceRange !== "all" || selectedSort !== "featured" || searchQuery)
+                        ? (() => {
+                            const p = new URLSearchParams();
+                            if (selectedPriceRange !== "all") p.set("price", selectedPriceRange);
+                            if (selectedSort !== "featured") p.set("sort", selectedSort);
+                            if (searchQuery) p.set("search", searchQuery);
+                            return `/products?${p.toString()}`;
+                          })()
+                        : "/products"
+                    }
+                    onClick={(e) => {
+                      if (!e.metaKey && !e.ctrlKey && !e.shiftKey && !e.altKey) {
+                        e.preventDefault();
+                        handleCategoryChange("all");
+                        setIsMobileFilterOpen(false);
+                      }
                     }}
                     className={`w-full flex items-center justify-between rounded-xl border p-3.5 text-xs font-semibold transition-all cursor-pointer ${
                       selectedCategorySlug === "all"
@@ -648,18 +704,32 @@ export function ProductCatalogView({
                     >
                       {categoryCounts["all"] || 0}
                     </span>
-                  </button>
+                  </Link>
 
                   {/* Individual Categories: PAYASAM, OIL, UNNIYAPPAM, CHIPS, PICKLES */}
                   {categories.map((cat) => {
                     const isSelected = selectedCategorySlug === cat.slug;
+                    const catHref =
+                      (selectedPriceRange !== "all" || selectedSort !== "featured" || searchQuery)
+                        ? (() => {
+                            const p = new URLSearchParams();
+                            if (selectedPriceRange !== "all") p.set("price", selectedPriceRange);
+                            if (selectedSort !== "featured") p.set("sort", selectedSort);
+                            if (searchQuery) p.set("search", searchQuery);
+                            return `/categories/${cat.slug}?${p.toString()}`;
+                          })()
+                        : `/categories/${cat.slug}`;
+
                     return (
-                      <button
+                      <Link
                         key={cat.id}
-                        type="button"
-                        onClick={() => {
-                          handleCategoryChange(cat.slug);
-                          setIsMobileFilterOpen(false);
+                        href={catHref}
+                        onClick={(e) => {
+                          if (!e.metaKey && !e.ctrlKey && !e.shiftKey && !e.altKey) {
+                            e.preventDefault();
+                            handleCategoryChange(cat.slug);
+                            setIsMobileFilterOpen(false);
+                          }
                         }}
                         className={`w-full flex items-center justify-between rounded-xl border p-3.5 text-xs font-semibold transition-all cursor-pointer ${
                           isSelected
@@ -675,7 +745,7 @@ export function ProductCatalogView({
                         >
                           {categoryCounts[cat.slug] || 0}
                         </span>
-                      </button>
+                      </Link>
                     );
                   })}
                 </div>
