@@ -2,11 +2,40 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Mail, Phone, MapPin, MessageCircle, PackageOpen, ArrowUpRight, Clock, Sparkles } from "lucide-react";
 import { Container } from "@/components/ui/container";
+import { JsonLd, ORGANIZATION_SCHEMA } from "@/lib/seo/structured-data";
 
 export const metadata: Metadata = {
-  title: "Contact Us | Namma Ada",
+  title: "Contact Us & Orders - Kitchen Location in Kalyan Nagar, Bangalore",
   description:
-    "Get in touch with Namma Ada for authentic Kerala delicacies, direct WhatsApp orders, bulk catering, and kitchen location in Bangalore.",
+    "Connect with Namma Ada for fresh Kerala delicacies, WhatsApp bulk orders, and catering in Bangalore. Kitchen located at HRBR 1st Block, Kalyan Nagar, Bangalore. Call or WhatsApp +91 9995811622.",
+  alternates: {
+    canonical: "https://nammaada.com/contact",
+  },
+  openGraph: {
+    title: "Contact Namma Ada | Kitchen Location & WhatsApp Orders in Bangalore",
+    description:
+      "Order fresh Kerala delicacies or visit our kitchen in Kalyan Nagar, Bangalore. Call or WhatsApp +91 9995811622 for orders and catering.",
+    url: "https://nammaada.com/contact",
+    type: "website",
+    images: [
+      {
+        url: "https://res.cloudinary.com/htzxecwe/image/upload/v1789553679/namma_ada_email_logo.png",
+        width: 800,
+        height: 600,
+        alt: "Contact Namma Ada Bangalore",
+      },
+    ],
+  },
+};
+
+const CONTACT_SCHEMA = {
+  "@context": "https://schema.org",
+  "@type": "ContactPage",
+  name: "Contact Namma Ada",
+  url: "https://nammaada.com/contact",
+  description:
+    "Contact Namma Ada for fresh Kerala delicacies, catering, and kitchen pickup in Bangalore.",
+  mainEntity: ORGANIZATION_SCHEMA,
 };
 
 export default function ContactPage() {
@@ -19,6 +48,7 @@ export default function ContactPage() {
 
   return (
     <div className="relative pt-6 pb-16 sm:pt-10 sm:pb-24">
+      <JsonLd data={CONTACT_SCHEMA} />
       <Container className="max-w-4xl mx-auto px-4 sm:px-6">
         {/* Page Header */}
         <div className="text-center space-y-3 mb-10 sm:mb-14">

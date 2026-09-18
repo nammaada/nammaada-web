@@ -63,6 +63,7 @@ export function ProductCard({
 
   const { rating, reviewCount } = getProductRating(product.id, index);
   const weight = product.weight || extractWeight(product.name, product.short_description);
+  const productHref = `/products/${product.slug}`;
 
   // Determine top badge
   const badgeText = product.is_featured
@@ -137,7 +138,7 @@ export function ProductCard({
 
         {/* Left: image fills edge to edge - no padding, no white border */}
         <Link
-          href={`/products/${product.slug}`}
+          href={productHref}
           prefetch={true}
           aria-label={`View ${product.name}`}
           className="relative block shrink-0 w-[200px] overflow-hidden border-r border-white/30"
@@ -145,7 +146,7 @@ export function ProductCard({
           {product.primary_image ? (
             <Image
               src={product.primary_image.url}
-              alt={product.primary_image.alt || product.name}
+              alt={product.primary_image.alt || `${product.name} - Namma Ada`}
               fill
               priority={index < 3}
               loading={index < 3 ? "eager" : "lazy"}
@@ -175,7 +176,7 @@ export function ProductCard({
           </span>
 
           {/* Title */}
-          <Link href={`/products/${product.slug}`} prefetch={true} className="block">
+          <Link href={productHref} prefetch={true} className="block">
             <h2 className="font-serif text-lg font-bold uppercase text-[#2b1719] group-hover:text-[#711e2c] transition-colors line-clamp-1">
               {product.name}
             </h2>
@@ -280,7 +281,7 @@ export function ProductCard({
     <div className="group flex h-full flex-col overflow-hidden rounded-xl sm:rounded-3xl border border-white/50 bg-gradient-to-br from-white/60 via-[#fcf7ee]/35 to-[#f5e8d5]/25 backdrop-blur-xl [transform:translateZ(0)] [backface-visibility:hidden] [isolation:isolate] shadow-[0_16px_36px_-10px_rgba(43,23,25,0.08),inset_0_1px_1.5px_0_rgba(255,255,255,0.75)] transition-[border-color,background-color,box-shadow] duration-300 hover:border-white/65 hover:from-white/70 hover:via-[#fcf7ee]/45 hover:to-[#f5e8d5]/32 hover:shadow-[0_20px_40px_-10px_rgba(43,23,25,0.12),inset_0_1px_1.5px_0_rgba(255,255,255,0.85)]">
       {/* Product Image Section */}
       <Link
-        href={`/products/${product.slug}`}
+        href={productHref}
         prefetch={true}
         aria-label={`View ${product.name}`}
         className="relative block aspect-[4/3] w-full overflow-hidden bg-white/25 border-b border-white/45"
@@ -288,7 +289,7 @@ export function ProductCard({
         {product.primary_image ? (
           <Image
             src={product.primary_image.url}
-            alt={product.primary_image.alt || product.name}
+            alt={product.primary_image.alt || `${product.name} - Namma Ada`}
             fill
             priority={index < 3}
             loading={index < 3 ? "eager" : "lazy"}
@@ -313,7 +314,7 @@ export function ProductCard({
       {/* Product Content Details */}
       <div className="flex flex-1 flex-col p-2.5 sm:p-5 space-y-1 sm:space-y-2.5">
         {/* Title */}
-        <Link href={`/products/${product.slug}`} prefetch={true} className="block">
+        <Link href={productHref} prefetch={true} className="block">
           <h2 className="font-serif text-xs sm:text-lg font-bold uppercase text-[#2b1719] group-hover:text-[#711e2c] transition-colors line-clamp-1">
             {product.name}
           </h2>

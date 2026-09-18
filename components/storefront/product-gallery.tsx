@@ -20,7 +20,7 @@ export function ProductGallery({ productName, images }: { productName: string; i
   return (
     <div className="space-y-4">
       <div className="relative aspect-square overflow-hidden rounded-2xl border border-border bg-secondary sm:aspect-[5/4]">
-        {activeImage ? <Image src={activeImage.url} alt={activeImage.alt} fill priority decoding="async" className="object-cover" sizes="(min-width: 1024px) 52vw, 100vw" /> : <Placeholder />}
+        {activeImage ? <Image src={activeImage.url} alt={activeImage.alt || `${productName} - Namma Ada`} fill priority decoding="async" className="object-cover" sizes="(min-width: 1024px) 52vw, 100vw" /> : <Placeholder />}
       </div>
 
       {images.length > 1 ? (
