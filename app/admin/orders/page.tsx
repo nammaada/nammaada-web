@@ -172,10 +172,11 @@ export default async function OrdersPage({
 
                     {/* Order Status */}
                     <td className="px-4 py-4">
-                      <form action={updateOrder} className="flex items-center gap-1.5">
+                      <form action={updateOrder} className="flex flex-col gap-1.5">
                         <input name="id" type="hidden" value={row.id} />
+                        {/* Order Status dropdown — always shown */}
                         <select
-                          aria-label={`Status for ${row.order_number}`}
+                          aria-label={`Order status for ${row.order_number}`}
                           className="rounded-md border border-input bg-card px-2 py-1 text-xs font-medium text-foreground outline-none focus-visible:border-ring"
                           defaultValue={row.order_status}
                           name="order_status"
@@ -188,11 +189,25 @@ export default async function OrdersPage({
                           <option value="cancelled">Cancelled</option>
                           <option value="refunded">Refunded</option>
                         </select>
+                        {/* Payment Status dropdown — COD only; Razorpay status is system-controlled */}
+                        {row.paymentMethod === "COD" && (
+                          <select
+                            aria-label={`Payment status for ${row.order_number}`}
+                            className="rounded-md border border-input bg-card px-2 py-1 text-xs font-medium text-foreground outline-none focus-visible:border-ring"
+                            defaultValue={row.payment_status}
+                            name="payment_status"
+                          >
+                            <option value="pending">Pay: Pending</option>
+                            <option value="paid">Pay: Paid</option>
+                            <option value="refunded">Pay: Refunded</option>
+                          </select>
+                        )}
                         <Button size="sm" type="submit" variant="secondary" className="h-7 px-2 text-xs">
                           Save
                         </Button>
                       </form>
                     </td>
+
 
                     {/* Date */}
                     <td className="px-4 py-4 text-xs text-muted-foreground whitespace-nowrap">

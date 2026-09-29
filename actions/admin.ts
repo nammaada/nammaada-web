@@ -363,7 +363,39 @@ export async function moveTestimonial(form: FormData) {
   ok("/admin/testimonials");
 }
 
-export async function updateOrder(form: FormData) { await requireAdmin(); const id = uuid(form, "id"); const status = text(form, "order_status"); const allowed = ["pending", "paid", "processing", "shipped", "delivered", "cancelled", "refunded"]; if (!id || !allowed.includes(status)) fail("/admin/orders", "Invalid order status."); const values = { order_status: status }; const result = await createSupabaseAdminClient().from("orders").update(values).eq("id", id); if (result.error) fail("/admin/orders", "Unable to update order status."); ok("/admin/orders"); }
+export async function updateOrder(form: FormData) {
+  await requireAdmin();
+  const id = uuid(form, "id");
+  const orderStatus = text(form, "order_status");
+  const paymentStatusRaw = text(form, "payment_status");
+
+  const allowedOrderStatus = ["pending", "paid", "processing", "shipped", "delivered", "cancelled", "refunded"];
+  const allowedPaymentStatus = ["pending", "failed", "paid", "refunded"];
+
+  if (!id) fail("/admin/orders", "Invalid order ID.");
+  if (orderStatus && !allowedOrderStatus.includes(orderStatus)) fail("/admin/orders", "Invalid order status.");
+  if (paymentStatusRaw && !allowedPaymentStatus.includes(paymentStatusRaw)) fail("/admin/orders", "Invalid payment status.");
+
+  // Build the update payload — only include fields that were submitted
+  const values: Record<string, string> = {};
+  if (orderStatus) values.order_status = orderStatus;
+  if (paymentStatusRaw) values.payment_status = paymentStatusRaw;
+
+  if (Object.keys(values).length === 0) fail("/admin/orders", "No changes to save.");
+
+  const client = createSupabaseAdminClient();
+  const result = await client.from("orders").update(values).eq("id", id);
+  if (result.error) {
+    console.error("[updateOrder] DB error:", result.error);
+    fail("/admin/orders", "Unable to update order. Please try again.");
+  }
+
+  // Revalidate both the list and the individual order detail page
+  revalidatePath("/admin/orders");
+  revalidatePath(`/admin/orders/${id}`);
+  revalidatePath("/admin/payments");
+  redirect("/admin/orders");
+}
 export async function updateEnquiry(form: FormData) { await requireAdmin(); const id = uuid(form, "id"); const status = text(form, "status"); const allowed = ["new", "in_progress", "resolved", "closed"]; if (!id || !allowed.includes(status)) fail("/admin/enquiries", "Invalid enquiry status."); const result = await createSupabaseAdminClient().from("bulk_enquiries").update({ status }).eq("id", id); if (result.error) fail("/admin/enquiries", "Unable to update enquiry."); ok("/admin/enquiries"); }
 
 export async function uploadProductImage(form: FormData) {
