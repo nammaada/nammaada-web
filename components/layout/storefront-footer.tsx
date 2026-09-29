@@ -350,7 +350,15 @@ export function StorefrontFooter() {
 
             {/* Line 2: CRAFTED BY EKODRIX */}
             <p className="text-[10px] sm:text-[11px] font-semibold tracking-widest text-[#fffcf2]/95 uppercase">
-              CRAFTED BY EKODRIX
+              CRAFTED BY{" "}
+              <Link
+                href="https://www.ekodrix.com/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="underline underline-offset-2 hover:text-white transition-colors"
+              >
+                EKODRIX
+              </Link>
             </p>
 
             {/* Line 4: Tradition text */}
