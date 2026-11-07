@@ -2,9 +2,12 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useRef } from "react";
-import { X, Trash2, Plus, Minus, ShoppingBag, ArrowRight } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { X, Trash2, Plus, Minus, ShoppingBag, ArrowRight, MapPin } from "lucide-react";
 import { useCart } from "@/components/cart/cart-provider";
+import { getIndianStates } from "@/lib/constants/india-geo";
+import { getShippingQuoteAction } from "@/actions/shipping";
+import type { StateShippingQuote } from "@/lib/shipping/rules";
 
 function formatINR(paise: number) {
   return new Intl.NumberFormat("en-IN", {
@@ -22,9 +25,40 @@ export function CartDrawer() {
     closeCart,
     setQuantity,
     removeItem,
+    selectedState,
+    setSelectedState,
   } = useCart();
 
+  const [shippingQuote, setShippingQuote] = useState<StateShippingQuote | null>(null);
+  const [isLoadingShipping, setIsLoadingShipping] = useState(false);
+  const indianStates = useMemo(() => getIndianStates(), []);
+
   const drawerRef = useRef<HTMLDivElement>(null);
+
+  // Live state shipping quote calculation
+  useEffect(() => {
+    if (!selectedState) return;
+    let isMounted = true;
+    queueMicrotask(() => {
+      if (isMounted) setIsLoadingShipping(true);
+    });
+    getShippingQuoteAction(selectedState)
+      .then((quote) => {
+        if (!isMounted) return;
+        setShippingQuote(quote);
+      })
+      .catch((err) => {
+        console.error("Drawer shipping quote error:", err);
+        if (isMounted) setShippingQuote(null);
+      })
+      .finally(() => {
+        if (isMounted) setIsLoadingShipping(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [selectedState]);
 
   // Lock body scroll when drawer is open
   useEffect(() => {
@@ -49,6 +83,10 @@ export function CartDrawer() {
   }, [isDrawerOpen, closeCart]);
 
   if (!isDrawerOpen) return null;
+
+  const shippingFeePaise = shippingQuote?.isAvailable ? shippingQuote.chargePaise : 0;
+  const estimatedTotalPaise = subtotalPaise + shippingFeePaise;
+  const isDeliveryUnavailable = shippingQuote !== null && !shippingQuote.isAvailable;
 
   return (
     <div
@@ -149,7 +187,7 @@ export function CartDrawer() {
                         type="button"
                         onClick={() => removeItem(item.lineId)}
                         aria-label={`Remove ${item.name}`}
-                        className="text-[#6e5b55] hover:text-red-700 transition-colors p-1"
+                        className="text-[#6e5b55] hover:text-red-700 transition-colors p-1 cursor-pointer"
                       >
                         <Trash2 size={14} />
                       </button>
@@ -196,33 +234,119 @@ export function CartDrawer() {
           )}
         </div>
 
-        {/* Footer with Subtotal & Proceed to Checkout */}
+        {/* Footer with State Selector, Subtotal & Proceed to Checkout */}
         {items.length > 0 && (
-          <div className="border-t border-[#eedec8] bg-[#fcf8f2] p-5 space-y-3">
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-[#6e5b55] font-medium">Subtotal</span>
-              <span className="font-serif text-lg font-bold text-[#711e2c]">
-                {formatINR(subtotalPaise)}
-              </span>
+          <div className="border-t border-[#eedec8] bg-[#fcf8f2] p-4 sm:p-5 space-y-3">
+            {/* Delivery State Selector */}
+            <div className="space-y-1 rounded-xl border border-[#eedec8] bg-white/80 p-2.5">
+              <div className="flex items-center justify-between text-[11px] font-semibold text-[#2b1719]">
+                <span className="flex items-center gap-1 text-[#711e2c]">
+                  <MapPin size={12} />
+                  <span>Deliver to</span>
+                </span>
+                {shippingQuote?.isAvailable && (
+                  <span className="text-[10px] text-emerald-800 font-bold bg-emerald-50 px-1.5 py-0.5 rounded">
+                    Eligible
+                  </span>
+                )}
+              </div>
+              <select
+                value={selectedState}
+                onChange={(e) => {
+                  setSelectedState(e.target.value);
+                  if (!e.target.value) setShippingQuote(null);
+                }}
+                className="w-full rounded-lg border border-[#dfd0bd] bg-[#fffdf8] px-2 py-1.5 text-xs font-medium text-[#2b1719] outline-none transition-colors focus:border-[#711e2c] cursor-pointer"
+              >
+                <option value="">Select State / UT</option>
+                <optgroup label="States">
+                  {indianStates
+                    .filter((s) => !s.isUnionTerritory)
+                    .map((s) => (
+                      <option key={s.code} value={s.code}>
+                        {s.name}
+                      </option>
+                    ))}
+                </optgroup>
+                <optgroup label="Union Territories">
+                  {indianStates
+                    .filter((s) => s.isUnionTerritory)
+                    .map((s) => (
+                      <option key={s.code} value={s.code}>
+                        {s.name}
+                      </option>
+                    ))}
+                </optgroup>
+              </select>
             </div>
 
-            <p className="text-[11px] text-[#6e5b55] leading-snug">
-              Taxes and shipping calculated at checkout.
-            </p>
+            {/* Price breakdown */}
+            <div className="space-y-1.5 text-xs">
+              <div className="flex items-center justify-between text-[#6e5b55]">
+                <span>Subtotal</span>
+                <span className="font-medium text-[#2b1719]">{formatINR(subtotalPaise)}</span>
+              </div>
+
+              <div className="flex items-center justify-between text-[#6e5b55]">
+                <span>Shipping</span>
+                {isLoadingShipping ? (
+                  <span className="text-[11px] text-[#6e5b55] animate-pulse">Calculating...</span>
+                ) : !selectedState ? (
+                  <span className="text-[11px] text-[#6e5b55]">Select state</span>
+                ) : shippingQuote ? (
+                  shippingQuote.isAvailable ? (
+                    <span className="font-semibold text-[#2b1719]">
+                      {shippingQuote.chargePaise === 0 ? (
+                        <span className="text-emerald-700 font-bold">FREE</span>
+                      ) : (
+                        formatINR(shippingQuote.chargePaise)
+                      )}
+                    </span>
+                  ) : (
+                    <span className="font-bold text-red-700">Delivery unavailable</span>
+                  )
+                ) : (
+                  <span className="text-[11px] text-[#6e5b55]">Select state</span>
+                )}
+              </div>
+
+              <div className="border-t border-[#eedec8] pt-2 flex items-center justify-between">
+                <span className="font-bold text-[#2b1719] text-sm">Estimated Total</span>
+                <span className="font-serif text-base font-bold text-[#711e2c]">
+                  {isLoadingShipping ? "..." : formatINR(estimatedTotalPaise)}
+                </span>
+              </div>
+            </div>
+
+            {isDeliveryUnavailable && (
+              <p className="text-[11px] font-semibold text-red-700 bg-red-50 border border-red-200 rounded-lg p-2 text-center">
+                Delivery is currently unavailable for {shippingQuote?.stateName}.
+              </p>
+            )}
 
             <Link
               href="/checkout"
               onClick={closeCart}
-              className="flex items-center justify-center gap-2 w-full rounded-full bg-[#711e2c] py-3.5 text-sm font-bold text-white shadow-lg hover:bg-[#5a1723] active:scale-[0.99] transition-all cursor-pointer"
+              className={`flex items-center justify-center gap-2 w-full rounded-full py-3 text-sm font-bold text-white shadow-lg transition-all ${
+                !selectedState || isDeliveryUnavailable
+                  ? "bg-[#711e2c]/60 pointer-events-none cursor-not-allowed"
+                  : "bg-[#711e2c] hover:bg-[#5a1723] active:scale-[0.99] cursor-pointer"
+              }`}
             >
-              <span>Proceed to Checkout</span>
+              <span>
+                {!selectedState
+                  ? "Select State to Checkout"
+                  : isDeliveryUnavailable
+                  ? "Delivery Unavailable"
+                  : "Proceed to Checkout"}
+              </span>
               <ArrowRight size={16} />
             </Link>
 
             <button
               type="button"
               onClick={closeCart}
-              className="w-full text-center text-xs text-[#6e5b55] hover:text-[#2b1719] font-medium pt-1 transition-colors cursor-pointer"
+              className="w-full text-center text-xs text-[#6e5b55] hover:text-[#2b1719] font-medium pt-0.5 transition-colors cursor-pointer"
             >
               Continue Shopping
             </button>

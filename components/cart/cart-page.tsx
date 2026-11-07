@@ -2,9 +2,13 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { Minus, Plus, Trash2, ArrowRight, ShoppingBag } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { Minus, Plus, Trash2, ArrowRight, ShoppingBag, MapPin } from "lucide-react";
 import { Container } from "@/components/ui/container";
 import { useCart } from "@/components/cart/cart-provider";
+import { getIndianStates } from "@/lib/constants/india-geo";
+import { getShippingQuoteAction } from "@/actions/shipping";
+import type { StateShippingQuote } from "@/lib/shipping/rules";
 
 function formatPrice(pricePaise: number) {
   return new Intl.NumberFormat("en-IN", { currency: "INR", style: "currency" }).format(pricePaise / 100);
@@ -46,7 +50,47 @@ function EmptyCart() {
 }
 
 export function CartPage() {
-  const { items, itemCount, subtotalPaise, hydrated, setQuantity, removeItem, clearCart } = useCart();
+  const {
+    items,
+    itemCount,
+    subtotalPaise,
+    hydrated,
+    setQuantity,
+    removeItem,
+    clearCart,
+    selectedState,
+    setSelectedState,
+  } = useCart();
+
+  const [shippingQuote, setShippingQuote] = useState<StateShippingQuote | null>(null);
+  const [isLoadingShipping, setIsLoadingShipping] = useState(false);
+
+  const indianStates = useMemo(() => getIndianStates(), []);
+
+  // Live state shipping quote calculation
+  useEffect(() => {
+    if (!selectedState) return;
+    let isMounted = true;
+    queueMicrotask(() => {
+      if (isMounted) setIsLoadingShipping(true);
+    });
+    getShippingQuoteAction(selectedState)
+      .then((quote) => {
+        if (!isMounted) return;
+        setShippingQuote(quote);
+      })
+      .catch((err) => {
+        console.error("Cart shipping quote error:", err);
+        if (isMounted) setShippingQuote(null);
+      })
+      .finally(() => {
+        if (isMounted) setIsLoadingShipping(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [selectedState]);
 
   if (!hydrated) {
     return (
@@ -60,6 +104,10 @@ export function CartPage() {
     );
   }
 
+  const shippingFeePaise = shippingQuote?.isAvailable ? shippingQuote.chargePaise : 0;
+  const estimatedTotalPaise = subtotalPaise + shippingFeePaise;
+  const isDeliveryUnavailable = shippingQuote !== null && !shippingQuote.isAvailable;
+
   return (
     <section className="section-shell py-8 sm:py-12">
       <Container>
@@ -69,7 +117,7 @@ export function CartPage() {
             Your Cart
           </h1>
           <p className="mt-2 text-xs sm:text-sm text-[#6e5b55]">
-            Review your order before proceeding to checkout.
+            Review your order and select your delivery state before checkout.
           </p>
         </div>
 
@@ -110,7 +158,7 @@ export function CartPage() {
                         {/* Remove button (min 44px target) */}
                         <button
                           aria-label={`Remove ${item.name} from cart`}
-                          className="inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-full text-[#711e2c] transition-colors hover:bg-[#f4efeb]"
+                          className="inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-full text-[#711e2c] transition-colors hover:bg-[#f4efeb] cursor-pointer"
                           onClick={() => removeItem(item.lineId)}
                           type="button"
                         >
@@ -131,7 +179,8 @@ export function CartPage() {
                         <div className="flex items-center rounded-full border border-[#e5d8c6] bg-[#f4efeb]/60" aria-label={`Quantity for ${item.name}`}>
                           <button
                             aria-label={`Decrease quantity of ${item.name}`}
-                            className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-full text-[#711e2c] hover:bg-[#e5d8c6]"
+                            className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-full text-[#711e2c] hover:bg-[#e5d8c6] cursor-pointer disabled:opacity-30"
+                            disabled={item.quantity <= 1}
                             onClick={() => setQuantity(item.lineId, item.quantity - 1)}
                             type="button"
                           >
@@ -144,7 +193,7 @@ export function CartPage() {
 
                           <button
                             aria-label={`Increase quantity of ${item.name}`}
-                            className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-full text-[#711e2c] hover:bg-[#e5d8c6]"
+                            className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-full text-[#711e2c] hover:bg-[#e5d8c6] cursor-pointer"
                             onClick={() => setQuantity(item.lineId, item.quantity + 1)}
                             type="button"
                           >
@@ -159,7 +208,7 @@ export function CartPage() {
             </div>
 
             {/* Summary Box */}
-            <div className="rounded-2xl sm:rounded-3xl border border-white/45 bg-gradient-to-br from-white/50 via-[#fcf7ee]/28 to-[#f5e8d5]/18 p-5 sm:p-6 backdrop-blur-xl shadow-[0_16px_36px_-10px_rgba(43,23,25,0.08),inset_0_1px_1.5px_0_rgba(255,255,255,0.75)] space-y-5">
+            <div className="rounded-2xl sm:rounded-3xl border border-white/45 bg-gradient-to-br from-white/50 via-[#fcf7ee]/28 to-[#f5e8d5]/18 p-5 sm:p-6 backdrop-blur-xl shadow-[0_16px_36px_-10px_rgba(43,23,25,0.08),inset_0_1px_1.5px_0_rgba(255,255,255,0.75)] space-y-5 lg:sticky lg:top-28">
               <div className="flex items-center justify-between gap-4 border-b border-[#e5d8c6] pb-4">
                 <h2 className="font-display text-xl sm:text-2xl font-semibold text-[#2b1719]">Order Summary</h2>
                 <span className="text-xs text-[#6e5b55] font-semibold">
@@ -167,26 +216,109 @@ export function CartPage() {
                 </span>
               </div>
 
-              <div className="flex items-center justify-between text-sm">
-                <span className="text-[#6e5b55]">Subtotal</span>
-                <span className="font-bold text-lg text-[#711e2c]">{formatPrice(subtotalPaise)}</span>
+              {/* State Selector */}
+              <div className="space-y-1.5 rounded-xl border border-[#e5d8c6] bg-white/70 p-3">
+                <div className="flex items-center gap-1.5 text-xs font-semibold text-[#2b1719]">
+                  <MapPin size={14} className="text-[#711e2c]" />
+                  <span>Delivery Destination</span>
+                </div>
+                <select
+                  value={selectedState}
+                  onChange={(e) => {
+                    setSelectedState(e.target.value);
+                    if (!e.target.value) setShippingQuote(null);
+                  }}
+                  className="w-full rounded-lg border border-[#dfd0bd] bg-[#fffdf8] px-2.5 py-2 text-xs font-medium text-[#2b1719] outline-none transition-colors focus:border-[#711e2c] focus:ring-1 focus:ring-[#711e2c]/20 cursor-pointer"
+                >
+                  <option value="">Select State / UT</option>
+                  <optgroup label="States">
+                    {indianStates
+                      .filter((s) => !s.isUnionTerritory)
+                      .map((s) => (
+                        <option key={s.code} value={s.code}>
+                          {s.name}
+                        </option>
+                      ))}
+                  </optgroup>
+                  <optgroup label="Union Territories">
+                    {indianStates
+                      .filter((s) => s.isUnionTerritory)
+                      .map((s) => (
+                        <option key={s.code} value={s.code}>
+                          {s.name}
+                        </option>
+                      ))}
+                  </optgroup>
+                </select>
               </div>
 
-              <p className="text-xs text-[#6e5b55] leading-relaxed">
-                Taxes & delivery calculated securely at checkout.
-              </p>
+              <div className="space-y-2 text-sm">
+                <div className="flex items-center justify-between">
+                  <span className="text-[#6e5b55]">Subtotal</span>
+                  <span className="font-semibold text-[#2b1719]">{formatPrice(subtotalPaise)}</span>
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <span className="text-[#6e5b55]">Shipping</span>
+                  {isLoadingShipping ? (
+                    <span className="text-xs text-[#6e5b55] animate-pulse">Calculating...</span>
+                  ) : !selectedState ? (
+                    <span className="text-xs text-[#6e5b55]">Select state</span>
+                  ) : shippingQuote ? (
+                    shippingQuote.isAvailable ? (
+                      <span className="font-semibold text-[#2b1719]">
+                        {shippingQuote.chargePaise === 0 ? (
+                          <span className="text-emerald-700 font-bold">FREE</span>
+                        ) : (
+                          formatPrice(shippingQuote.chargePaise)
+                        )}
+                      </span>
+                    ) : (
+                      <span className="text-xs font-bold text-red-700">Delivery unavailable</span>
+                    )
+                  ) : (
+                    <span className="text-xs text-[#6e5b55]">Select state</span>
+                  )}
+                </div>
+
+                <div className="border-t border-[#e5d8c6] pt-3 flex items-center justify-between">
+                  <span className="font-display font-semibold text-base text-[#2b1719]">Estimated Total</span>
+                  <span className="font-display font-bold text-lg text-[#711e2c]">
+                    {isLoadingShipping ? "..." : formatPrice(estimatedTotalPaise)}
+                  </span>
+                </div>
+              </div>
+
+              {isDeliveryUnavailable && (
+                <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-xs text-red-800 space-y-1">
+                  <p className="font-bold">Delivery is currently unavailable for {shippingQuote?.stateName}.</p>
+                  <p className="text-[11px] text-red-700">
+                    Please choose another destination state or contact support.
+                  </p>
+                </div>
+              )}
 
               {/* ACTIVE PROCEED TO CHECKOUT LINK */}
               <Link
                 href="/checkout"
-                className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-full bg-[#711e2c] px-6 text-sm font-semibold text-white shadow-md transition-all hover:bg-[#5a1723] active:scale-98"
+                className={`inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-full px-6 text-sm font-semibold text-white shadow-md transition-all ${
+                  !selectedState || isDeliveryUnavailable
+                    ? "bg-[#711e2c]/60 pointer-events-none cursor-not-allowed"
+                    : "bg-[#711e2c] hover:bg-[#5a1723] active:scale-98 cursor-pointer"
+                }`}
               >
-                <span>Proceed to Checkout</span>
+                <span>
+                  {!selectedState
+                    ? "Select State to Checkout"
+                    : isDeliveryUnavailable
+                    ? "Delivery Unavailable"
+                    : "Proceed to Checkout"}
+                </span>
                 <ArrowRight size={16} />
               </Link>
 
               <button
-                className="w-full text-xs font-semibold text-[#711e2c] underline decoration-[#711e2c]/30 underline-offset-4"
+                className="w-full text-xs font-semibold text-[#711e2c] underline decoration-[#711e2c]/30 underline-offset-4 cursor-pointer"
                 onClick={clearCart}
                 type="button"
               >
@@ -199,4 +331,3 @@ export function CartPage() {
     </section>
   );
 }
-

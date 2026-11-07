@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { requireAdmin } from "@/lib/auth/admin";
 import { deleteCloudinaryImage, deleteCloudinaryMedia, uploadCloudinaryImage, uploadCloudinaryMedia, validateImage, validateMedia } from "@/lib/cloudinary/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { findState } from "@/lib/constants/india-geo";
 
 function text(form: FormData, key: string) { return String(form.get(key) ?? "").trim(); }
 function bool(form: FormData, key: string) { return form.get(key) === "on" || form.get(key) === "true"; }
@@ -278,8 +279,250 @@ export async function deleteProduct(form: FormData) {
 export async function saveVariant(form: FormData) { await requireAdmin(); const id = uuid(form, "id"); const productId = uuid(form, "product_id"); const name = required(form, "name", "Variant name", 120); const price = moneyPaise(form, "price"); if (!productId || price < 0) fail(`/admin/products/${productId ?? ""}`, "Enter valid variant values."); const values = { product_id: productId, name, sku: text(form, "sku") || null, price_paise: price, stock_quantity: integer(form, "stock_quantity"), is_active: bool(form, "is_active"), display_order: integer(form, "display_order") }; const client = createSupabaseAdminClient(); const result = id ? await client.from("product_variants").update(values).eq("id", id) : await client.from("product_variants").insert(values); if (result.error) fail(`/admin/products/${productId}`, "Unable to save variant. Check that its SKU and name are unique."); ok(`/admin/products/${productId}`); }
 export async function deleteVariant(form: FormData) { await requireAdmin(); const productId = uuid(form, "product_id"); const id = uuid(form, "id"); if (!productId || !id) fail("/admin/products", "Invalid variant."); const result = await createSupabaseAdminClient().from("product_variants").delete().eq("id", id); if (result.error) fail(`/admin/products/${productId}`, "Unable to remove this variant."); ok(`/admin/products/${productId}`); }
 
-export async function saveShippingRule(form: FormData) { await requireAdmin(); const id = uuid(form, "id"); const stateCode = text(form, "state_code").toUpperCase(); const stateName = required(form, "state_name", "State name", 100); const charge = moneyPaise(form, "charge"); if (!/^[A-Z]{2,3}$/.test(stateCode) || charge < 0) fail("/admin/shipping", "Enter a valid state code and INR charge."); const values = { state_code: stateCode, state_name: stateName, charge_paise: charge, is_active: bool(form, "is_active") }; const client = createSupabaseAdminClient(); const result = id ? await client.from("shipping_rules").update(values).eq("id", id) : await client.from("shipping_rules").insert(values); if (result.error) fail("/admin/shipping", "Unable to save shipping rule. State codes must be unique."); ok("/admin/shipping"); }
-export async function deleteShippingRule(form: FormData) { await requireAdmin(); const id = uuid(form, "id"); if (!id) fail("/admin/shipping", "Invalid rule."); const result = await createSupabaseAdminClient().from("shipping_rules").delete().eq("id", id); if (result.error) fail("/admin/shipping", "Unable to delete this shipping rule."); ok("/admin/shipping"); }
+export async function saveShippingRule(form: FormData) {
+  await requireAdmin();
+  const id = uuid(form, "id");
+  const stateCode = text(form, "state_code").toUpperCase();
+  const stateName = required(form, "state_name", "State name", 100);
+  const charge = moneyPaise(form, "charge");
+  if (!/^[A-Z]{2,3}$/.test(stateCode) || charge < 0) {
+    fail("/admin/shipping", "Enter a valid state code and non-negative INR charge.");
+  }
+  const values = {
+    state_code: stateCode,
+    state_name: stateName,
+    charge_paise: charge,
+    is_active: bool(form, "is_active"),
+    updated_at: new Date().toISOString(),
+  };
+  const client = createSupabaseAdminClient();
+  const result = id
+    ? await client.from("shipping_rules").update(values).eq("id", id)
+    : await client.from("shipping_rules").upsert(values, { onConflict: "state_code" });
+
+  if (result.error) {
+    fail("/admin/shipping", "Unable to save shipping rule. " + result.error.message);
+  }
+
+  try {
+    revalidateTag("shipping-rules", "max");
+  } catch {}
+  revalidatePath("/admin/shipping");
+  revalidatePath("/products");
+  revalidatePath("/checkout");
+  revalidatePath("/cart");
+  ok("/admin/shipping");
+}
+
+export async function updateStateShippingRuleAction(input: {
+  stateCode: string;
+  stateName: string;
+  chargeRupees: number;
+  isActive: boolean;
+}): Promise<{ ok: boolean; message?: string }> {
+  try {
+    await requireAdmin();
+    const cleanCode = input.stateCode.trim().toUpperCase();
+    const cleanName = input.stateName.trim();
+    const chargePaise = Math.round(Math.max(0, input.chargeRupees) * 100);
+
+    if (!/^[A-Z]{2,3}$/.test(cleanCode) || !cleanName) {
+      return { ok: false, message: "Invalid state code or name." };
+    }
+
+    const client = createSupabaseAdminClient();
+    const { error } = await client.from("shipping_rules").upsert(
+      {
+        state_code: cleanCode,
+        state_name: cleanName,
+        charge_paise: chargePaise,
+        is_active: input.isActive,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "state_code" }
+    );
+
+    if (error) {
+      console.error("Failed to update shipping rule:", error);
+      return { ok: false, message: "Database update failed: " + error.message };
+    }
+
+    try {
+      revalidateTag("shipping-rules", "max");
+    } catch {}
+    revalidatePath("/admin/shipping");
+    revalidatePath("/products");
+    revalidatePath("/checkout");
+    revalidatePath("/cart");
+
+    return { ok: true };
+  } catch (err) {
+    console.error("updateStateShippingRuleAction error:", err);
+    return { ok: false, message: "Unauthorized or server error." };
+  }
+}
+
+export type BulkUpdateShippingRulesInput = {
+  stateCodes: string[];
+  updateCharge: boolean;
+  chargeRupees?: number;
+  updateStatus: boolean;
+  isActive?: boolean;
+};
+
+export type BulkUpdateShippingRulesResult = {
+  ok: boolean;
+  updatedCount: number;
+  failedCodes?: string[];
+  message?: string;
+};
+
+export async function bulkUpdateShippingRulesAction(
+  input: BulkUpdateShippingRulesInput
+): Promise<BulkUpdateShippingRulesResult> {
+  try {
+    await requireAdmin();
+
+    if (!Array.isArray(input.stateCodes) || input.stateCodes.length === 0) {
+      return { ok: false, updatedCount: 0, message: "No states or union territories selected." };
+    }
+
+    if (!input.updateCharge && !input.updateStatus) {
+      return {
+        ok: false,
+        updatedCount: 0,
+        message: "Please choose at least one field to update (delivery fee or status).",
+      };
+    }
+
+    // Validate delivery fee if updating charge
+    let chargePaise = 0;
+    if (input.updateCharge) {
+      const rupees = typeof input.chargeRupees === "number" ? input.chargeRupees : Number(input.chargeRupees);
+      if (Number.isNaN(rupees) || !Number.isFinite(rupees) || rupees < 0) {
+        return {
+          ok: false,
+          updatedCount: 0,
+          message: "Please enter a valid, non-negative delivery fee (₹0 or greater).",
+        };
+      }
+      if (rupees > 50000) {
+        return {
+          ok: false,
+          updatedCount: 0,
+          message: "Delivery fee exceeds maximum allowed threshold (₹50,000).",
+        };
+      }
+      chargePaise = Math.round(rupees * 100);
+    }
+
+    // Validate state codes against canonical 28 states + 8 UTs list
+    const validStates: Array<{ code: string; name: string }> = [];
+    const invalidCodes: string[] = [];
+
+    for (const rawCode of input.stateCodes) {
+      const canonical = findState(rawCode);
+      if (canonical) {
+        validStates.push({ code: canonical.code, name: canonical.name });
+      } else {
+        invalidCodes.push(rawCode);
+      }
+    }
+
+    if (validStates.length === 0) {
+      return {
+        ok: false,
+        updatedCount: 0,
+        failedCodes: invalidCodes,
+        message: "None of the selected territories match valid Indian states or Union Territories.",
+      };
+    }
+
+    const client = createSupabaseAdminClient();
+    const validCodes = validStates.map((s) => s.code);
+
+    // Fetch existing rules for untouched fields
+    const { data: existingRules, error: fetchErr } = await client
+      .from("shipping_rules")
+      .select("state_code, charge_paise, is_active")
+      .in("state_code", validCodes);
+
+    if (fetchErr) {
+      console.error("[bulkUpdateShippingRulesAction] Error fetching existing rules:", fetchErr);
+      return {
+        ok: false,
+        updatedCount: 0,
+        message: "Failed to read existing shipping rules: " + fetchErr.message,
+      };
+    }
+
+    const existingMap = new Map<string, { charge_paise: number; is_active: boolean }>();
+    for (const r of existingRules || []) {
+      existingMap.set(r.state_code.toUpperCase(), r);
+    }
+
+    const now = new Date().toISOString();
+    const rowsToUpsert = validStates.map((st) => {
+      const existing = existingMap.get(st.code.toUpperCase());
+      return {
+        state_code: st.code,
+        state_name: st.name,
+        charge_paise: input.updateCharge ? chargePaise : (existing?.charge_paise ?? 0),
+        is_active: input.updateStatus ? Boolean(input.isActive) : (existing?.is_active ?? false),
+        updated_at: now,
+      };
+    });
+
+    const { error: upsertErr } = await client
+      .from("shipping_rules")
+      .upsert(rowsToUpsert, { onConflict: "state_code" });
+
+    if (upsertErr) {
+      console.error("[bulkUpdateShippingRulesAction] Batch upsert error:", upsertErr);
+      return {
+        ok: false,
+        updatedCount: 0,
+        message: "Database bulk update failed: " + upsertErr.message,
+      };
+    }
+
+    try {
+      revalidateTag("shipping-rules", "max");
+    } catch {}
+    revalidatePath("/admin/shipping");
+    revalidatePath("/products");
+    revalidatePath("/checkout");
+    revalidatePath("/cart");
+
+    return {
+      ok: true,
+      updatedCount: validStates.length,
+      failedCodes: invalidCodes.length > 0 ? invalidCodes : undefined,
+    };
+  } catch (err) {
+    console.error("[bulkUpdateShippingRulesAction] Unhandled exception:", err);
+    return {
+      ok: false,
+      updatedCount: 0,
+      message: "Unauthorized or unexpected server error.",
+    };
+  }
+}
+
+export async function deleteShippingRule(form: FormData) {
+  await requireAdmin();
+  const id = uuid(form, "id");
+  if (!id) fail("/admin/shipping", "Invalid rule.");
+  const result = await createSupabaseAdminClient().from("shipping_rules").delete().eq("id", id);
+  if (result.error) fail("/admin/shipping", "Unable to delete this shipping rule.");
+  try {
+    revalidateTag("shipping-rules", "max");
+  } catch {}
+  revalidatePath("/admin/shipping");
+  revalidatePath("/products");
+  revalidatePath("/checkout");
+  ok("/admin/shipping");
+}
 
 export async function saveCourier(form: FormData) { await requireAdmin(); const id = uuid(form, "id"); const name = required(form, "name", "Name", 120); const template = text(form, "tracking_url_template"); if (template && !template.startsWith("https://")) fail("/admin/couriers", "Tracking URL templates must use HTTPS."); const values = { name, tracking_url_template: template || null, is_active: bool(form, "is_active") }; const client = createSupabaseAdminClient(); const result = id ? await client.from("courier_partners").update(values).eq("id", id) : await client.from("courier_partners").insert(values); if (result.error) fail("/admin/couriers", "Unable to save courier partner."); ok("/admin/couriers"); }
 export async function deleteCourier(form: FormData) { await requireAdmin(); const id = uuid(form, "id"); if (!id) fail("/admin/couriers", "Invalid courier."); const result = await createSupabaseAdminClient().from("courier_partners").delete().eq("id", id); if (result.error) fail("/admin/couriers", "This courier cannot be deleted while orders reference it."); ok("/admin/couriers"); }

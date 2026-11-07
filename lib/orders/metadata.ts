@@ -13,6 +13,8 @@ export type OrderMetadata = {
   adminEmailSent?: boolean;
   userId?: string;
   createdAt?: string;
+  deliveryDistrict?: string;
+  deliveryCity?: string;
 };
 
 const ORDER_META_PREFIX = "order_meta_";
@@ -34,6 +36,8 @@ export async function saveOrderMetadata(meta: OrderMetadata): Promise<boolean> {
       customerEmailSent: Boolean(meta.customerEmailSent),
       adminEmailSent: Boolean(meta.adminEmailSent),
       userId: meta.userId || null,
+      deliveryDistrict: meta.deliveryDistrict || null,
+      deliveryCity: meta.deliveryCity || null,
       createdAt: meta.createdAt || new Date().toISOString(),
     },
     updated_at: new Date().toISOString(),

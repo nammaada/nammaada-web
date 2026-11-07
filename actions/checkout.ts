@@ -19,6 +19,8 @@ import { quantitySchema, uuidSchema } from "@/lib/validation/schemas";
 import { sendOrderConfirmationWhatsApp } from "@/lib/whatsapp/server";
 import { sendOrderConfirmationEmails } from "@/lib/email/server";
 import type { EmailOrderItem } from "@/lib/email/types";
+import { getAuthoritativeShippingQuote } from "@/lib/shipping/rules";
+import { findState } from "@/lib/constants/india-geo";
 
 const checkoutSessionInputSchema = z.object({
   idempotencyKey: uuidSchema,
@@ -266,27 +268,23 @@ export async function createRazorpayCheckoutSession(
     }
 
     // 4. Calculate authoritative shipping fee
-    let shippingFeePaise = 0;
-    if (!allFreeShipping) {
-      const customerState = checkout.state.trim().toLowerCase();
-      const { data: shippingRules } = await supabase
-        .from("shipping_rules")
-        .select("state_name, charge_paise")
-        .eq("is_active", true);
-
-      const matchingRule = shippingRules?.find(
-        (r) => r.state_name.trim().toLowerCase() === customerState
-      );
-
-      if (matchingRule) {
-        shippingFeePaise = matchingRule.charge_paise;
-      } else {
-        shippingFeePaise = 0;
-      }
+    const shippingQuote = await getAuthoritativeShippingQuote(checkout.state);
+    if (!shippingQuote.isAvailable) {
+      return {
+        ok: false,
+        message: shippingQuote.message || `Delivery is currently not available for ${checkout.state}.`,
+      };
     }
+    const shippingFeePaise = (allFreeShipping || shippingQuote.chargePaise === 0) ? 0 : shippingQuote.chargePaise;
 
     const totalAmountPaise = subtotalPaise + shippingFeePaise;
     const orderNumber = generateOrderNumber();
+
+    const canonicalState = findState(checkout.state);
+    const stateNameToStore = canonicalState ? canonicalState.name : checkout.state.trim();
+    const districtCityToStore = checkout.district
+      ? `${checkout.city.trim()}, ${checkout.district.trim()}`
+      : checkout.city.trim();
 
     // 5. Insert Customer Record
     const { data: customer, error: custErr } = await supabase
@@ -296,8 +294,8 @@ export async function createRazorpayCheckoutSession(
         phone: checkout.phone.trim(),
         email: checkout.email?.trim() || null,
         address: checkout.address.trim(),
-        district_city: checkout.city.trim(),
-        state: checkout.state.trim(),
+        district_city: districtCityToStore,
+        state: stateNameToStore,
         pincode: checkout.pincode.trim(),
       })
       .select("id")
@@ -324,8 +322,8 @@ export async function createRazorpayCheckoutSession(
         customer_phone_snapshot: checkout.phone.trim(),
         customer_email_snapshot: checkout.email?.trim() || null,
         delivery_address_snapshot: checkout.address.trim(),
-        delivery_district_city: checkout.city.trim(),
-        delivery_state: checkout.state.trim(),
+        delivery_district_city: districtCityToStore,
+        delivery_state: stateNameToStore,
         delivery_pincode: checkout.pincode.trim(),
       })
       .select("id")
@@ -375,6 +373,8 @@ export async function createRazorpayCheckoutSession(
       paymentMethod: "RAZORPAY",
       itemsDeliveryType,
       userId: authUserId,
+      deliveryDistrict: checkout.district?.trim(),
+      deliveryCity: checkout.city?.trim(),
     });
 
     // 8. Create Razorpay Order via Razorpay API
@@ -469,6 +469,14 @@ export async function createCodCheckoutSession(
       };
     }
 
+    const canonicalState = findState(checkout.state);
+    if (validation.hasRestrictedProducts && canonicalState?.code !== "KA") {
+      return {
+        ok: false,
+        message: "Restricted Bangalore-only delicacies cannot be delivered outside Karnataka / Bangalore.",
+      };
+    }
+
     const productMap = new Map(dbProducts.map((p) => [p.id, p]));
 
     // Fetch variants if applicable
@@ -557,27 +565,22 @@ export async function createCodCheckoutSession(
     }
 
     // 4. Calculate authoritative shipping fee
-    let shippingFeePaise = 0;
-    if (!allFreeShipping) {
-      const customerState = checkout.state.trim().toLowerCase();
-      const { data: shippingRules } = await supabase
-        .from("shipping_rules")
-        .select("state_name, charge_paise")
-        .eq("is_active", true);
-
-      const matchingRule = shippingRules?.find(
-        (r) => r.state_name.trim().toLowerCase() === customerState
-      );
-
-      if (matchingRule) {
-        shippingFeePaise = matchingRule.charge_paise;
-      } else {
-        shippingFeePaise = 0;
-      }
+    const shippingQuote = await getAuthoritativeShippingQuote(checkout.state);
+    if (!shippingQuote.isAvailable) {
+      return {
+        ok: false,
+        message: shippingQuote.message || `Delivery is currently not available for ${checkout.state}.`,
+      };
     }
+    const shippingFeePaise = (allFreeShipping || shippingQuote.chargePaise === 0) ? 0 : shippingQuote.chargePaise;
 
     const totalAmountPaise = subtotalPaise + shippingFeePaise;
     const orderNumber = generateOrderNumber();
+
+    const stateNameToStore = canonicalState ? canonicalState.name : checkout.state.trim();
+    const districtCityToStore = checkout.district
+      ? `${checkout.city.trim()}, ${checkout.district.trim()}`
+      : checkout.city.trim();
 
     // 5. Insert Customer Record
     const { data: customer, error: custErr } = await supabase
@@ -587,8 +590,8 @@ export async function createCodCheckoutSession(
         phone: checkout.phone.trim(),
         email: checkout.email?.trim() || null,
         address: checkout.address.trim(),
-        district_city: checkout.city.trim(),
-        state: checkout.state.trim(),
+        district_city: districtCityToStore,
+        state: stateNameToStore,
         pincode: checkout.pincode.trim(),
       })
       .select("id")
@@ -610,12 +613,13 @@ export async function createCodCheckoutSession(
         total_amount_paise: totalAmountPaise,
         order_status: "pending",
         payment_status: "pending",
+        payment_method: "COD",
         customer_name_snapshot: checkout.fullName.trim(),
         customer_phone_snapshot: checkout.phone.trim(),
         customer_email_snapshot: checkout.email?.trim() || null,
         delivery_address_snapshot: checkout.address.trim(),
-        delivery_district_city: checkout.city.trim(),
-        delivery_state: checkout.state.trim(),
+        delivery_district_city: districtCityToStore,
+        delivery_state: stateNameToStore,
         delivery_pincode: checkout.pincode.trim(),
       })
       .select("id")
@@ -666,6 +670,8 @@ export async function createCodCheckoutSession(
       paymentMethod: "COD",
       itemsDeliveryType,
       userId: authUserId,
+      deliveryDistrict: checkout.district?.trim(),
+      deliveryCity: checkout.city?.trim(),
     });
 
     // 9. Atomically decrement stock
@@ -718,8 +724,8 @@ export async function createCodCheckoutSession(
         customerPhone: checkout.phone.trim(),
         customerEmail: checkout.email?.trim() || null,
         deliveryAddress: checkout.address.trim(),
-        deliveryDistrictCity: checkout.city.trim(),
-        deliveryState: checkout.state.trim(),
+        deliveryDistrictCity: districtCityToStore,
+        deliveryState: stateNameToStore,
         deliveryCountry: "India",
         deliveryPincode: checkout.pincode.trim(),
         subtotalPaise,
