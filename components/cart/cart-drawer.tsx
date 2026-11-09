@@ -3,11 +3,11 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { X, Trash2, Plus, Minus, ShoppingBag, ArrowRight, MapPin } from "lucide-react";
+import { X, Trash2, Plus, Minus, ShoppingBag, ArrowRight, MapPin, Sparkles, AlertCircle } from "lucide-react";
 import { useCart } from "@/components/cart/cart-provider";
 import { getIndianStates } from "@/lib/constants/india-geo";
 import { getShippingQuoteAction } from "@/actions/shipping";
-import type { StateShippingQuote } from "@/lib/shipping/rules";
+import type { CartShippingCalculationQuote } from "@/lib/shipping/rules";
 
 function formatINR(paise: number) {
   return new Intl.NumberFormat("en-IN", {
@@ -29,7 +29,7 @@ export function CartDrawer() {
     setSelectedState,
   } = useCart();
 
-  const [shippingQuote, setShippingQuote] = useState<StateShippingQuote | null>(null);
+  const [shippingQuote, setShippingQuote] = useState<CartShippingCalculationQuote | null>(null);
   const [isLoadingShipping, setIsLoadingShipping] = useState(false);
   const indianStates = useMemo(() => getIndianStates(), []);
 
@@ -42,7 +42,15 @@ export function CartDrawer() {
     queueMicrotask(() => {
       if (isMounted) setIsLoadingShipping(true);
     });
-    getShippingQuoteAction(selectedState)
+
+    const payloadItems = items.map((i) => ({
+      productId: i.productId,
+      quantity: i.quantity,
+      delivery_scope: i.delivery_scope,
+      is_free_shipping: i.is_free_shipping,
+    }));
+
+    getShippingQuoteAction(selectedState, payloadItems)
       .then((quote) => {
         if (!isMounted) return;
         setShippingQuote(quote);
@@ -58,7 +66,7 @@ export function CartDrawer() {
     return () => {
       isMounted = false;
     };
-  }, [selectedState]);
+  }, [selectedState, items]);
 
   // Lock body scroll when drawer is open
   useEffect(() => {
@@ -82,11 +90,44 @@ export function CartDrawer() {
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [isDrawerOpen, closeCart]);
 
-  if (!isDrawerOpen) return null;
+  const hasBangaloreProduct =
+    items.some((i) => i.delivery_scope === "bangalore_only") ||
+    Boolean(shippingQuote?.hasBangaloreOnlyProducts);
 
-  const shippingFeePaise = shippingQuote?.isAvailable ? shippingQuote.chargePaise : 0;
+  // Auto-set state to Karnataka (KA) if cart contains Bangalore-only products
+  useEffect(() => {
+    if (hasBangaloreProduct && selectedState !== "KA") {
+      setSelectedState("KA");
+    }
+  }, [hasBangaloreProduct, selectedState, setSelectedState]);
+
+  const isStateKarnataka = (selectedState || "").toUpperCase() === "KA";
+  const isBangaloreDisabled =
+    hasBangaloreProduct &&
+    isStateKarnataka &&
+    shippingQuote !== null &&
+    (!shippingQuote.isAvailable || Boolean(shippingQuote.bangaloreUnavailable));
+
+  const isBangaloreStateMismatch = Boolean(selectedState && hasBangaloreProduct && !isStateKarnataka);
+  const isDeliveryUnavailable =
+    (shippingQuote !== null && !shippingQuote.isAvailable) || isBangaloreDisabled || isBangaloreStateMismatch;
+
+  const totalCartUnits = items.reduce((sum, item) => sum + item.quantity, 0);
+
+  // Immediate quantity-aware calculation
+  const shippingFeePaise = !selectedState || isDeliveryUnavailable
+    ? 0
+    : shippingQuote?.isBangaloreSpecial && shippingQuote.bangaloreRatePerUnitPaise !== undefined
+    ? shippingQuote.isFreeShipping
+      ? 0
+      : totalCartUnits * shippingQuote.bangaloreRatePerUnitPaise
+    : shippingQuote?.isAvailable
+    ? shippingQuote.chargePaise
+    : 0;
+
   const estimatedTotalPaise = subtotalPaise + shippingFeePaise;
-  const isDeliveryUnavailable = shippingQuote !== null && !shippingQuote.isAvailable;
+
+  if (!isDrawerOpen) return null;
 
   return (
     <div
@@ -237,6 +278,41 @@ export function CartDrawer() {
         {/* Footer with State Selector, Subtotal & Proceed to Checkout */}
         {items.length > 0 && (
           <div className="border-t border-[#eedec8] bg-[#fcf8f2] p-4 sm:p-5 space-y-3">
+            {/* Bangalore Special Cart Notice */}
+            {hasBangaloreProduct && (
+              isBangaloreStateMismatch ? (
+                <div className="rounded-xl border border-red-300 bg-red-50 p-2.5 text-xs text-red-950 space-y-1">
+                  <p className="font-bold text-red-900 flex items-center gap-1.5 text-[11px]">
+                    <AlertCircle size={14} className="shrink-0 text-red-700" />
+                    <span>Bangalore-Only Products in Cart</span>
+                  </p>
+                  <p className="text-[10px] text-red-800 leading-relaxed">
+                    Perishable delicacies cannot be shipped outside Karnataka. Please select Karnataka for Bangalore delivery.
+                  </p>
+                </div>
+              ) : isBangaloreDisabled ? (
+                <div className="rounded-xl border border-red-300 bg-red-50 p-2.5 text-xs text-red-950 space-y-1">
+                  <p className="font-bold text-red-900 flex items-center gap-1.5 text-[11px]">
+                    <AlertCircle size={14} className="shrink-0 text-red-700" />
+                    <span>Bangalore Delivery Unavailable</span>
+                  </p>
+                  <p className="text-[10px] text-red-800 leading-relaxed">
+                    Special delivery for fresh Bangalore delicacies is currently paused. Please remove restricted items to proceed.
+                  </p>
+                </div>
+              ) : (
+                <div className="rounded-xl border border-amber-300/80 bg-amber-50/90 p-2.5 text-xs text-amber-950 space-y-1">
+                  <div className="flex items-center gap-1.5 font-bold text-amber-900 text-[11px]">
+                    <Sparkles size={13} className="text-amber-700 shrink-0" />
+                    <span>Bangalore Special Shipping</span>
+                  </div>
+                  <p className="text-[10px] text-amber-900/90 leading-relaxed">
+                    Your cart contains a Bangalore-only product. Bangalore special shipping applies to all items in this cart ({formatINR(shippingQuote?.bangaloreRatePerUnitPaise ?? 0)} per product unit).
+                  </p>
+                </div>
+              )
+            )}
+
             {/* Delivery State Selector */}
             <div className="space-y-1 rounded-xl border border-[#eedec8] bg-white/80 p-2.5">
               <div className="flex items-center justify-between text-[11px] font-semibold text-[#2b1719]">
@@ -244,39 +320,48 @@ export function CartDrawer() {
                   <MapPin size={12} />
                   <span>Deliver to</span>
                 </span>
-                {shippingQuote?.isAvailable && (
+                {shippingQuote?.isAvailable && !isBangaloreStateMismatch && !isBangaloreDisabled && (
                   <span className="text-[10px] text-emerald-800 font-bold bg-emerald-50 px-1.5 py-0.5 rounded">
                     Eligible
                   </span>
                 )}
               </div>
               <select
-                value={selectedState}
+                value={hasBangaloreProduct ? "KA" : selectedState}
+                disabled={hasBangaloreProduct}
                 onChange={(e) => {
                   setSelectedState(e.target.value);
                   if (!e.target.value) setShippingQuote(null);
                 }}
-                className="w-full rounded-lg border border-[#dfd0bd] bg-[#fffdf8] px-2 py-1.5 text-xs font-medium text-[#2b1719] outline-none transition-colors focus:border-[#711e2c] cursor-pointer"
+                className={`w-full rounded-lg border border-[#dfd0bd] bg-[#fffdf8] px-2 py-1.5 text-xs font-medium text-[#2b1719] outline-none transition-colors focus:border-[#711e2c] cursor-pointer ${
+                  hasBangaloreProduct ? "opacity-90 bg-[#fbf7f0] cursor-not-allowed" : ""
+                }`}
               >
-                <option value="">Select State / UT</option>
-                <optgroup label="States">
-                  {indianStates
-                    .filter((s) => !s.isUnionTerritory)
-                    .map((s) => (
-                      <option key={s.code} value={s.code}>
-                        {s.name}
-                      </option>
-                    ))}
-                </optgroup>
-                <optgroup label="Union Territories">
-                  {indianStates
-                    .filter((s) => s.isUnionTerritory)
-                    .map((s) => (
-                      <option key={s.code} value={s.code}>
-                        {s.name}
-                      </option>
-                    ))}
-                </optgroup>
+                {hasBangaloreProduct ? (
+                  <option value="KA">Karnataka (Bengaluru Only)</option>
+                ) : (
+                  <>
+                    <option value="">Select State / UT</option>
+                    <optgroup label="States">
+                      {indianStates
+                        .filter((s) => !s.isUnionTerritory)
+                        .map((s) => (
+                          <option key={s.code} value={s.code}>
+                            {s.name}
+                          </option>
+                        ))}
+                    </optgroup>
+                    <optgroup label="Union Territories">
+                      {indianStates
+                        .filter((s) => s.isUnionTerritory)
+                        .map((s) => (
+                          <option key={s.code} value={s.code}>
+                            {s.name}
+                          </option>
+                        ))}
+                    </optgroup>
+                  </>
+                )}
               </select>
             </div>
 
@@ -284,29 +369,37 @@ export function CartDrawer() {
             <div className="space-y-1.5 text-xs">
               <div className="flex items-center justify-between text-[#6e5b55]">
                 <span>Subtotal</span>
-                <span className="font-medium text-[#2b1719]">{formatINR(subtotalPaise)}</span>
+                <span className="font-medium text-[#2b1719] font-mono">{formatINR(subtotalPaise)}</span>
               </div>
 
-              <div className="flex items-center justify-between text-[#6e5b55]">
-                <span>Shipping</span>
+              <div className="flex items-start justify-between gap-2 text-[#6e5b55]">
+                <div>
+                  <span>Shipping</span>
+                  {shippingQuote?.isBangaloreSpecial && isStateKarnataka && (
+                    <span className="block text-[10px] text-amber-900 font-medium">
+                      Bangalore Special ({formatINR(shippingQuote.bangaloreRatePerUnitPaise ?? 0)} × {totalCartUnits} {totalCartUnits === 1 ? "unit" : "units"})
+                    </span>
+                  )}
+                </div>
+
                 {isLoadingShipping ? (
                   <span className="text-[11px] text-[#6e5b55] animate-pulse">Calculating...</span>
                 ) : !selectedState ? (
                   <span className="text-[11px] text-[#6e5b55]">Select state</span>
-                ) : shippingQuote ? (
-                  shippingQuote.isAvailable ? (
-                    <span className="font-semibold text-[#2b1719]">
-                      {shippingQuote.chargePaise === 0 ? (
-                        <span className="text-emerald-700 font-bold">FREE</span>
-                      ) : (
-                        formatINR(shippingQuote.chargePaise)
-                      )}
-                    </span>
-                  ) : (
-                    <span className="font-bold text-red-700">Delivery unavailable</span>
-                  )
+                ) : isBangaloreStateMismatch ? (
+                  <span className="font-bold text-amber-900 text-[11px]">Unavailable outside Bangalore</span>
+                ) : isBangaloreDisabled ? (
+                  <span className="font-bold text-amber-900 text-[11px]">Bangalore delivery unavailable</span>
+                ) : isDeliveryUnavailable ? (
+                  <span className="font-bold text-red-700 text-[11px]">Delivery unavailable</span>
                 ) : (
-                  <span className="text-[11px] text-[#6e5b55]">Select state</span>
+                  <span className="font-semibold text-[#2b1719] font-mono">
+                    {shippingFeePaise === 0 ? (
+                      <span className="text-emerald-700 font-bold">FREE</span>
+                    ) : (
+                      formatINR(shippingFeePaise)
+                    )}
+                  </span>
                 )}
               </div>
 
@@ -318,9 +411,9 @@ export function CartDrawer() {
               </div>
             </div>
 
-            {isDeliveryUnavailable && (
+            {isDeliveryUnavailable && !isBangaloreStateMismatch && !isBangaloreDisabled && (
               <p className="text-[11px] font-semibold text-red-700 bg-red-50 border border-red-200 rounded-lg p-2 text-center">
-                Delivery is currently unavailable for {shippingQuote?.stateName}.
+                Delivery is currently unavailable for {shippingQuote?.stateName || selectedState}.
               </p>
             )}
 
@@ -336,6 +429,10 @@ export function CartDrawer() {
               <span>
                 {!selectedState
                   ? "Select State to Checkout"
+                  : isBangaloreStateMismatch
+                  ? "Select Karnataka for Bangalore Items"
+                  : isBangaloreDisabled
+                  ? "Bangalore Delivery Unavailable"
                   : isDeliveryUnavailable
                   ? "Delivery Unavailable"
                   : "Proceed to Checkout"}

@@ -19,7 +19,7 @@ import { quantitySchema, uuidSchema } from "@/lib/validation/schemas";
 import { sendOrderConfirmationWhatsApp } from "@/lib/whatsapp/server";
 import { sendOrderConfirmationEmails } from "@/lib/email/server";
 import type { EmailOrderItem } from "@/lib/email/types";
-import { getAuthoritativeShippingQuote } from "@/lib/shipping/rules";
+import { calculateAuthoritativeCartShipping } from "@/lib/shipping/rules";
 import { findState } from "@/lib/constants/india-geo";
 
 const checkoutSessionInputSchema = z.object({
@@ -44,8 +44,8 @@ function generateOrderNumber(): string {
 }
 
 const locationValidationInputSchema = z.object({
-  pincode: z.string().trim().regex(/^[1-9][0-9]{5}$/, "Enter a valid 6-digit Indian pincode."),
-  productIds: z.array(uuidSchema).min(1),
+  pincode: z.string().trim(),
+  productIds: z.array(z.string().min(1)).min(1),
 });
 
 /**
@@ -57,14 +57,29 @@ export async function validateCheckoutLocation(input: unknown): Promise<PincodeV
   if (!parsed.success) {
     return {
       isValid: false,
-      message: parsed.error.issues[0]?.message || "Please enter a valid 6-digit pincode.",
+      code: "INVALID_PIN",
+      status: "INVALID_PIN",
+      message: "Please enter a valid 6-digit Indian pincode.",
       hasRestrictedProducts: false,
       unavailableProducts: [],
       allowedPaymentMethods: [],
     };
   }
 
-  return validatePincodeAvailability(parsed.data.pincode, parsed.data.productIds);
+  try {
+    return await validatePincodeAvailability(parsed.data.pincode, parsed.data.productIds);
+  } catch (err) {
+    console.error("Error in validateCheckoutLocation:", err);
+    return {
+      isValid: false,
+      code: "SERVICE_ERROR",
+      status: "SERVICE_ERROR",
+      message: "Unable to verify delivery location due to a server error. Please try again.",
+      hasRestrictedProducts: false,
+      unavailableProducts: [],
+      allowedPaymentMethods: [],
+    };
+  }
 }
 
 export async function checkCartStock(
@@ -267,15 +282,26 @@ export async function createRazorpayCheckoutSession(
       });
     }
 
-    // 4. Calculate authoritative shipping fee
-    const shippingQuote = await getAuthoritativeShippingQuote(checkout.state);
-    if (!shippingQuote.isAvailable) {
+    // 4. Calculate authoritative shipping fee (Razorpay is all-India non-restricted products only)
+    const shippingCalc = await calculateAuthoritativeCartShipping({
+      stateCodeOrName: checkout.state,
+      pincode: checkout.pincode,
+      items: resolvedItems.map((i) => ({
+        productId: i.productId,
+        quantity: i.quantity,
+        delivery_scope: "all_india",
+      })),
+      hasBangaloreOnlyProducts: false,
+      allFreeShipping,
+    });
+
+    if (!shippingCalc.isAvailable) {
       return {
         ok: false,
-        message: shippingQuote.message || `Delivery is currently not available for ${checkout.state}.`,
+        message: shippingCalc.message || `Delivery is currently not available for ${checkout.state}.`,
       };
     }
-    const shippingFeePaise = (allFreeShipping || shippingQuote.chargePaise === 0) ? 0 : shippingQuote.chargePaise;
+    const shippingFeePaise = shippingCalc.chargePaise;
 
     const totalAmountPaise = subtotalPaise + shippingFeePaise;
     const orderNumber = generateOrderNumber();
@@ -564,15 +590,26 @@ export async function createCodCheckoutSession(
       });
     }
 
-    // 4. Calculate authoritative shipping fee
-    const shippingQuote = await getAuthoritativeShippingQuote(checkout.state);
-    if (!shippingQuote.isAvailable) {
+    // 4. Calculate authoritative shipping fee (COD supports both all-India and Bangalore special)
+    const shippingCalc = await calculateAuthoritativeCartShipping({
+      stateCodeOrName: checkout.state,
+      pincode: checkout.pincode,
+      items: resolvedItems.map((i) => ({
+        productId: i.productId,
+        quantity: i.quantity,
+        delivery_scope: i.deliveryType === "RESTRICTED_LOCATION" ? "bangalore_only" : "all_india",
+      })),
+      hasBangaloreOnlyProducts: validation.hasRestrictedProducts,
+      allFreeShipping,
+    });
+
+    if (!shippingCalc.isAvailable) {
       return {
         ok: false,
-        message: shippingQuote.message || `Delivery is currently not available for ${checkout.state}.`,
+        message: shippingCalc.message || `Delivery is currently not available for ${checkout.state}.`,
       };
     }
-    const shippingFeePaise = (allFreeShipping || shippingQuote.chargePaise === 0) ? 0 : shippingQuote.chargePaise;
+    const shippingFeePaise = shippingCalc.chargePaise;
 
     const totalAmountPaise = subtotalPaise + shippingFeePaise;
     const orderNumber = generateOrderNumber();
@@ -672,6 +709,11 @@ export async function createCodCheckoutSession(
       userId: authUserId,
       deliveryDistrict: checkout.district?.trim(),
       deliveryCity: checkout.city?.trim(),
+      shippingFeePaise,
+      shippingRatePerUnitPaise: shippingCalc.bangaloreRatePerUnitPaise,
+      shippingLocality: shippingCalc.locality || validation.locality,
+      shippingPincode: checkout.pincode.trim(),
+      isBangaloreSpecial: Boolean(shippingCalc.isBangaloreSpecial),
     });
 
     // 9. Atomically decrement stock

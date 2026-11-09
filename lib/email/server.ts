@@ -262,8 +262,9 @@ export async function sendOrderConfirmationEmails(data: OrderEmailData): Promise
   if (data.orderId && (customerSent || adminSent)) {
     try {
       await saveOrderMetadata({
+        ...existingMeta,
         orderId: data.orderId,
-        paymentMethod: isCod ? "COD" : "RAZORPAY",
+        paymentMethod: existingMeta?.paymentMethod || (isCod ? "COD" : "RAZORPAY"),
         itemsDeliveryType: existingMeta?.itemsDeliveryType || {},
         customerEmailSent: customerAlreadySent || customerSent,
         adminEmailSent: adminAlreadySent || adminSent,

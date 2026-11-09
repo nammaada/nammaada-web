@@ -1,6 +1,12 @@
 import "server-only";
 
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import {
+  getBengaluruPincodeConfig,
+  resolveBengaluruPincodeRate,
+  fetchRawBangaloreShippingConfig,
+  type BengaluruPincodeConfig,
+} from "@/lib/delivery/bengaluru-pincodes";
 
 export type DeliveryType = "INDIA_WIDE" | "RESTRICTED_LOCATION";
 
@@ -45,7 +51,12 @@ export async function getRestrictedLocations(): Promise<RestrictedLocation[]> {
     .eq("key", RESTRICTED_LOCATIONS_SETTINGS_KEY)
     .maybeSingle();
 
-  if (error || !data?.value || !Array.isArray(data.value)) {
+  if (error) {
+    console.error("Database error in getRestrictedLocations:", error);
+    throw new Error(`Database error fetching restricted locations: ${error.message}`);
+  }
+
+  if (!data?.value || !Array.isArray(data.value)) {
     return [];
   }
 
@@ -102,9 +113,22 @@ export async function saveRestrictedLocations(
   return { ok: true };
 }
 
+export type PincodeValidationCode =
+  | "OK"
+  | "RESTRICTED_PRODUCTS_UNAVAILABLE"
+  | "INVALID_PIN"
+  | "SERVICE_ERROR";
+
+export type PincodeValidationStatus =
+  | "ELIGIBLE"
+  | "OUTSIDE_SERVICE_AREA"
+  | "INVALID_PIN"
+  | "SERVICE_ERROR";
+
 export type PincodeValidationResult = {
   isValid: boolean;
-  code?: "RESTRICTED_PRODUCTS_UNAVAILABLE" | "OK";
+  code: PincodeValidationCode;
+  status?: PincodeValidationStatus;
   message?: string;
   hasRestrictedProducts: boolean;
   unavailableProducts: Array<{
@@ -112,6 +136,11 @@ export type PincodeValidationResult = {
     productName: string;
   }>;
   allowedPaymentMethods: Array<"COD" | "RAZORPAY">;
+  locality?: string;
+  pincode?: string;
+  ratePerUnitPaise?: number;
+  ratePerUnitRupees?: number;
+  isCustomRate?: boolean;
 };
 
 /**
@@ -122,96 +151,165 @@ export async function validatePincodeAvailability(
   pincode: string,
   productIds: string[]
 ): Promise<PincodeValidationResult> {
-  const cleanPincode = pincode.trim();
+  const cleanPincode = (pincode ?? "").trim();
   const uniqueIds = Array.from(new Set(productIds.filter(Boolean)));
+
+  // 1. PIN format validation
+  if (!/^[1-9][0-9]{5}$/.test(cleanPincode)) {
+    return {
+      isValid: false,
+      code: "INVALID_PIN",
+      status: "INVALID_PIN",
+      message: "Please enter a valid 6-digit Indian pincode.",
+      hasRestrictedProducts: false,
+      unavailableProducts: [],
+      allowedPaymentMethods: [],
+    };
+  }
 
   if (uniqueIds.length === 0) {
     return {
       isValid: true,
       code: "OK",
+      status: "ELIGIBLE",
+      message: "No products in cart.",
       hasRestrictedProducts: false,
       unavailableProducts: [],
       allowedPaymentMethods: ["RAZORPAY", "COD"],
     };
   }
 
-  const supabase = createSupabaseAdminClient();
+  try {
+    const supabase = createSupabaseAdminClient();
 
-  const scopesMap = await getCategoryDeliveryScopes();
-
-  // Fetch actual products and their category from DB
-  const { data: products, error } = await supabase
-    .from("products")
-    .select("id, name, delivery_scope, category_id, categories(id, name)")
-    .in("id", uniqueIds);
-
-  if (error || !products) {
-    return {
-      isValid: false,
-      message: "Unable to verify product delivery availability at this time.",
-      hasRestrictedProducts: false,
-      unavailableProducts: [],
-      allowedPaymentMethods: [],
-    };
-  }
-
-  const restrictedProducts = products.filter((p) => {
-    if (toDeliveryType(p.delivery_scope) === "RESTRICTED_LOCATION") return true;
-    const cat = Array.isArray(p.categories) ? p.categories[0] : (p.categories as { id?: string; name?: string } | null);
-    if (cat) {
-      const scope = resolveCategoryScope(cat, scopesMap);
-      if (scope === "bangalore_only") return true;
+    let scopesMap: Record<string, "all_india" | "bangalore_only"> = {};
+    try {
+      scopesMap = await getCategoryDeliveryScopes();
+    } catch (err) {
+      console.warn("Could not load category delivery scopes:", err);
     }
-    return false;
-  });
 
-  // If no products in the cart are restricted, India-wide delivery applies
-  if (restrictedProducts.length === 0) {
+    // Fetch actual products and their category from DB
+    const { data: products, error } = await supabase
+      .from("products")
+      .select("id, name, delivery_scope, category_id, categories(id, name)")
+      .in("id", uniqueIds);
+
+    if (error || !products) {
+      console.error("Database error in validatePincodeAvailability while fetching products:", error);
+      return {
+        isValid: false,
+        code: "SERVICE_ERROR",
+        status: "SERVICE_ERROR",
+        message: "Unable to verify product delivery availability due to a service error. Please try again.",
+        hasRestrictedProducts: false,
+        unavailableProducts: [],
+        allowedPaymentMethods: [],
+      };
+    }
+
+    const restrictedProducts = products.filter((p) => {
+      if (toDeliveryType(p.delivery_scope) === "RESTRICTED_LOCATION") return true;
+      const cat = Array.isArray(p.categories) ? p.categories[0] : (p.categories as { id?: string; name?: string } | null);
+      if (cat) {
+        const scope = resolveCategoryScope(cat, scopesMap);
+        if (scope === "bangalore_only") return true;
+      }
+      return false;
+    });
+
+    // If no products in the cart are restricted, India-wide delivery applies
+    if (restrictedProducts.length === 0) {
+      return {
+        isValid: true,
+        code: "OK",
+        status: "ELIGIBLE",
+        message: "This product is available for delivery in your location.",
+        hasRestrictedProducts: false,
+        unavailableProducts: [],
+        allowedPaymentMethods: ["RAZORPAY", "COD"],
+      };
+    }
+
+    // There are restricted products: Validate against configured Bengaluru PIN codes
+    let pinConfig: BengaluruPincodeConfig | null = null;
+    let defaultBangaloreConfig = {
+      chargePaise: 0,
+      chargeRupees: 0,
+      isActive: false,
+      isConfigured: false,
+    };
+
+    try {
+      const [resolvedPin, rawConfig] = await Promise.all([
+        getBengaluruPincodeConfig(cleanPincode),
+        fetchRawBangaloreShippingConfig(),
+      ]);
+      pinConfig = resolvedPin;
+      defaultBangaloreConfig = rawConfig;
+    } catch (err) {
+      console.error("Database error in validatePincodeAvailability:", err);
+      return {
+        isValid: false,
+        code: "SERVICE_ERROR",
+        status: "SERVICE_ERROR",
+        message: "Unable to verify delivery coverage due to a service error. Please try again.",
+        hasRestrictedProducts: true,
+        unavailableProducts: [],
+        allowedPaymentMethods: [],
+      };
+    }
+
+    const rateResolution = resolveBengaluruPincodeRate(
+      pinConfig,
+      defaultBangaloreConfig.chargePaise,
+      defaultBangaloreConfig.isActive && defaultBangaloreConfig.isConfigured
+    );
+
+    if (!rateResolution.isAvailable) {
+      return {
+        isValid: false,
+        code: "RESTRICTED_PRODUCTS_UNAVAILABLE",
+        status: "OUTSIDE_SERVICE_AREA",
+        message: rateResolution.reason || `Some products are not available in your location (${cleanPincode}).`,
+        hasRestrictedProducts: true,
+        locality: rateResolution.locality,
+        pincode: cleanPincode,
+        unavailableProducts: restrictedProducts.map((p) => ({
+          productId: p.id,
+          productName: p.name,
+        })),
+        allowedPaymentMethods: [],
+      };
+    }
+
+    // Pincode is eligible! Restricted fresh delicacies are COD ONLY
     return {
       isValid: true,
       code: "OK",
-      hasRestrictedProducts: false,
+      status: "ELIGIBLE",
+      message: `Available for delivery in ${rateResolution.locality || "Bengaluru"}.`,
+      hasRestrictedProducts: true,
+      locality: rateResolution.locality,
+      pincode: cleanPincode,
+      ratePerUnitPaise: rateResolution.ratePaise,
+      ratePerUnitRupees: rateResolution.rateRupees,
+      isCustomRate: rateResolution.isCustomRate,
       unavailableProducts: [],
-      allowedPaymentMethods: ["RAZORPAY", "COD"],
+      allowedPaymentMethods: ["COD"],
     };
-  }
-
-  // There are restricted products: Fetch admin-configured restricted locations from DB
-  const configuredLocations = await getRestrictedLocations();
-  const allowedPincodesSet = new Set<string>();
-
-  for (const loc of configuredLocations) {
-    for (const p of loc.pincodes) {
-      allowedPincodesSet.add(p.trim());
-    }
-  }
-
-  // Check if customer's pincode is in the allowed set
-  const isPincodeAllowed = allowedPincodesSet.has(cleanPincode);
-
-  if (!isPincodeAllowed) {
+  } catch (error) {
+    console.error("Unexpected error in validatePincodeAvailability:", error);
     return {
       isValid: false,
-      code: "RESTRICTED_PRODUCTS_UNAVAILABLE",
-      message: "Some products are not available in your location.",
-      hasRestrictedProducts: true,
-      unavailableProducts: restrictedProducts.map((p) => ({
-        productId: p.id,
-        productName: p.name,
-      })),
-      // If unavailable, these cannot proceed until removed
+      code: "SERVICE_ERROR",
+      status: "SERVICE_ERROR",
+      message: "Unable to verify delivery availability due to a system error. Please try again.",
+      hasRestrictedProducts: false,
+      unavailableProducts: [],
       allowedPaymentMethods: [],
     };
   }
-
-  // Pincode is eligible, but since restricted products exist: COD ONLY
-  return {
-    isValid: true,
-    code: "OK",
-    hasRestrictedProducts: true,
-    unavailableProducts: [],
-    allowedPaymentMethods: ["COD"],
-  };
 }
 
 export const CATEGORY_DELIVERY_SCOPES_KEY = "category_delivery_scopes";

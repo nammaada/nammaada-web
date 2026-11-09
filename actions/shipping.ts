@@ -1,15 +1,36 @@
 "use server";
 
-import { getActiveShippingRules, getAuthoritativeShippingQuote, type StateShippingQuote } from "@/lib/shipping/rules";
+import {
+  getActiveShippingRules,
+  getBangaloreShippingConfig,
+  calculateAuthoritativeCartShipping,
+  type CartItemShippingInput,
+  type CartShippingCalculationQuote,
+  type BangaloreShippingConfig,
+} from "@/lib/shipping/rules";
 
 /**
- * Server action to get real-time authoritative shipping quote for a state.
+ * Server action to get real-time authoritative shipping quote for a state and cart items.
+ * Handles state-level shipping as well as per-unit Bangalore special shipping for fresh delicacies.
  * Safe for client-side invocation from PDP, Cart, and Checkout.
  */
 export async function getShippingQuoteAction(
-  stateCodeOrName: string
-): Promise<StateShippingQuote> {
-  return getAuthoritativeShippingQuote(stateCodeOrName);
+  stateCodeOrName: string,
+  items?: CartItemShippingInput[],
+  pincode?: string
+): Promise<CartShippingCalculationQuote> {
+  return calculateAuthoritativeCartShipping({
+    stateCodeOrName,
+    items,
+    pincode,
+  });
+}
+
+/**
+ * Server action to retrieve current Bangalore special shipping configuration.
+ */
+export async function getBangaloreShippingConfigAction(): Promise<BangaloreShippingConfig> {
+  return getBangaloreShippingConfig();
 }
 
 /**

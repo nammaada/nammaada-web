@@ -6,6 +6,17 @@ import { requireAdmin } from "@/lib/auth/admin";
 import { deleteCloudinaryImage, deleteCloudinaryMedia, uploadCloudinaryImage, uploadCloudinaryMedia, validateImage, validateMedia } from "@/lib/cloudinary/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
 import { findState } from "@/lib/constants/india-geo";
+import { BANGALORE_SHIPPING_SETTINGS_KEY } from "@/lib/shipping/rules";
+import {
+  getBengaluruPincodeConfigs,
+  upsertBengaluruPincode,
+  toggleBengaluruPincodeActive,
+  deleteBengaluruPincode,
+  bulkAddBengaluruPincodes,
+  getBengaluruDeliverySummary,
+  type BengaluruPincodeConfig,
+  type BengaluruDeliverySummary,
+} from "@/lib/delivery/bengaluru-pincodes";
 
 function text(form: FormData, key: string) { return String(form.get(key) ?? "").trim(); }
 function bool(form: FormData, key: string) { return form.get(key) === "on" || form.get(key) === "true"; }
@@ -359,6 +370,305 @@ export async function updateStateShippingRuleAction(input: {
   } catch (err) {
     console.error("updateStateShippingRuleAction error:", err);
     return { ok: false, message: "Unauthorized or server error." };
+  }
+}
+
+export async function updateBangaloreShippingConfigAction(input: {
+  chargeRupees: number;
+  isActive: boolean;
+}): Promise<{ ok: boolean; message?: string }> {
+  try {
+    await requireAdmin();
+
+    const rupees = typeof input.chargeRupees === "number" ? input.chargeRupees : Number(input.chargeRupees);
+    if (Number.isNaN(rupees) || !Number.isFinite(rupees) || rupees < 0) {
+      return { ok: false, message: "Please enter a valid, non-negative delivery charge (₹0 or greater)." };
+    }
+    if (rupees > 50000) {
+      return { ok: false, message: "Delivery charge exceeds maximum allowed threshold (₹50,000)." };
+    }
+
+    const chargePaise = Math.round(rupees * 100);
+    const client = createSupabaseAdminClient();
+
+    const { error } = await client.from("site_settings").upsert(
+      {
+        key: BANGALORE_SHIPPING_SETTINGS_KEY,
+        value: {
+          charge_paise: chargePaise,
+          is_active: input.isActive,
+        },
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "key" }
+    );
+
+    if (error) {
+      console.error("Failed to update Bangalore shipping config:", error);
+      return { ok: false, message: "Database update failed: " + error.message };
+    }
+
+    try {
+      revalidateTag("shipping-rules", "max");
+    } catch {}
+    revalidatePath("/admin/shipping");
+    revalidatePath("/products");
+    revalidatePath("/checkout");
+    revalidatePath("/cart");
+
+    return { ok: true };
+  } catch (err) {
+    console.error("updateBangaloreShippingConfigAction error:", err);
+    return { ok: false, message: "Unauthorized or server error." };
+  }
+}
+
+/**
+ * Server action to fetch all configured Bengaluru delivery PIN codes and metrics.
+ */
+export async function getBengaluruPincodesAction(): Promise<{
+  ok: boolean;
+  pincodes: BengaluruPincodeConfig[];
+  summary: BengaluruDeliverySummary;
+  error?: string;
+}> {
+  try {
+    await requireAdmin();
+    const pincodes = await getBengaluruPincodeConfigs();
+    const summary = getBengaluruDeliverySummary(pincodes);
+    return { ok: true, pincodes, summary };
+  } catch (err) {
+    console.error("getBengaluruPincodesAction error:", err);
+    return {
+      ok: false,
+      pincodes: [],
+      summary: { totalCount: 0, activeCount: 0, inactiveCount: 0, customRateCount: 0, defaultRateCount: 0 },
+      error: "Unauthorized or server error.",
+    };
+  }
+}
+
+/**
+ * Server action to add or edit a single Bengaluru delivery PIN code.
+ */
+export async function upsertBengaluruPincodeAction(input: {
+  pincode: string;
+  locality: string;
+  isActive: boolean;
+  chargeRupees: number | null;
+}): Promise<{ ok: boolean; message?: string }> {
+  try {
+    await requireAdmin();
+
+    const pin = input.pincode.trim();
+    if (!/^[1-9][0-9]{5}$/.test(pin)) {
+      return { ok: false, message: "Please enter a valid 6-digit Indian PIN code." };
+    }
+
+    const locality = input.locality.trim();
+    if (!locality) {
+      return { ok: false, message: "Locality name is required." };
+    }
+
+    let chargePaise: number | null = null;
+    if (input.chargeRupees !== null && input.chargeRupees !== undefined) {
+      const rupees = typeof input.chargeRupees === "number" ? input.chargeRupees : Number(input.chargeRupees);
+      if (Number.isNaN(rupees) || rupees < 0) {
+        return { ok: false, message: "Custom rate must be ₹0 (free delivery) or a positive amount." };
+      }
+      if (rupees > 50000) {
+        return { ok: false, message: "Custom rate exceeds maximum allowed threshold (₹50,000)." };
+      }
+      chargePaise = Math.round(rupees * 100);
+    }
+
+    const res = await upsertBengaluruPincode({
+      pincode: pin,
+      locality,
+      isActive: Boolean(input.isActive),
+      chargePaise,
+    });
+
+    if (!res.ok) {
+      return { ok: false, message: res.error || "Failed to save PIN code." };
+    }
+
+    try {
+      revalidateTag("shipping-rules", "max");
+      revalidateTag("bengaluru-pincodes", "max");
+    } catch {}
+    revalidatePath("/admin/shipping");
+    revalidatePath("/checkout");
+    revalidatePath("/cart");
+
+    return { ok: true };
+  } catch (err) {
+    console.error("upsertBengaluruPincodeAction error:", err);
+    return { ok: false, message: "Unauthorized or server error." };
+  }
+}
+
+/**
+ * Server action to toggle active status of a Bengaluru delivery PIN code.
+ */
+export async function toggleBengaluruPincodeActiveAction(
+  pincode: string,
+  isActive: boolean
+): Promise<{ ok: boolean; message?: string }> {
+  try {
+    await requireAdmin();
+    const pin = pincode.trim();
+    const res = await toggleBengaluruPincodeActive(pin, isActive);
+
+    if (!res.ok) {
+      return { ok: false, message: res.error || "Failed to update PIN status." };
+    }
+
+    try {
+      revalidateTag("shipping-rules", "max");
+      revalidateTag("bengaluru-pincodes", "max");
+    } catch {}
+    revalidatePath("/admin/shipping");
+    revalidatePath("/checkout");
+    revalidatePath("/cart");
+
+    return { ok: true };
+  } catch (err) {
+    console.error("toggleBengaluruPincodeActiveAction error:", err);
+    return { ok: false, message: "Unauthorized or server error." };
+  }
+}
+
+/**
+ * Server action to delete a Bengaluru delivery PIN code.
+ */
+export async function deleteBengaluruPincodeAction(
+  pincode: string
+): Promise<{ ok: boolean; message?: string }> {
+  try {
+    await requireAdmin();
+    const pin = pincode.trim();
+    const res = await deleteBengaluruPincode(pin);
+
+    if (!res.ok) {
+      return { ok: false, message: res.error || "Failed to delete PIN code." };
+    }
+
+    try {
+      revalidateTag("shipping-rules", "max");
+      revalidateTag("bengaluru-pincodes", "max");
+    } catch {}
+    revalidatePath("/admin/shipping");
+    revalidatePath("/checkout");
+    revalidatePath("/cart");
+
+    return { ok: true };
+  } catch (err) {
+    console.error("deleteBengaluruPincodeAction error:", err);
+    return { ok: false, message: "Unauthorized or server error." };
+  }
+}
+
+/**
+ * Server action to bulk add/update Bengaluru delivery PIN codes.
+ */
+export async function bulkAddBengaluruPincodesAction(
+  rawInput: string,
+  defaultRateRupees?: number | null
+): Promise<{ ok: boolean; addedCount: number; updatedCount: number; message?: string }> {
+  try {
+    await requireAdmin();
+
+    const lines = rawInput
+      .split(/[\n;]+/)
+      .map((l) => l.trim())
+      .filter(Boolean);
+
+    const inputs: Array<{
+      pincode: string;
+      locality?: string;
+      chargePaise?: number | null;
+      isActive?: boolean;
+    }> = [];
+
+    const defaultChargePaise =
+      defaultRateRupees !== undefined && defaultRateRupees !== null && !Number.isNaN(Number(defaultRateRupees))
+        ? Math.max(0, Math.round(Number(defaultRateRupees) * 100))
+        : null;
+
+    for (const line of lines) {
+      // Also support comma separation within a line (e.g. 560001, 560002)
+      // or CSV format (560001, Central Bangalore, 40)
+      const parts = line.split(/[,\t|:]+/).map((p) => p.trim()).filter(Boolean);
+
+      if (parts.length === 1) {
+        // Just PIN or space-separated PINs
+        const subPins = parts[0].split(/\s+/).filter((p) => /^[1-9][0-9]{5}$/.test(p));
+        for (const p of subPins) {
+          inputs.push({
+            pincode: p,
+            chargePaise: defaultChargePaise,
+            isActive: true,
+          });
+        }
+      } else if (parts.length >= 2) {
+        const pinCandidate = parts[0];
+        if (/^[1-9][0-9]{5}$/.test(pinCandidate)) {
+          const locality = parts[1];
+          let customPaise = defaultChargePaise;
+
+          if (parts.length >= 3) {
+            const rawRate = Number(parts[2].replace(/[^0-9.]/g, ""));
+            if (!Number.isNaN(rawRate) && rawRate >= 0) {
+              customPaise = Math.round(rawRate * 100);
+            }
+          }
+
+          inputs.push({
+            pincode: pinCandidate,
+            locality: locality || undefined,
+            chargePaise: customPaise,
+            isActive: true,
+          });
+        }
+      }
+    }
+
+    if (inputs.length === 0) {
+      return {
+        ok: false,
+        addedCount: 0,
+        updatedCount: 0,
+        message: "No valid 6-digit Indian PIN codes were found in the input.",
+      };
+    }
+
+    const res = await bulkAddBengaluruPincodes(inputs);
+    if (!res.ok) {
+      return {
+        ok: false,
+        addedCount: 0,
+        updatedCount: 0,
+        message: res.error || "Failed to process bulk PIN codes.",
+      };
+    }
+
+    try {
+      revalidateTag("shipping-rules", "max");
+      revalidateTag("bengaluru-pincodes", "max");
+    } catch {}
+    revalidatePath("/admin/shipping");
+    revalidatePath("/checkout");
+    revalidatePath("/cart");
+
+    return {
+      ok: true,
+      addedCount: res.addedCount,
+      updatedCount: res.updatedCount,
+    };
+  } catch (err) {
+    console.error("bulkAddBengaluruPincodesAction error:", err);
+    return { ok: false, addedCount: 0, updatedCount: 0, message: "Unauthorized or server error." };
   }
 }
 

@@ -21,7 +21,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { checkoutSchema, type CheckoutFormValues } from "@/lib/checkout/schema";
 import { getDistrictsForState, getIndianStates } from "@/lib/constants/india-geo";
-import type { StateShippingQuote } from "@/lib/shipping/rules";
+import type { CartShippingCalculationQuote } from "@/lib/shipping/rules";
 import type { CartItem } from "@/lib/cart/cart";
 import type { PincodeValidationResult } from "@/lib/delivery/restricted-locations";
 
@@ -84,12 +84,13 @@ function OrderSummary({
 }: {
   items: CartItem[];
   subtotalPaise: number;
-  shippingQuote?: StateShippingQuote | null;
+  shippingQuote?: CartShippingCalculationQuote | null;
   isShippingLoading?: boolean;
   onRemoveItem?: (lineId: string) => void;
 }) {
   const deliveryChargePaise = shippingQuote?.isAvailable ? shippingQuote.chargePaise : 0;
   const estimatedTotalPaise = subtotalPaise + deliveryChargePaise;
+  const totalCartUnits = items.reduce((sum, item) => sum + item.quantity, 0);
 
   return (
     <div className="rounded-2xl sm:rounded-3xl border border-white/70 bg-gradient-to-br from-white/80 via-white/60 to-white/40 p-5 sm:p-6 backdrop-blur-xl [transform:translateZ(0)] shadow-xl shadow-amber-950/8 space-y-5 lg:sticky lg:top-28">
@@ -139,20 +140,27 @@ function OrderSummary({
       <div className="space-y-2 text-sm pt-1">
         <div className="flex items-center justify-between">
           <span className="text-[#6e5b55]">Subtotal</span>
-          <span className="font-semibold text-[#2b1719]">{formatPrice(subtotalPaise)}</span>
+          <span className="font-semibold text-[#2b1719] font-mono">{formatPrice(subtotalPaise)}</span>
         </div>
 
-        <div className="flex items-center justify-between">
-          <span className="text-[#6e5b55]">Shipping</span>
+        <div className="flex items-start justify-between gap-2 text-[#6e5b55]">
+          <div>
+            <span>Shipping</span>
+            {shippingQuote?.isBangaloreSpecial && (
+              <span className="block text-[10px] text-amber-900 font-medium">
+                Bengaluru Special{shippingQuote.locality ? ` (${shippingQuote.locality})` : ""}: {formatPrice(shippingQuote.bangaloreRatePerUnitPaise ?? 0)}/unit × {totalCartUnits} {totalCartUnits === 1 ? "unit" : "units"}
+              </span>
+            )}
+          </div>
           {isShippingLoading ? (
             <span className="text-xs text-[#6e5b55] animate-pulse">Calculating...</span>
           ) : shippingQuote ? (
             shippingQuote.isAvailable ? (
-              <span className="font-semibold text-[#2b1719]">
-                {shippingQuote.chargePaise === 0 ? (
+              <span className="font-semibold text-[#2b1719] font-mono">
+                {deliveryChargePaise === 0 ? (
                   <span className="text-emerald-700 font-bold">FREE</span>
                 ) : (
-                  formatPrice(shippingQuote.chargePaise)
+                  formatPrice(deliveryChargePaise)
                 )}
               </span>
             ) : (
@@ -166,7 +174,11 @@ function OrderSummary({
         {shippingQuote?.isAvailable && (
           <div className="text-[11px] text-[#6e5b55] flex items-center justify-between">
             <span>Delivering to</span>
-            <span className="font-medium text-[#2b1719]">{shippingQuote.stateName}</span>
+            <span className="font-medium text-[#2b1719]">
+              {shippingQuote.isBangaloreSpecial && shippingQuote.locality
+                ? `${shippingQuote.locality}, Bengaluru`
+                : shippingQuote.stateName}
+            </span>
           </div>
         )}
 
@@ -256,7 +268,7 @@ function CheckoutContent() {
   const idempotencyKeyRef = useRef<string | null>(null);
 
   // Dynamic state shipping calculation
-  const [shippingQuote, setShippingQuote] = useState<StateShippingQuote | null>(null);
+  const [shippingQuote, setShippingQuote] = useState<CartShippingCalculationQuote | null>(null);
   const [isShippingLoading, setIsShippingLoading] = useState(false);
 
   // Indian States & UTs and dynamically filtered districts
@@ -265,31 +277,6 @@ function CheckoutContent() {
     () => (values.state ? getDistrictsForState(values.state) : []),
     [values.state]
   );
-
-  // Fetch live shipping quote whenever state changes
-  useEffect(() => {
-    if (!values.state) return;
-    let isMounted = true;
-    queueMicrotask(() => {
-      if (isMounted) setIsShippingLoading(true);
-    });
-    getShippingQuoteAction(values.state)
-      .then((quote) => {
-        if (!isMounted) return;
-        setShippingQuote(quote);
-      })
-      .catch((err) => {
-        console.error("Shipping quote fetch error:", err);
-        if (isMounted) setShippingQuote(null);
-      })
-      .finally(() => {
-        if (isMounted) setIsShippingLoading(false);
-      });
-
-    return () => {
-      isMounted = false;
-    };
-  }, [values.state]);
 
   // Auto-fill logged-in customer profile details if fields are empty
   useEffect(() => {
@@ -346,6 +333,7 @@ function CheckoutContent() {
       unitPricePaise,
       quantity,
       image: imageUrl ? { url: imageUrl, alt: imageAlt } : null,
+      delivery_scope: (searchParams.get("delivery_scope") as "all_india" | "bangalore_only") || undefined,
     };
   }, [isBuyNow, buyNowRemoved, searchParams]);
 
@@ -360,6 +348,66 @@ function CheckoutContent() {
   const activeSubtotal = useMemo(() => {
     return activeItems.reduce((total, item) => total + item.unitPricePaise * item.quantity, 0);
   }, [activeItems]);
+
+  const hasRestrictedItem =
+    activeItems.some((i) => i.delivery_scope === "bangalore_only") ||
+    Boolean(shippingQuote?.hasBangaloreOnlyProducts);
+
+  // If cart or buyNow contains restricted Bangalore-only products, state must automatically be Karnataka (KA)
+  useEffect(() => {
+    if (hasRestrictedItem && values.state !== "KA") {
+      queueMicrotask(() => {
+        setValues((current) => ({
+          ...current,
+          state: "KA",
+          district: current.state !== "KA" ? "Bangalore" : current.district,
+        }));
+      });
+      setSelectedState("KA");
+    }
+  }, [hasRestrictedItem, values.state, setSelectedState]);
+
+  // Dynamically recalculate shipping quote whenever destination state or active cart items change
+  useEffect(() => {
+    if (!values.state) {
+      queueMicrotask(() => {
+        setShippingQuote(null);
+      });
+      return;
+    }
+
+    let isMounted = true;
+    queueMicrotask(() => {
+      if (isMounted) setIsShippingLoading(true);
+    });
+
+    const payloadItems = activeItems.map((i) => ({
+      productId: i.productId,
+      quantity: i.quantity,
+      delivery_scope: i.delivery_scope,
+      is_free_shipping: i.is_free_shipping,
+    }));
+
+    const cleanPin = values.pincode.trim();
+    const effectivePin = /^[1-9][0-9]{5}$/.test(cleanPin) ? cleanPin : undefined;
+
+    getShippingQuoteAction(values.state, payloadItems, effectivePin)
+      .then((quote) => {
+        if (!isMounted) return;
+        setShippingQuote(quote);
+      })
+      .catch((err) => {
+        console.error("Shipping quote fetch error:", err);
+        if (isMounted) setShippingQuote(null);
+      })
+      .finally(() => {
+        if (isMounted) setIsShippingLoading(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [values.state, values.pincode, activeItems]);
 
   // Check stock availability for active checkout items
   useEffect(() => {
@@ -392,9 +440,26 @@ function CheckoutContent() {
   // Dynamic location check when 6-digit pincode is entered
   useEffect(() => {
     const cleanPin = values.pincode.trim();
-    if (!/^[1-9][0-9]{5}$/.test(cleanPin) || activeItems.length === 0) {
+    if (cleanPin.length < 6 || activeItems.length === 0) {
       queueMicrotask(() => {
         setLocationValidation(null);
+        setIsValidatingLocation(false);
+      });
+      return;
+    }
+
+    if (!/^[1-9][0-9]{5}$/.test(cleanPin)) {
+      queueMicrotask(() => {
+        setLocationValidation({
+          isValid: false,
+          code: "INVALID_PIN",
+          status: "INVALID_PIN",
+          message: "Please enter a valid 6-digit Indian pincode.",
+          hasRestrictedProducts: false,
+          unavailableProducts: [],
+          allowedPaymentMethods: [],
+        });
+        setIsValidatingLocation(false);
       });
       return;
     }
@@ -409,13 +474,24 @@ function CheckoutContent() {
       .then((res) => {
         if (!isMounted) return;
         setLocationValidation(res);
-        // If restricted products are present, force payment method to COD
-        if (res.hasRestrictedProducts) {
+        // If restricted products are present and valid, force payment method to COD
+        if (res.hasRestrictedProducts && res.isValid) {
           setPaymentMethod("COD");
         }
       })
       .catch((err) => {
         console.error("Location validation error:", err);
+        if (isMounted) {
+          setLocationValidation({
+            isValid: false,
+            code: "SERVICE_ERROR",
+            status: "SERVICE_ERROR",
+            message: "Unable to verify delivery location due to a server error. Please try again.",
+            hasRestrictedProducts: false,
+            unavailableProducts: [],
+            allowedPaymentMethods: [],
+          });
+        }
       })
       .finally(() => {
         if (isMounted) setIsValidatingLocation(false);
@@ -423,6 +499,7 @@ function CheckoutContent() {
 
     return () => {
       isMounted = false;
+      setIsValidatingLocation(false);
     };
   }, [values.pincode, activeItems]);
 
@@ -516,12 +593,34 @@ function CheckoutContent() {
     locationValidation.code === "RESTRICTED_PRODUCTS_UNAVAILABLE" &&
     locationValidation.unavailableProducts.length > 0;
 
-  const isRestrictedCodOnly = locationValidation?.hasRestrictedProducts === true;
+  const isRestrictedCodOnly = locationValidation?.hasRestrictedProducts === true || hasRestrictedItem;
   const isDeliveryUnavailable = shippingQuote !== null && !shippingQuote.isAvailable;
-  const hasRestrictedBangaloreMismatch = Boolean(locationValidation?.hasRestrictedProducts && values.state !== "KA");
+  const hasRestrictedBangaloreMismatch = Boolean(
+    (locationValidation?.hasRestrictedProducts || hasRestrictedItem) && values.state && values.state !== "KA"
+  );
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+
+    if (isValidatingLocation) {
+      setServerMessage("Please wait a moment while your delivery location is being verified.");
+      return;
+    }
+
+    if (locationValidation && !locationValidation.isValid) {
+      if (locationValidation.code === "SERVICE_ERROR") {
+        setServerMessage(locationValidation.message || "Unable to verify delivery location due to a server error. Please retry verification.");
+        return;
+      }
+      if (locationValidation.code === "INVALID_PIN") {
+        setServerMessage(locationValidation.message || "Please enter a valid 6-digit Indian pincode.");
+        return;
+      }
+      if (locationValidation.code === "RESTRICTED_PRODUCTS_UNAVAILABLE") {
+        setServerMessage("Some products in your cart cannot be delivered to this location. Please remove them to proceed.");
+        return;
+      }
+    }
 
     if (hasUnavailableProducts) {
       setServerMessage("Please remove unavailable products for your delivery location before continuing.");
@@ -586,6 +685,7 @@ function CheckoutContent() {
             setLocationValidation({
               isValid: false,
               code: "RESTRICTED_PRODUCTS_UNAVAILABLE",
+              status: "OUTSIDE_SERVICE_AREA",
               message: codResult.message,
               hasRestrictedProducts: true,
               unavailableProducts: codResult.unavailableProducts,
@@ -784,37 +884,48 @@ function CheckoutContent() {
                 </Field>
 
                 <div className="grid gap-4 sm:grid-cols-2">
-                  <Field id="state" label="State / Union Territory" error={errors.state}>
+                  <Field
+                    id="state"
+                    label={hasRestrictedItem ? "State / UT (Locked for Bangalore Delivery)" : "State / Union Territory"}
+                    error={errors.state}
+                  >
                     <select
                       id="state"
                       name="state"
                       aria-invalid={Boolean(errors.state)}
                       aria-describedby={errors.state ? "state-error" : undefined}
-                      value={values.state}
+                      value={hasRestrictedItem ? "KA" : values.state}
+                      disabled={hasRestrictedItem}
                       onChange={(e) => handleStateChange(e.target.value)}
                       className={`h-11 w-full rounded-xl border bg-[#fffdf8] px-3.5 text-xs sm:text-sm font-medium text-[#2b1719] outline-none transition-all focus-visible:border-[#711e2c] focus-visible:ring-2 focus-visible:ring-[#711e2c]/20 cursor-pointer ${
-                        errors.state ? "border-red-700" : "border-[#dfd0bd]"
-                      }`}
+                        hasRestrictedItem ? "opacity-90 bg-[#fbf7f0] cursor-not-allowed" : ""
+                      } ${errors.state ? "border-red-700" : "border-[#dfd0bd]"}`}
                     >
-                      <option value="">Select State / UT</option>
-                      <optgroup label="States">
-                        {indianStates
-                          .filter((s) => !s.isUnionTerritory)
-                          .map((s) => (
-                            <option key={s.code} value={s.code}>
-                              {s.name}
-                            </option>
-                          ))}
-                      </optgroup>
-                      <optgroup label="Union Territories">
-                        {indianStates
-                          .filter((s) => s.isUnionTerritory)
-                          .map((s) => (
-                            <option key={s.code} value={s.code}>
-                              {s.name}
-                            </option>
-                          ))}
-                      </optgroup>
+                      {hasRestrictedItem ? (
+                        <option value="KA">Karnataka (Bengaluru Only)</option>
+                      ) : (
+                        <>
+                          <option value="">Select State / UT</option>
+                          <optgroup label="States">
+                            {indianStates
+                              .filter((s) => !s.isUnionTerritory)
+                              .map((s) => (
+                                <option key={s.code} value={s.code}>
+                                  {s.name}
+                                </option>
+                              ))}
+                          </optgroup>
+                          <optgroup label="Union Territories">
+                            {indianStates
+                              .filter((s) => s.isUnionTerritory)
+                              .map((s) => (
+                                <option key={s.code} value={s.code}>
+                                  {s.name}
+                                </option>
+                              ))}
+                          </optgroup>
+                        </>
+                      )}
                     </select>
                   </Field>
 
@@ -879,9 +990,27 @@ function CheckoutContent() {
                   <div className="rounded-xl border border-emerald-300 bg-emerald-50/80 p-3 text-xs text-emerald-900 flex items-center justify-between animate-in fade-in">
                     <span className="font-semibold flex items-center gap-1.5">
                       <CheckCircle2 size={15} className="text-emerald-700 shrink-0" />
-                      <span>Delivery to {shippingQuote.stateName}</span>
+                      <span>
+                        {shippingQuote.isBangaloreSpecial ? (
+                          <>
+                            <span>
+                              Bengaluru Special Delivery
+                              {shippingQuote.locality ? ` — ${shippingQuote.locality}` : ""}
+                            </span>
+                            <span className="block text-[11px] font-normal text-emerald-800">
+                              {shippingQuote.isCustomPinRate ? "Custom Locality Rate: " : "Rate: "}
+                              {shippingQuote.bangaloreRatePerUnitPaise === 0
+                                ? "Free"
+                                : `${formatPrice(shippingQuote.bangaloreRatePerUnitPaise ?? 0)}/unit`}
+                              {` (${shippingQuote.totalUnits ?? activeItems.reduce((s, i) => s + i.quantity, 0)} units)`}
+                            </span>
+                          </>
+                        ) : (
+                          `Delivery to ${shippingQuote.stateName}`
+                        )}
+                      </span>
                     </span>
-                    <span className="font-bold text-emerald-800">
+                    <span className="font-bold text-emerald-800 font-mono">
                       {shippingQuote.chargePaise === 0
                         ? "Free Delivery"
                         : formatPrice(shippingQuote.chargePaise)}
@@ -909,6 +1038,64 @@ function CheckoutContent() {
                     </p>
                     <p className="text-[11px] text-amber-800/80">
                       Your cart contains perishable delicacies that can only be delivered within Bangalore (Karnataka). Please select Karnataka and a valid Bangalore pincode.
+                    </p>
+                  </div>
+                )}
+
+                {/* Pincode Lookup / Validation Service Error Alert */}
+                {locationValidation && !locationValidation.isValid && locationValidation.code === "SERVICE_ERROR" && (
+                  <div className="rounded-2xl border border-rose-300 bg-rose-50 p-4 sm:p-5 space-y-3 animate-in fade-in">
+                    <p className="text-xs sm:text-sm font-bold text-rose-950 flex items-center gap-2">
+                      <span className="text-rose-700">⚠</span> Location Verification Service Unavailable
+                    </p>
+                    <p className="text-xs text-rose-800/90">
+                      {locationValidation.message || "We encountered a server error while checking location availability. Please verify your connection and try again."}
+                    </p>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        const cleanPin = values.pincode.trim();
+                        if (/^[1-9][0-9]{5}$/.test(cleanPin) && activeItems.length > 0) {
+                          setIsValidatingLocation(true);
+                          const productIds = Array.from(new Set(activeItems.map((i) => i.productId)));
+                          validateCheckoutLocation({ pincode: cleanPin, productIds })
+                            .then((res) => {
+                              setLocationValidation(res);
+                              if (res.hasRestrictedProducts && res.isValid) {
+                                setPaymentMethod("COD");
+                              }
+                            })
+                            .catch(() => {
+                              setLocationValidation({
+                                isValid: false,
+                                code: "SERVICE_ERROR",
+                                status: "SERVICE_ERROR",
+                                message: "Unable to verify delivery location due to a server error. Please try again.",
+                                hasRestrictedProducts: false,
+                                unavailableProducts: [],
+                                allowedPaymentMethods: [],
+                              });
+                            })
+                            .finally(() => setIsValidatingLocation(false));
+                        }
+                      }}
+                      className="border-rose-400 bg-white hover:bg-rose-100 text-rose-950 font-bold"
+                    >
+                      Retry Verification
+                    </Button>
+                  </div>
+                )}
+
+                {/* Invalid Pincode Format Alert */}
+                {locationValidation && !locationValidation.isValid && locationValidation.code === "INVALID_PIN" && (
+                  <div className="rounded-xl border border-amber-300 bg-amber-50 p-3.5 space-y-1 animate-in fade-in">
+                    <p className="text-xs sm:text-sm font-bold text-amber-900 flex items-center gap-1.5">
+                      <span>⚠</span> Invalid Pincode
+                    </p>
+                    <p className="text-[11px] text-amber-800/80">
+                      {locationValidation.message || "Please enter a valid 6-digit Indian postal pincode."}
                     </p>
                   </div>
                 )}
@@ -942,10 +1129,18 @@ function CheckoutContent() {
                 {locationValidation?.isValid && isRestrictedCodOnly && values.state === "KA" && (
                   <div className="rounded-xl border border-emerald-300 bg-emerald-50/80 p-3.5 space-y-1 animate-in fade-in">
                     <p className="text-xs sm:text-sm font-bold text-emerald-950 flex items-center gap-1.5">
-                      <span className="text-emerald-700">✓</span> This product is available in your location.
+                      <span className="text-emerald-700">✓</span> Available for delivery
+                      {locationValidation.locality ? ` in ${locationValidation.locality}` : " in Bengaluru"}.
                     </p>
                     <p className="text-[11px] text-emerald-900/80">
                       Freshly prepared delicacies in your order are eligible for Cash on Delivery (COD).
+                      {locationValidation.ratePerUnitRupees !== undefined && (
+                        <span>
+                          {" "}
+                          Shipping: {locationValidation.ratePerUnitPaise === 0 ? "Free" : `₹${locationValidation.ratePerUnitRupees}/unit`}
+                          {locationValidation.isCustomRate ? " (Custom Locality Rate)" : ""}.
+                        </span>
+                      )}
                     </p>
                   </div>
                 )}
@@ -1078,7 +1273,9 @@ function CheckoutContent() {
                       Boolean(hasUnavailableProducts) ||
                       isDeliveryUnavailable ||
                       hasRestrictedBangaloreMismatch ||
-                      isShippingLoading
+                      isShippingLoading ||
+                      isValidatingLocation ||
+                      Boolean(locationValidation && !locationValidation.isValid)
                     }
                     size="lg"
                     type="submit"
@@ -1087,10 +1284,16 @@ function CheckoutContent() {
                       ? paymentMethod === "COD" || isRestrictedCodOnly
                         ? "Placing COD order..."
                         : "Connecting to Razorpay..."
+                      : isValidatingLocation
+                      ? "Verifying delivery location..."
+                      : locationValidation && !locationValidation.isValid && locationValidation.code === "SERVICE_ERROR"
+                      ? "Location Verification Error (Retry Above)"
+                      : locationValidation && !locationValidation.isValid && locationValidation.code === "RESTRICTED_PRODUCTS_UNAVAILABLE"
+                      ? "Items Unavailable in Your Location"
                       : !values.state
                       ? "Select Delivery State"
                       : isDeliveryUnavailable
-                      ? "Delivery Unavailable for Selected State"
+                      ? (shippingQuote?.message || "Delivery Unavailable for Selected State")
                       : hasRestrictedBangaloreMismatch
                       ? "Cannot Deliver Restricted Items Outside Karnataka"
                       : paymentMethod === "COD" || isRestrictedCodOnly

@@ -10,6 +10,8 @@ export type CartItem = {
   unitPricePaise: number;
   quantity: number;
   image: CartImage;
+  delivery_scope?: "all_india" | "bangalore_only" | null;
+  is_free_shipping?: boolean;
 };
 
 export type CartItemInput = Omit<CartItem, "lineId" | "quantity"> & { quantity?: number };
@@ -37,7 +39,9 @@ function isValidCartItem(value: unknown): value is CartItem {
     && (item.variantName === null || typeof item.variantName === "string")
     && typeof item.unitPricePaise === "number" && Number.isSafeInteger(item.unitPricePaise) && item.unitPricePaise >= 0
     && typeof item.quantity === "number" && Number.isSafeInteger(item.quantity) && item.quantity >= 1
-    && (item.image === null || isValidImage(item.image));
+    && (item.image === null || isValidImage(item.image))
+    && (item.delivery_scope === undefined || item.delivery_scope === null || item.delivery_scope === "all_india" || item.delivery_scope === "bangalore_only")
+    && (item.is_free_shipping === undefined || typeof item.is_free_shipping === "boolean");
 }
 
 export function parseStoredCart(value: string | null): CartItem[] {

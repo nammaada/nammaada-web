@@ -19,18 +19,44 @@ import { Badge } from "@/components/ui/badge";
 import {
   updateStateShippingRuleAction,
   bulkUpdateShippingRulesAction,
+  updateBangaloreShippingConfigAction,
 } from "@/actions/admin";
-import type { StateShippingStatus } from "@/lib/shipping/rules";
+import type { StateShippingStatus, BangaloreShippingConfig } from "@/lib/shipping/rules";
+import { BengaluruDeliveryManager } from "@/components/admin/bengaluru-delivery-manager";
+import type { BengaluruPincodeConfig } from "@/lib/delivery/bengaluru-pincodes-types";
 
 type ShippingManagerProps = {
   initialStates: StateShippingStatus[];
+  initialBangaloreConfig?: BangaloreShippingConfig;
+  initialBengaluruPincodes?: BengaluruPincodeConfig[];
 };
 
-export function ShippingManager({ initialStates }: ShippingManagerProps) {
+export function ShippingManager({
+  initialStates,
+  initialBangaloreConfig,
+  initialBengaluruPincodes,
+}: ShippingManagerProps) {
   const [states, setStates] = useState<StateShippingStatus[]>(initialStates);
+  const [bangaloreConfig, setBangaloreConfig] = useState<BangaloreShippingConfig>(
+    initialBangaloreConfig ?? {
+      chargePaise: 0,
+      chargeRupees: 0,
+      isActive: false,
+      isConfigured: false,
+    }
+  );
+
   const [search, setSearch] = useState("");
   const [filterType, setFilterType] = useState<"ALL" | "STATES" | "UTS" | "ACTIVE" | "FREE" | "UNCONFIGURED">("ALL");
   const [successMessage, setSuccessMessage] = useState("");
+
+  // Bangalore Special Edit Modal State
+  const [isBangaloreModalOpen, setIsBangaloreModalOpen] = useState(false);
+  const [bangaloreChargeRupees, setBangaloreChargeRupees] = useState<string>("");
+  const [bangaloreIsActive, setBangaloreIsActive] = useState<boolean>(true);
+  const [bangaloreIsFree, setBangaloreIsFree] = useState<boolean>(false);
+  const [bangaloreError, setBangaloreError] = useState<string>("");
+  const [isBangaloreConfirmOpen, setIsBangaloreConfirmOpen] = useState<boolean>(false);
 
   // Individual Edit Modal State
   const [editingState, setEditingState] = useState<StateShippingStatus | null>(null);
@@ -134,6 +160,86 @@ export function ShippingManager({ initialStates }: ShippingManagerProps) {
   const selectedStatesList = useMemo(() => {
     return states.filter((s) => selectedCodes.has(s.code));
   }, [states, selectedCodes]);
+
+  const karnatakaState = useMemo(() => states.find((s) => s.code === "KA"), [states]);
+
+  // Bangalore Special Edit Handlers
+  const handleOpenBangaloreEdit = () => {
+    setBangaloreChargeRupees(
+      bangaloreConfig.isConfigured ? String(bangaloreConfig.chargeRupees) : ""
+    );
+    setBangaloreIsActive(
+      bangaloreConfig.isConfigured ? bangaloreConfig.isActive : true
+    );
+    setBangaloreIsFree(
+      bangaloreConfig.isConfigured &&
+        bangaloreConfig.isActive &&
+        bangaloreConfig.chargePaise === 0
+    );
+    setBangaloreError("");
+    setIsBangaloreModalOpen(true);
+  };
+
+  const handleCloseBangaloreEdit = () => {
+    setIsBangaloreModalOpen(false);
+    setIsBangaloreConfirmOpen(false);
+    setBangaloreError("");
+  };
+
+  const handleToggleBangaloreFree = (checked: boolean) => {
+    setBangaloreIsFree(checked);
+    if (checked) {
+      setBangaloreChargeRupees("0");
+      setBangaloreIsActive(true);
+    } else {
+      if (bangaloreChargeRupees === "0") setBangaloreChargeRupees("");
+    }
+  };
+
+  const handlePromptBangaloreConfirm = () => {
+    setBangaloreError("");
+    const val = bangaloreIsFree ? 0 : Number.parseFloat(bangaloreChargeRupees);
+    if (Number.isNaN(val) || val < 0) {
+      setBangaloreError("Please enter a valid delivery charge (₹0 or greater).");
+      return;
+    }
+    if (val > 50000) {
+      setBangaloreError("Delivery charge exceeds maximum allowed threshold (₹50,000).");
+      return;
+    }
+    setIsBangaloreConfirmOpen(true);
+  };
+
+  const handleSaveBangaloreRate = () => {
+    const val = bangaloreIsFree ? 0 : Number.parseFloat(bangaloreChargeRupees);
+    startTransition(async () => {
+      const res = await updateBangaloreShippingConfigAction({
+        chargeRupees: val,
+        isActive: bangaloreIsActive,
+      });
+
+      if (!res.ok) {
+        setBangaloreError(res.message || "Failed to update Bangalore shipping rate.");
+        setIsBangaloreConfirmOpen(false);
+        return;
+      }
+
+      setBangaloreConfig({
+        chargeRupees: val,
+        chargePaise: Math.round(val * 100),
+        isActive: bangaloreIsActive,
+        isConfigured: true,
+      });
+
+      setIsBangaloreConfirmOpen(false);
+      setIsBangaloreModalOpen(false);
+      setSuccessMessage(
+        val === 0 && bangaloreIsActive
+          ? "Free delivery enabled for Bangalore Special Shipping."
+          : `Updated Bangalore Special Shipping rate to ₹${val} per product unit.`
+      );
+    });
+  };
 
   // Individual Edit Handlers
   const handleOpenEdit = (state: StateShippingStatus) => {
@@ -372,6 +478,14 @@ export function ShippingManager({ initialStates }: ShippingManagerProps) {
           </button>
         </div>
       )}
+
+      {/* BENGALURU SPECIAL DELIVERY PIN CODE & RATE MANAGEMENT */}
+      <BengaluruDeliveryManager
+        bangaloreConfig={bangaloreConfig}
+        initialPincodes={initialBengaluruPincodes}
+        onOpenDefaultRateEdit={handleOpenBangaloreEdit}
+        onSuccessMessage={(msg) => setSuccessMessage(msg)}
+      />
 
       {/* Filter and Search Bar */}
       <div className="flex flex-col sm:flex-row gap-3 items-stretch sm:items-center justify-between">
@@ -969,6 +1083,249 @@ export function ShippingManager({ initialStates }: ShippingManagerProps) {
               >
                 {isPending ? <RefreshCw size={14} className="animate-spin" /> : <Save size={14} />}
                 <span>{isPending ? "Applying..." : "Confirm & Apply"}</span>
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Bangalore Special Shipping Edit Modal */}
+      {isBangaloreModalOpen && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in"
+        >
+          <div className="relative w-full max-w-md rounded-2xl border border-border bg-card p-6 shadow-2xl space-y-5">
+            <div className="flex items-center justify-between border-b border-border pb-3">
+              <div>
+                <span className="text-[11px] font-bold text-primary uppercase tracking-wider">
+                  Special Delivery Configuration
+                </span>
+                <h3 className="font-display text-xl font-bold text-foreground">
+                  Bangalore Special Shipping
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={handleCloseBangaloreEdit}
+                className="rounded-full p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors cursor-pointer"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              {/* Free Shipping Toggle */}
+              <div className="flex items-center justify-between rounded-xl border border-emerald-500/30 bg-emerald-50/50 p-3.5">
+                <div>
+                  <span className="text-xs font-bold text-emerald-900 block">Free Bangalore Delivery</span>
+                  <span className="text-[11px] text-emerald-700">
+                    Deliver Bangalore delicacies for free (sets per-unit charge to ₹0 and enables delivery).
+                  </span>
+                </div>
+                <input
+                  type="checkbox"
+                  id="bangaloreFreeShippingToggle"
+                  checked={bangaloreIsFree}
+                  onChange={(e) => handleToggleBangaloreFree(e.target.checked)}
+                  className="size-5 rounded border-border accent-emerald-700 cursor-pointer"
+                  disabled={isPending}
+                />
+              </div>
+
+              {/* Charge per unit input */}
+              <div>
+                <label
+                  htmlFor="bangaloreChargeRupees"
+                  className="block text-xs font-semibold text-foreground mb-1.5"
+                >
+                  Delivery Charge per Product Unit (in ₹ INR)
+                </label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 font-bold text-muted-foreground">
+                    ₹
+                  </span>
+                  <Input
+                    id="bangaloreChargeRupees"
+                    type="number"
+                    min="0"
+                    step="1"
+                    placeholder="e.g. 40"
+                    value={bangaloreChargeRupees}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setBangaloreChargeRupees(val);
+                      if (val !== "0" && val !== "") {
+                        setBangaloreIsFree(false);
+                      } else if (val === "0" && bangaloreIsActive) {
+                        setBangaloreIsFree(true);
+                      }
+                    }}
+                    className="pl-8 font-mono text-base font-semibold"
+                    disabled={isPending || bangaloreIsFree}
+                    autoFocus={!bangaloreIsFree}
+                  />
+                </div>
+                <p className="text-[11px] text-muted-foreground mt-1">
+                  {bangaloreIsFree
+                    ? "Free Bangalore delivery enabled (₹0 per unit)."
+                    : "Charged per product unit on every item in cart when restricted delicacies are present."}
+                </p>
+              </div>
+
+              {/* Enable Bangalore Delivery Toggle */}
+              <div className="flex items-center justify-between rounded-xl border border-border bg-secondary/30 p-3.5">
+                <div>
+                  <span className="text-xs font-bold text-foreground block">Enable Bangalore Delivery</span>
+                  <span className="text-[11px] text-muted-foreground">
+                    When active, customers in valid Bangalore pincodes can checkout with restricted delicacies.
+                  </span>
+                </div>
+                <input
+                  type="checkbox"
+                  id="bangaloreIsActiveToggle"
+                  checked={bangaloreIsActive}
+                  onChange={(e) => {
+                    const active = e.target.checked;
+                    setBangaloreIsActive(active);
+                    if (!active) {
+                      setBangaloreIsFree(false);
+                    } else if (bangaloreChargeRupees === "0") {
+                      setBangaloreIsFree(true);
+                    }
+                  }}
+                  className="size-5 rounded border-border accent-primary cursor-pointer"
+                  disabled={isPending}
+                />
+              </div>
+
+              {/* Explanatory note */}
+              <div className="rounded-xl border border-blue-500/20 bg-blue-500/5 p-3 text-[11px] text-blue-900 leading-relaxed">
+                <strong>Independent Rule:</strong> Updating Bangalore special delivery does not alter or overwrite Karnataka&apos;s standard state shipping rate.
+              </div>
+
+              {bangaloreError && (
+                <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-xs text-red-700 font-medium">
+                  {bangaloreError}
+                </div>
+              )}
+            </div>
+
+            <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-border">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={handleCloseBangaloreEdit}
+                disabled={isPending}
+                className="cursor-pointer"
+              >
+                Cancel
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                onClick={handlePromptBangaloreConfirm}
+                disabled={isPending}
+                className="gap-2 cursor-pointer min-w-28 font-bold"
+              >
+                <span>Review & Save</span>
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Bangalore Confirmation Modal */}
+      {isBangaloreConfirmOpen && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in"
+        >
+          <div className="relative w-full max-w-md rounded-2xl border border-border bg-card p-6 shadow-2xl space-y-5">
+            <div className="flex items-center justify-between border-b border-border pb-3">
+              <div>
+                <span className="text-[11px] font-bold text-primary uppercase tracking-wider">
+                  Confirmation Required
+                </span>
+                <h3 className="font-display text-xl font-bold text-foreground">
+                  Update Bangalore Special Rate
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsBangaloreConfirmOpen(false)}
+                disabled={isPending}
+                className="rounded-full p-1.5 text-muted-foreground hover:bg-secondary hover:text-foreground transition-colors cursor-pointer"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            <div className="space-y-4 text-xs">
+              <div className="rounded-xl border border-border bg-secondary/20 p-4 space-y-2">
+                <span className="font-bold text-foreground uppercase tracking-wider text-[11px] block">
+                  Planned Changes:
+                </span>
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">Charge per unit:</span>
+                  <span className="font-mono font-bold text-primary text-sm">
+                    {bangaloreIsFree || Number(bangaloreChargeRupees) === 0 ? "Free (₹0 / unit)" : `₹${bangaloreChargeRupees} per unit`}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">Delivery Status:</span>
+                  {bangaloreIsActive ? (
+                    <Badge className="bg-emerald-600/15 text-emerald-800 border-emerald-500/30 text-[11px] font-semibold">
+                      Active (Delivery Allowed)
+                    </Badge>
+                  ) : (
+                    <Badge className="bg-amber-500/15 text-amber-900 border-amber-500/30 text-[11px] font-semibold">
+                      Unavailable (Delivery Blocked)
+                    </Badge>
+                  )}
+                </div>
+                <div className="flex items-center justify-between pt-1 border-t border-border">
+                  <span className="text-muted-foreground">Karnataka Standard Rate:</span>
+                  <span className="font-mono font-semibold text-muted-foreground">
+                    ₹{karnatakaState?.chargeRupees ?? 0} flat (Unchanged)
+                  </span>
+                </div>
+              </div>
+
+              <div className="rounded-xl border border-emerald-500/20 bg-emerald-500/5 p-3 text-[11px] text-emerald-900 leading-relaxed">
+                <strong>Instant Effect:</strong> This update will immediately reflect on the product page, cart drawer, cart page, and checkout calculation for all orders containing fresh Bangalore delicacies.
+              </div>
+
+              {bangaloreError && (
+                <div className="rounded-xl border border-red-500/30 bg-red-500/10 p-3 text-xs text-red-700 font-medium">
+                  {bangaloreError}
+                </div>
+              )}
+            </div>
+
+            <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-border">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setIsBangaloreConfirmOpen(false)}
+                disabled={isPending}
+                className="cursor-pointer"
+              >
+                Back
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                onClick={handleSaveBangaloreRate}
+                disabled={isPending}
+                className="gap-2 cursor-pointer min-w-32 font-bold"
+              >
+                {isPending ? <RefreshCw size={14} className="animate-spin" /> : <Save size={14} />}
+                <span>{isPending ? "Saving..." : "Confirm & Save"}</span>
               </Button>
             </div>
           </div>
