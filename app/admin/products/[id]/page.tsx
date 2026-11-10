@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { adminRow, adminRows } from "@/lib/admin/data";
 import { getCloudinaryImageUrl } from "@/lib/cloudinary/delivery";
+import { getProductPaymentMethodsFallback } from "@/lib/products/payment-methods";
 
 export const instant = false;
 
@@ -24,6 +25,8 @@ type Product = {
   is_active: boolean;
   is_featured: boolean;
   display_order: number;
+  allow_cod?: boolean;
+  allow_reserve_pay?: boolean;
 };
 
 type ImageRow = {
@@ -55,14 +58,25 @@ export default async function EditProductPage({
 }) {
   await connection();
   const { id } = await params;
-  const [product, categories, images, variants] = await Promise.all([
+  const [product, categories, images, variants, paymentMethodsFallback] = await Promise.all([
     adminRow<Product>("admin_products", id),
     adminRows<{ id: string; name: string }>("categories"),
     adminRows<ImageRow>("admin_product_images"),
     adminRows<VariantRow>("admin_product_variants"),
+    getProductPaymentMethodsFallback(),
   ]);
 
   if (!product) notFound();
+
+  const fallback = paymentMethodsFallback[id];
+  const allow_cod = typeof product.allow_cod === "boolean" ? product.allow_cod : fallback?.allow_cod ?? true;
+  const allow_reserve_pay = typeof product.allow_reserve_pay === "boolean" ? product.allow_reserve_pay : fallback?.allow_reserve_pay ?? true;
+
+  const productWithPayment: Product = {
+    ...product,
+    allow_cod,
+    allow_reserve_pay,
+  };
 
   const productImages = images
     .filter((img) => img.product_id === id)
@@ -118,7 +132,7 @@ export default async function EditProductPage({
         <Card className="p-6 sm:p-8 lg:p-10 shadow-xs">
           <ProductForm
             categories={categories}
-            product={product}
+            product={productWithPayment}
             images={productImages}
             weight={productVariants[0]?.name ?? null}
           />

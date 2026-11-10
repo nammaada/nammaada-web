@@ -55,7 +55,9 @@ export function ProductCard({
 
   // When cart count changes or becomes 0, reset local manual adjustment
   useEffect(() => {
-    setManualAdjustment(0);
+    queueMicrotask(() => {
+      setManualAdjustment(0);
+    });
   }, [cartQty]);
 
   // If in cart -> shows exact cartQty. If not in cart -> shows 1. Plus any local adjustment.
@@ -94,6 +96,8 @@ export function ProductCard({
       unitPricePaise: product.price_paise,
       image: product.primary_image,
       quantity: qtyToAdd,
+      delivery_scope: product.delivery_scope,
+      is_free_shipping: product.is_free_shipping,
     });
 
     setManualAdjustment(0);

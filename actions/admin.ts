@@ -5,6 +5,19 @@ import { redirect } from "next/navigation";
 import { requireAdmin } from "@/lib/auth/admin";
 import { deleteCloudinaryImage, deleteCloudinaryMedia, uploadCloudinaryImage, uploadCloudinaryMedia, validateImage, validateMedia } from "@/lib/cloudinary/server";
 import { createSupabaseAdminClient } from "@/lib/supabase/admin";
+import { findState } from "@/lib/constants/india-geo";
+import { BANGALORE_SHIPPING_SETTINGS_KEY } from "@/lib/shipping/rules";
+import {
+  getBengaluruPincodeConfigs,
+  upsertBengaluruPincode,
+  toggleBengaluruPincodeActive,
+  deleteBengaluruPincode,
+  bulkAddBengaluruPincodes,
+  getBengaluruDeliverySummary,
+  type BengaluruPincodeConfig,
+  type BengaluruDeliverySummary,
+} from "@/lib/delivery/bengaluru-pincodes";
+import { saveProductPaymentMethodsFallback } from "@/lib/products/payment-methods";
 
 function text(form: FormData, key: string) { return String(form.get(key) ?? "").trim(); }
 function bool(form: FormData, key: string) { return form.get(key) === "on" || form.get(key) === "true"; }
@@ -121,7 +134,14 @@ export async function saveProduct(form: FormData) {
     }
   }
 
-  const values = {
+  // Validate product-level payment methods: at least one method must be enabled
+  const allowCod = bool(form, "allow_cod");
+  const allowReservePay = bool(form, "allow_reserve_pay");
+  if (!allowCod && !allowReservePay) {
+    fail(failPath, "At least one payment method (Cash on Delivery or Online Payment) must be enabled.");
+  }
+
+  const values: Record<string, unknown> = {
     category_id: categoryId,
     name,
     slug,
@@ -134,19 +154,49 @@ export async function saveProduct(form: FormData) {
     is_active: bool(form, "is_active"),
     is_featured: bool(form, "is_featured"),
     display_order: integer(form, "display_order"),
+    allow_cod: allowCod,
+    allow_reserve_pay: allowReservePay,
   };
 
   let newId: string | null = null;
   if (id) {
     const result = await client.from("products").update(values).eq("id", id);
-    if (result.error) fail(failPath, dbMessage());
+    if (result.error) {
+      if (result.error.code === "42703" || result.error.message?.includes("allow_")) {
+        delete values.allow_cod;
+        delete values.allow_reserve_pay;
+        const resFallback = await client.from("products").update(values).eq("id", id);
+        if (resFallback.error) fail(failPath, dbMessage());
+      } else {
+        fail(failPath, dbMessage());
+      }
+    }
   } else {
     const result = await client.from("products").insert(values).select("id").single();
-    if (result.error) fail(failPath, dbMessage());
-    newId = (result.data as { id: string } | null)?.id ?? null;
+    if (result.error) {
+      if (result.error.code === "42703" || result.error.message?.includes("allow_")) {
+        delete values.allow_cod;
+        delete values.allow_reserve_pay;
+        const resFallback = await client.from("products").insert(values).select("id").single();
+        if (resFallback.error) fail(failPath, dbMessage());
+        newId = (resFallback.data as { id: string } | null)?.id ?? null;
+      } else {
+        fail(failPath, dbMessage());
+      }
+    } else {
+      newId = (result.data as { id: string } | null)?.id ?? null;
+    }
   }
 
   const targetProductId = id || newId;
+
+  // Persist payment methods to fallback storage
+  if (targetProductId) {
+    await saveProductPaymentMethodsFallback(targetProductId, {
+      allow_cod: allowCod,
+      allow_reserve_pay: allowReservePay,
+    });
+  }
 
   // If an image file was provided, upload to Cloudinary & insert into product_images
   const file = form.get("image_file") || form.get("file");
@@ -278,8 +328,549 @@ export async function deleteProduct(form: FormData) {
 export async function saveVariant(form: FormData) { await requireAdmin(); const id = uuid(form, "id"); const productId = uuid(form, "product_id"); const name = required(form, "name", "Variant name", 120); const price = moneyPaise(form, "price"); if (!productId || price < 0) fail(`/admin/products/${productId ?? ""}`, "Enter valid variant values."); const values = { product_id: productId, name, sku: text(form, "sku") || null, price_paise: price, stock_quantity: integer(form, "stock_quantity"), is_active: bool(form, "is_active"), display_order: integer(form, "display_order") }; const client = createSupabaseAdminClient(); const result = id ? await client.from("product_variants").update(values).eq("id", id) : await client.from("product_variants").insert(values); if (result.error) fail(`/admin/products/${productId}`, "Unable to save variant. Check that its SKU and name are unique."); ok(`/admin/products/${productId}`); }
 export async function deleteVariant(form: FormData) { await requireAdmin(); const productId = uuid(form, "product_id"); const id = uuid(form, "id"); if (!productId || !id) fail("/admin/products", "Invalid variant."); const result = await createSupabaseAdminClient().from("product_variants").delete().eq("id", id); if (result.error) fail(`/admin/products/${productId}`, "Unable to remove this variant."); ok(`/admin/products/${productId}`); }
 
-export async function saveShippingRule(form: FormData) { await requireAdmin(); const id = uuid(form, "id"); const stateCode = text(form, "state_code").toUpperCase(); const stateName = required(form, "state_name", "State name", 100); const charge = moneyPaise(form, "charge"); if (!/^[A-Z]{2,3}$/.test(stateCode) || charge < 0) fail("/admin/shipping", "Enter a valid state code and INR charge."); const values = { state_code: stateCode, state_name: stateName, charge_paise: charge, is_active: bool(form, "is_active") }; const client = createSupabaseAdminClient(); const result = id ? await client.from("shipping_rules").update(values).eq("id", id) : await client.from("shipping_rules").insert(values); if (result.error) fail("/admin/shipping", "Unable to save shipping rule. State codes must be unique."); ok("/admin/shipping"); }
-export async function deleteShippingRule(form: FormData) { await requireAdmin(); const id = uuid(form, "id"); if (!id) fail("/admin/shipping", "Invalid rule."); const result = await createSupabaseAdminClient().from("shipping_rules").delete().eq("id", id); if (result.error) fail("/admin/shipping", "Unable to delete this shipping rule."); ok("/admin/shipping"); }
+export async function saveShippingRule(form: FormData) {
+  await requireAdmin();
+  const id = uuid(form, "id");
+  const stateCode = text(form, "state_code").toUpperCase();
+  const stateName = required(form, "state_name", "State name", 100);
+  const charge = moneyPaise(form, "charge");
+  if (!/^[A-Z]{2,3}$/.test(stateCode) || charge < 0) {
+    fail("/admin/shipping", "Enter a valid state code and non-negative INR charge.");
+  }
+  const values = {
+    state_code: stateCode,
+    state_name: stateName,
+    charge_paise: charge,
+    is_active: bool(form, "is_active"),
+    updated_at: new Date().toISOString(),
+  };
+  const client = createSupabaseAdminClient();
+  const result = id
+    ? await client.from("shipping_rules").update(values).eq("id", id)
+    : await client.from("shipping_rules").upsert(values, { onConflict: "state_code" });
+
+  if (result.error) {
+    fail("/admin/shipping", "Unable to save shipping rule. " + result.error.message);
+  }
+
+  try {
+    revalidateTag("shipping-rules", "max");
+  } catch {}
+  revalidatePath("/admin/shipping");
+  revalidatePath("/products");
+  revalidatePath("/checkout");
+  revalidatePath("/cart");
+  ok("/admin/shipping");
+}
+
+export async function updateStateShippingRuleAction(input: {
+  stateCode: string;
+  stateName: string;
+  chargeRupees: number;
+  isActive: boolean;
+}): Promise<{ ok: boolean; message?: string }> {
+  try {
+    await requireAdmin();
+    const cleanCode = input.stateCode.trim().toUpperCase();
+    const cleanName = input.stateName.trim();
+    const chargePaise = Math.round(Math.max(0, input.chargeRupees) * 100);
+
+    if (!/^[A-Z]{2,3}$/.test(cleanCode) || !cleanName) {
+      return { ok: false, message: "Invalid state code or name." };
+    }
+
+    const client = createSupabaseAdminClient();
+    const { error } = await client.from("shipping_rules").upsert(
+      {
+        state_code: cleanCode,
+        state_name: cleanName,
+        charge_paise: chargePaise,
+        is_active: input.isActive,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "state_code" }
+    );
+
+    if (error) {
+      console.error("Failed to update shipping rule:", error);
+      return { ok: false, message: "Database update failed: " + error.message };
+    }
+
+    try {
+      revalidateTag("shipping-rules", "max");
+    } catch {}
+    revalidatePath("/admin/shipping");
+    revalidatePath("/products");
+    revalidatePath("/checkout");
+    revalidatePath("/cart");
+
+    return { ok: true };
+  } catch (err) {
+    console.error("updateStateShippingRuleAction error:", err);
+    return { ok: false, message: "Unauthorized or server error." };
+  }
+}
+
+export async function updateBangaloreShippingConfigAction(input: {
+  chargeRupees: number;
+  isActive: boolean;
+}): Promise<{ ok: boolean; message?: string }> {
+  try {
+    await requireAdmin();
+
+    const rupees = typeof input.chargeRupees === "number" ? input.chargeRupees : Number(input.chargeRupees);
+    if (Number.isNaN(rupees) || !Number.isFinite(rupees) || rupees < 0) {
+      return { ok: false, message: "Please enter a valid, non-negative delivery charge (₹0 or greater)." };
+    }
+    if (rupees > 50000) {
+      return { ok: false, message: "Delivery charge exceeds maximum allowed threshold (₹50,000)." };
+    }
+
+    const chargePaise = Math.round(rupees * 100);
+    const client = createSupabaseAdminClient();
+
+    const { error } = await client.from("site_settings").upsert(
+      {
+        key: BANGALORE_SHIPPING_SETTINGS_KEY,
+        value: {
+          charge_paise: chargePaise,
+          is_active: input.isActive,
+        },
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "key" }
+    );
+
+    if (error) {
+      console.error("Failed to update Bangalore shipping config:", error);
+      return { ok: false, message: "Database update failed: " + error.message };
+    }
+
+    try {
+      revalidateTag("shipping-rules", "max");
+    } catch {}
+    revalidatePath("/admin/shipping");
+    revalidatePath("/products");
+    revalidatePath("/checkout");
+    revalidatePath("/cart");
+
+    return { ok: true };
+  } catch (err) {
+    console.error("updateBangaloreShippingConfigAction error:", err);
+    return { ok: false, message: "Unauthorized or server error." };
+  }
+}
+
+/**
+ * Server action to fetch all configured Bengaluru delivery PIN codes and metrics.
+ */
+export async function getBengaluruPincodesAction(): Promise<{
+  ok: boolean;
+  pincodes: BengaluruPincodeConfig[];
+  summary: BengaluruDeliverySummary;
+  error?: string;
+}> {
+  try {
+    await requireAdmin();
+    const pincodes = await getBengaluruPincodeConfigs();
+    const summary = getBengaluruDeliverySummary(pincodes);
+    return { ok: true, pincodes, summary };
+  } catch (err) {
+    console.error("getBengaluruPincodesAction error:", err);
+    return {
+      ok: false,
+      pincodes: [],
+      summary: { totalCount: 0, activeCount: 0, inactiveCount: 0, customRateCount: 0, defaultRateCount: 0 },
+      error: "Unauthorized or server error.",
+    };
+  }
+}
+
+/**
+ * Server action to add or edit a single Bengaluru delivery PIN code.
+ */
+export async function upsertBengaluruPincodeAction(input: {
+  pincode: string;
+  locality: string;
+  isActive: boolean;
+  chargeRupees: number | null;
+}): Promise<{ ok: boolean; message?: string }> {
+  try {
+    await requireAdmin();
+
+    const pin = input.pincode.trim();
+    if (!/^[1-9][0-9]{5}$/.test(pin)) {
+      return { ok: false, message: "Please enter a valid 6-digit Indian PIN code." };
+    }
+
+    const locality = input.locality.trim();
+    if (!locality) {
+      return { ok: false, message: "Locality name is required." };
+    }
+
+    let chargePaise: number | null = null;
+    if (input.chargeRupees !== null && input.chargeRupees !== undefined) {
+      const rupees = typeof input.chargeRupees === "number" ? input.chargeRupees : Number(input.chargeRupees);
+      if (Number.isNaN(rupees) || rupees < 0) {
+        return { ok: false, message: "Custom rate must be ₹0 (free delivery) or a positive amount." };
+      }
+      if (rupees > 50000) {
+        return { ok: false, message: "Custom rate exceeds maximum allowed threshold (₹50,000)." };
+      }
+      chargePaise = Math.round(rupees * 100);
+    }
+
+    const res = await upsertBengaluruPincode({
+      pincode: pin,
+      locality,
+      isActive: Boolean(input.isActive),
+      chargePaise,
+    });
+
+    if (!res.ok) {
+      return { ok: false, message: res.error || "Failed to save PIN code." };
+    }
+
+    try {
+      revalidateTag("shipping-rules", "max");
+      revalidateTag("bengaluru-pincodes", "max");
+    } catch {}
+    revalidatePath("/admin/shipping");
+    revalidatePath("/checkout");
+    revalidatePath("/cart");
+
+    return { ok: true };
+  } catch (err) {
+    console.error("upsertBengaluruPincodeAction error:", err);
+    return { ok: false, message: "Unauthorized or server error." };
+  }
+}
+
+/**
+ * Server action to toggle active status of a Bengaluru delivery PIN code.
+ */
+export async function toggleBengaluruPincodeActiveAction(
+  pincode: string,
+  isActive: boolean
+): Promise<{ ok: boolean; message?: string }> {
+  try {
+    await requireAdmin();
+    const pin = pincode.trim();
+    const res = await toggleBengaluruPincodeActive(pin, isActive);
+
+    if (!res.ok) {
+      return { ok: false, message: res.error || "Failed to update PIN status." };
+    }
+
+    try {
+      revalidateTag("shipping-rules", "max");
+      revalidateTag("bengaluru-pincodes", "max");
+    } catch {}
+    revalidatePath("/admin/shipping");
+    revalidatePath("/checkout");
+    revalidatePath("/cart");
+
+    return { ok: true };
+  } catch (err) {
+    console.error("toggleBengaluruPincodeActiveAction error:", err);
+    return { ok: false, message: "Unauthorized or server error." };
+  }
+}
+
+/**
+ * Server action to delete a Bengaluru delivery PIN code.
+ */
+export async function deleteBengaluruPincodeAction(
+  pincode: string
+): Promise<{ ok: boolean; message?: string }> {
+  try {
+    await requireAdmin();
+    const pin = pincode.trim();
+    const res = await deleteBengaluruPincode(pin);
+
+    if (!res.ok) {
+      return { ok: false, message: res.error || "Failed to delete PIN code." };
+    }
+
+    try {
+      revalidateTag("shipping-rules", "max");
+      revalidateTag("bengaluru-pincodes", "max");
+    } catch {}
+    revalidatePath("/admin/shipping");
+    revalidatePath("/checkout");
+    revalidatePath("/cart");
+
+    return { ok: true };
+  } catch (err) {
+    console.error("deleteBengaluruPincodeAction error:", err);
+    return { ok: false, message: "Unauthorized or server error." };
+  }
+}
+
+/**
+ * Server action to bulk add/update Bengaluru delivery PIN codes.
+ */
+export async function bulkAddBengaluruPincodesAction(
+  rawInput: string,
+  defaultRateRupees?: number | null
+): Promise<{ ok: boolean; addedCount: number; updatedCount: number; message?: string }> {
+  try {
+    await requireAdmin();
+
+    const lines = rawInput
+      .split(/[\n;]+/)
+      .map((l) => l.trim())
+      .filter(Boolean);
+
+    const inputs: Array<{
+      pincode: string;
+      locality?: string;
+      chargePaise?: number | null;
+      isActive?: boolean;
+    }> = [];
+
+    const defaultChargePaise =
+      defaultRateRupees !== undefined && defaultRateRupees !== null && !Number.isNaN(Number(defaultRateRupees))
+        ? Math.max(0, Math.round(Number(defaultRateRupees) * 100))
+        : null;
+
+    for (const line of lines) {
+      // Also support comma separation within a line (e.g. 560001, 560002)
+      // or CSV format (560001, Central Bangalore, 40)
+      const parts = line.split(/[,\t|:]+/).map((p) => p.trim()).filter(Boolean);
+
+      if (parts.length === 1) {
+        // Just PIN or space-separated PINs
+        const subPins = parts[0].split(/\s+/).filter((p) => /^[1-9][0-9]{5}$/.test(p));
+        for (const p of subPins) {
+          inputs.push({
+            pincode: p,
+            chargePaise: defaultChargePaise,
+            isActive: true,
+          });
+        }
+      } else if (parts.length >= 2) {
+        const pinCandidate = parts[0];
+        if (/^[1-9][0-9]{5}$/.test(pinCandidate)) {
+          const locality = parts[1];
+          let customPaise = defaultChargePaise;
+
+          if (parts.length >= 3) {
+            const rawRate = Number(parts[2].replace(/[^0-9.]/g, ""));
+            if (!Number.isNaN(rawRate) && rawRate >= 0) {
+              customPaise = Math.round(rawRate * 100);
+            }
+          }
+
+          inputs.push({
+            pincode: pinCandidate,
+            locality: locality || undefined,
+            chargePaise: customPaise,
+            isActive: true,
+          });
+        }
+      }
+    }
+
+    if (inputs.length === 0) {
+      return {
+        ok: false,
+        addedCount: 0,
+        updatedCount: 0,
+        message: "No valid 6-digit Indian PIN codes were found in the input.",
+      };
+    }
+
+    const res = await bulkAddBengaluruPincodes(inputs);
+    if (!res.ok) {
+      return {
+        ok: false,
+        addedCount: 0,
+        updatedCount: 0,
+        message: res.error || "Failed to process bulk PIN codes.",
+      };
+    }
+
+    try {
+      revalidateTag("shipping-rules", "max");
+      revalidateTag("bengaluru-pincodes", "max");
+    } catch {}
+    revalidatePath("/admin/shipping");
+    revalidatePath("/checkout");
+    revalidatePath("/cart");
+
+    return {
+      ok: true,
+      addedCount: res.addedCount,
+      updatedCount: res.updatedCount,
+    };
+  } catch (err) {
+    console.error("bulkAddBengaluruPincodesAction error:", err);
+    return { ok: false, addedCount: 0, updatedCount: 0, message: "Unauthorized or server error." };
+  }
+}
+
+export type BulkUpdateShippingRulesInput = {
+  stateCodes: string[];
+  updateCharge: boolean;
+  chargeRupees?: number;
+  updateStatus: boolean;
+  isActive?: boolean;
+};
+
+export type BulkUpdateShippingRulesResult = {
+  ok: boolean;
+  updatedCount: number;
+  failedCodes?: string[];
+  message?: string;
+};
+
+export async function bulkUpdateShippingRulesAction(
+  input: BulkUpdateShippingRulesInput
+): Promise<BulkUpdateShippingRulesResult> {
+  try {
+    await requireAdmin();
+
+    if (!Array.isArray(input.stateCodes) || input.stateCodes.length === 0) {
+      return { ok: false, updatedCount: 0, message: "No states or union territories selected." };
+    }
+
+    if (!input.updateCharge && !input.updateStatus) {
+      return {
+        ok: false,
+        updatedCount: 0,
+        message: "Please choose at least one field to update (delivery fee or status).",
+      };
+    }
+
+    // Validate delivery fee if updating charge
+    let chargePaise = 0;
+    if (input.updateCharge) {
+      const rupees = typeof input.chargeRupees === "number" ? input.chargeRupees : Number(input.chargeRupees);
+      if (Number.isNaN(rupees) || !Number.isFinite(rupees) || rupees < 0) {
+        return {
+          ok: false,
+          updatedCount: 0,
+          message: "Please enter a valid, non-negative delivery fee (₹0 or greater).",
+        };
+      }
+      if (rupees > 50000) {
+        return {
+          ok: false,
+          updatedCount: 0,
+          message: "Delivery fee exceeds maximum allowed threshold (₹50,000).",
+        };
+      }
+      chargePaise = Math.round(rupees * 100);
+    }
+
+    // Validate state codes against canonical 28 states + 8 UTs list
+    const validStates: Array<{ code: string; name: string }> = [];
+    const invalidCodes: string[] = [];
+
+    for (const rawCode of input.stateCodes) {
+      const canonical = findState(rawCode);
+      if (canonical) {
+        validStates.push({ code: canonical.code, name: canonical.name });
+      } else {
+        invalidCodes.push(rawCode);
+      }
+    }
+
+    if (validStates.length === 0) {
+      return {
+        ok: false,
+        updatedCount: 0,
+        failedCodes: invalidCodes,
+        message: "None of the selected territories match valid Indian states or Union Territories.",
+      };
+    }
+
+    const client = createSupabaseAdminClient();
+    const validCodes = validStates.map((s) => s.code);
+
+    // Fetch existing rules for untouched fields
+    const { data: existingRules, error: fetchErr } = await client
+      .from("shipping_rules")
+      .select("state_code, charge_paise, is_active")
+      .in("state_code", validCodes);
+
+    if (fetchErr) {
+      console.error("[bulkUpdateShippingRulesAction] Error fetching existing rules:", fetchErr);
+      return {
+        ok: false,
+        updatedCount: 0,
+        message: "Failed to read existing shipping rules: " + fetchErr.message,
+      };
+    }
+
+    const existingMap = new Map<string, { charge_paise: number; is_active: boolean }>();
+    for (const r of existingRules || []) {
+      existingMap.set(r.state_code.toUpperCase(), r);
+    }
+
+    const now = new Date().toISOString();
+    const rowsToUpsert = validStates.map((st) => {
+      const existing = existingMap.get(st.code.toUpperCase());
+      return {
+        state_code: st.code,
+        state_name: st.name,
+        charge_paise: input.updateCharge ? chargePaise : (existing?.charge_paise ?? 0),
+        is_active: input.updateStatus ? Boolean(input.isActive) : (existing?.is_active ?? false),
+        updated_at: now,
+      };
+    });
+
+    const { error: upsertErr } = await client
+      .from("shipping_rules")
+      .upsert(rowsToUpsert, { onConflict: "state_code" });
+
+    if (upsertErr) {
+      console.error("[bulkUpdateShippingRulesAction] Batch upsert error:", upsertErr);
+      return {
+        ok: false,
+        updatedCount: 0,
+        message: "Database bulk update failed: " + upsertErr.message,
+      };
+    }
+
+    try {
+      revalidateTag("shipping-rules", "max");
+    } catch {}
+    revalidatePath("/admin/shipping");
+    revalidatePath("/products");
+    revalidatePath("/checkout");
+    revalidatePath("/cart");
+
+    return {
+      ok: true,
+      updatedCount: validStates.length,
+      failedCodes: invalidCodes.length > 0 ? invalidCodes : undefined,
+    };
+  } catch (err) {
+    console.error("[bulkUpdateShippingRulesAction] Unhandled exception:", err);
+    return {
+      ok: false,
+      updatedCount: 0,
+      message: "Unauthorized or unexpected server error.",
+    };
+  }
+}
+
+export async function deleteShippingRule(form: FormData) {
+  await requireAdmin();
+  const id = uuid(form, "id");
+  if (!id) fail("/admin/shipping", "Invalid rule.");
+  const result = await createSupabaseAdminClient().from("shipping_rules").delete().eq("id", id);
+  if (result.error) fail("/admin/shipping", "Unable to delete this shipping rule.");
+  try {
+    revalidateTag("shipping-rules", "max");
+  } catch {}
+  revalidatePath("/admin/shipping");
+  revalidatePath("/products");
+  revalidatePath("/checkout");
+  ok("/admin/shipping");
+}
 
 export async function saveCourier(form: FormData) { await requireAdmin(); const id = uuid(form, "id"); const name = required(form, "name", "Name", 120); const template = text(form, "tracking_url_template"); if (template && !template.startsWith("https://")) fail("/admin/couriers", "Tracking URL templates must use HTTPS."); const values = { name, tracking_url_template: template || null, is_active: bool(form, "is_active") }; const client = createSupabaseAdminClient(); const result = id ? await client.from("courier_partners").update(values).eq("id", id) : await client.from("courier_partners").insert(values); if (result.error) fail("/admin/couriers", "Unable to save courier partner."); ok("/admin/couriers"); }
 export async function deleteCourier(form: FormData) { await requireAdmin(); const id = uuid(form, "id"); if (!id) fail("/admin/couriers", "Invalid courier."); const result = await createSupabaseAdminClient().from("courier_partners").delete().eq("id", id); if (result.error) fail("/admin/couriers", "This courier cannot be deleted while orders reference it."); ok("/admin/couriers"); }

@@ -12,7 +12,6 @@ import {
   CreditCard,
   MessageSquareQuote,
   Inbox,
-  Building2,
   Film,
   Video,
   Settings,
@@ -43,6 +42,7 @@ const navGroups: NavGroup[] = [
     title: "OPERATIONS",
     items: [
       { label: "Store Settings", href: "/admin/settings", icon: Settings },
+      { label: "Shipping Rates", href: "/admin/shipping", icon: Truck },
       { label: "Orders", href: "/admin/orders", icon: ShoppingCart },
       { label: "Customers", href: "/admin/customers", icon: Users },
       { label: "Payments", href: "/admin/payments", icon: CreditCard },

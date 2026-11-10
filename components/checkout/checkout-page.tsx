@@ -4,13 +4,16 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
+import { CheckCircle2, AlertCircle } from "lucide-react";
 import {
   checkCartStock,
   createCodCheckoutSession,
   createRazorpayCheckoutSession,
+  getCartPaymentEligibilityAction,
   validateCheckoutLocation,
   verifyAndFinalizePayment,
 } from "@/actions/checkout";
+import { getShippingQuoteAction } from "@/actions/shipping";
 import { useCart } from "@/components/cart/cart-provider";
 import { useCustomerAuth } from "@/lib/auth/customer-context";
 import { Button } from "@/components/ui/button";
@@ -18,8 +21,11 @@ import { Container } from "@/components/ui/container";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { checkoutSchema, type CheckoutFormValues } from "@/lib/checkout/schema";
+import { getDistrictsForState, getIndianStates } from "@/lib/constants/india-geo";
+import type { CartShippingCalculationQuote } from "@/lib/shipping/rules";
 import type { CartItem } from "@/lib/cart/cart";
 import type { PincodeValidationResult } from "@/lib/delivery/restricted-locations";
+import type { CartPaymentEligibility } from "@/lib/products/payment-methods";
 
 function formatPrice(paise: number) {
   return new Intl.NumberFormat("en-IN", { currency: "INR", style: "currency" }).format(paise / 100);
@@ -30,6 +36,7 @@ const initialValues: CheckoutFormValues = {
   phone: "",
   email: "",
   address: "",
+  district: "",
   city: "",
   state: "",
   pincode: "",
@@ -73,12 +80,20 @@ function CheckoutImage({ item }: { item: CartItem }) {
 function OrderSummary({
   items,
   subtotalPaise,
+  shippingQuote,
+  isShippingLoading,
   onRemoveItem,
 }: {
   items: CartItem[];
   subtotalPaise: number;
+  shippingQuote?: CartShippingCalculationQuote | null;
+  isShippingLoading?: boolean;
   onRemoveItem?: (lineId: string) => void;
 }) {
+  const deliveryChargePaise = shippingQuote?.isAvailable ? shippingQuote.chargePaise : 0;
+  const estimatedTotalPaise = subtotalPaise + deliveryChargePaise;
+  const totalCartUnits = items.reduce((sum, item) => sum + item.quantity, 0);
+
   return (
     <div className="rounded-2xl sm:rounded-3xl border border-white/70 bg-gradient-to-br from-white/80 via-white/60 to-white/40 p-5 sm:p-6 backdrop-blur-xl [transform:translateZ(0)] shadow-xl shadow-amber-950/8 space-y-5 lg:sticky lg:top-28">
       <div className="flex items-center justify-between border-b border-[#e5d8c6] pb-3">
@@ -88,7 +103,7 @@ function OrderSummary({
         </span>
       </div>
 
-      <div className="divide-y divide-[#e5d8c6]/60 border-b border-[#e5d8c6] pb-3">
+      <div className="divide-y divide-[#e5d8c6]/60 border-b border-[#e5d8c6] pb-3 max-h-72 overflow-y-auto pr-1">
         {items.map((item) => (
           <div className="flex gap-3 py-3 first:pt-0 last:pb-0" key={item.lineId}>
             <div className="relative size-14 shrink-0 overflow-hidden rounded-xl bg-[#f4efeb] border border-[#e5d8c6]/60">
@@ -96,7 +111,7 @@ function OrderSummary({
             </div>
             <div className="min-w-0 flex-1">
               <Link
-                className="text-xs sm:text-sm font-semibold text-[#2b1719] hover:text-[#711e2c] transition-colors"
+                className="text-xs sm:text-sm font-semibold text-[#2b1719] hover:text-[#711e2c] transition-colors line-clamp-1"
                 href={`/products/${item.slug}`}
               >
                 {item.name}
@@ -114,7 +129,7 @@ function OrderSummary({
                 <button
                   type="button"
                   onClick={() => onRemoveItem(item.lineId)}
-                  className="text-[11px] text-[#6e5b55] hover:text-red-700 underline mt-1"
+                  className="text-[11px] text-[#6e5b55] hover:text-red-700 underline mt-1 cursor-pointer"
                 >
                   Remove
                 </button>
@@ -124,13 +139,68 @@ function OrderSummary({
         ))}
       </div>
 
-      <div className="flex items-center justify-between text-sm pt-1">
-        <span className="text-[#6e5b55]">Subtotal</span>
-        <span className="font-bold text-[#711e2c]">{formatPrice(subtotalPaise)}</span>
+      <div className="space-y-2 text-sm pt-1">
+        <div className="flex items-center justify-between">
+          <span className="text-[#6e5b55]">Subtotal</span>
+          <span className="font-semibold text-[#2b1719] font-mono">{formatPrice(subtotalPaise)}</span>
+        </div>
+
+        <div className="flex items-start justify-between gap-2 text-[#6e5b55]">
+          <div>
+            <span>Shipping</span>
+            {shippingQuote?.isBangaloreSpecial && (
+              <span className="block text-[10px] text-amber-900 font-medium">
+                Bengaluru Special{shippingQuote.locality ? ` (${shippingQuote.locality})` : ""}: {formatPrice(shippingQuote.bangaloreRatePerUnitPaise ?? 0)}/unit × {totalCartUnits} {totalCartUnits === 1 ? "unit" : "units"}
+              </span>
+            )}
+          </div>
+          {isShippingLoading ? (
+            <span className="text-xs text-[#6e5b55] animate-pulse">Calculating...</span>
+          ) : shippingQuote ? (
+            shippingQuote.isAvailable ? (
+              <span className="font-semibold text-[#2b1719] font-mono">
+                {deliveryChargePaise === 0 ? (
+                  <span className="text-emerald-700 font-bold">FREE</span>
+                ) : (
+                  formatPrice(deliveryChargePaise)
+                )}
+              </span>
+            ) : (
+              <span className="text-xs font-bold text-red-700">Delivery unavailable</span>
+            )
+          ) : (
+            <span className="text-xs text-[#6e5b55]">Select state</span>
+          )}
+        </div>
+
+        {shippingQuote?.isAvailable && (
+          <div className="text-[11px] text-[#6e5b55] flex items-center justify-between">
+            <span>Delivering to</span>
+            <span className="font-medium text-[#2b1719]">
+              {shippingQuote.isBangaloreSpecial && shippingQuote.locality
+                ? `${shippingQuote.locality}, Bengaluru`
+                : shippingQuote.stateName}
+            </span>
+          </div>
+        )}
+
+        <div className="border-t border-[#e5d8c6] pt-3 flex items-center justify-between">
+          <span className="font-display font-semibold text-base text-[#2b1719]">Estimated Total</span>
+          <span className="font-display font-bold text-lg text-[#711e2c]">
+            {isShippingLoading ? "..." : formatPrice(estimatedTotalPaise)}
+          </span>
+        </div>
       </div>
 
-      <div className="text-xs text-[#6e5b55] leading-relaxed pt-1">
-        Delivery fee and final order total are authoritative and revalidated securely before placement.
+      {shippingQuote && !shippingQuote.isAvailable && (
+        <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-xs text-red-800 space-y-1">
+          <p className="font-bold">Delivery is unavailable for {shippingQuote.stateName}.</p>
+          <p className="text-[11px] text-red-700">Please choose another delivery state to continue.</p>
+        </div>
+      )}
+
+      <div className="text-[11px] text-[#6e5b55] leading-relaxed pt-1">
+        Delivery charges are calculated based on your delivery state and validated securely before order placement.
       </div>
     </div>
   );
@@ -148,7 +218,7 @@ function EmptyCheckout() {
             className="inline-flex min-h-12 items-center justify-center rounded-full bg-[#711e2c] px-6 text-xs sm:text-sm font-semibold text-white shadow-sm transition-all hover:bg-[#5a1723]"
             href="/products"
           >
-            Browse delicacies
+            Explore Delicacies
           </Link>
         </div>
       </div>
@@ -156,12 +226,11 @@ function EmptyCheckout() {
   );
 }
 
-// Razorpay SDK global type declaration
 declare global {
   interface Window {
     Razorpay?: new (options: Record<string, unknown>) => {
       open: () => void;
-      on: (event: string, handler: (response: unknown) => void) => void;
+      on: (event: string, callback: (response: unknown) => void) => void;
     };
   }
 }
@@ -183,11 +252,16 @@ function loadRazorpayScript(): Promise<boolean> {
 function CheckoutContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { items: cartItems, hydrated, clearCart, removeItem } = useCart();
-
+  const { items: cartItems, hydrated, removeItem, selectedState, setSelectedState } = useCart();
   const { profile } = useCustomerAuth();
 
-  const [values, setValues] = useState<CheckoutFormValues>(initialValues);
+  const buyNowState = searchParams.get("state");
+  const defaultState = buyNowState || selectedState || "";
+
+  const [values, setValues] = useState<CheckoutFormValues>(() => ({
+    ...initialValues,
+    state: defaultState,
+  }));
   const [errors, setErrors] = useState<Partial<Record<keyof CheckoutFormValues, string>>>({});
   const [serverMessage, setServerMessage] = useState("");
   const [stockError, setStockError] = useState<string | null>(null);
@@ -195,24 +269,49 @@ function CheckoutContent() {
   const messageRef = useRef<HTMLDivElement>(null);
   const idempotencyKeyRef = useRef<string | null>(null);
 
+  // Dynamic state shipping calculation
+  const [shippingQuote, setShippingQuote] = useState<CartShippingCalculationQuote | null>(null);
+  const [isShippingLoading, setIsShippingLoading] = useState(false);
+
+  // Indian States & UTs and dynamically filtered districts
+  const indianStates = useMemo(() => getIndianStates(), []);
+  const availableDistricts = useMemo(
+    () => (values.state ? getDistrictsForState(values.state) : []),
+    [values.state]
+  );
+
   // Auto-fill logged-in customer profile details if fields are empty
   useEffect(() => {
     if (profile) {
-      setValues((current) => ({
-        ...current,
-        fullName: current.fullName || profile.fullName || "",
-        email: current.email || profile.email || "",
-        phone: current.phone || profile.phone || "",
-      }));
+      queueMicrotask(() => {
+        setValues((current) => ({
+          ...current,
+          fullName: current.fullName || profile.fullName || "",
+          email: current.email || profile.email || "",
+          phone: current.phone || profile.phone || "",
+        }));
+      });
     }
   }, [profile]);
 
   useEffect(() => {
-    setIsSubmitting(false);
+    queueMicrotask(() => {
+      setIsSubmitting(false);
+    });
   }, [searchParams]);
 
-  // Payment method selection: "RAZORPAY" | "COD"
-  const [paymentMethod, setPaymentMethod] = useState<"RAZORPAY" | "COD">("RAZORPAY");
+  // Payment method selection: "RAZORPAY" | "COD" | ""
+  const [paymentMethod, setPaymentMethod] = useState<"RAZORPAY" | "COD" | "">("RAZORPAY");
+
+  // Dynamic product-level payment eligibility state
+  const [paymentEligibility, setPaymentEligibility] = useState<CartPaymentEligibility>({
+    allowCod: true,
+    allowReservePay: true,
+    allowedMethods: ["RAZORPAY", "COD"],
+    hasConflict: false,
+    hasRestrictedBangaloreProducts: false,
+    productMethods: [],
+  });
 
   // Dynamic pincode validation state
   const [locationValidation, setLocationValidation] = useState<PincodeValidationResult | null>(null);
@@ -246,6 +345,7 @@ function CheckoutContent() {
       unitPricePaise,
       quantity,
       image: imageUrl ? { url: imageUrl, alt: imageAlt } : null,
+      delivery_scope: (searchParams.get("delivery_scope") as "all_india" | "bangalore_only") || undefined,
     };
   }, [isBuyNow, buyNowRemoved, searchParams]);
 
@@ -261,10 +361,72 @@ function CheckoutContent() {
     return activeItems.reduce((total, item) => total + item.unitPricePaise * item.quantity, 0);
   }, [activeItems]);
 
+  const hasRestrictedItem =
+    activeItems.some((i) => i.delivery_scope === "bangalore_only") ||
+    Boolean(shippingQuote?.hasBangaloreOnlyProducts);
+
+  // If cart or buyNow contains restricted Bangalore-only products, state must automatically be Karnataka (KA)
+  useEffect(() => {
+    if (hasRestrictedItem && values.state !== "KA") {
+      queueMicrotask(() => {
+        setValues((current) => ({
+          ...current,
+          state: "KA",
+          district: current.state !== "KA" ? "Bangalore" : current.district,
+        }));
+      });
+      setSelectedState("KA");
+    }
+  }, [hasRestrictedItem, values.state, setSelectedState]);
+
+  // Dynamically recalculate shipping quote whenever destination state or active cart items change
+  useEffect(() => {
+    if (!values.state) {
+      queueMicrotask(() => {
+        setShippingQuote(null);
+      });
+      return;
+    }
+
+    let isMounted = true;
+    queueMicrotask(() => {
+      if (isMounted) setIsShippingLoading(true);
+    });
+
+    const payloadItems = activeItems.map((i) => ({
+      productId: i.productId,
+      quantity: i.quantity,
+      delivery_scope: i.delivery_scope,
+      is_free_shipping: i.is_free_shipping,
+    }));
+
+    const cleanPin = values.pincode.trim();
+    const effectivePin = /^[1-9][0-9]{5}$/.test(cleanPin) ? cleanPin : undefined;
+
+    getShippingQuoteAction(values.state, payloadItems, effectivePin)
+      .then((quote) => {
+        if (!isMounted) return;
+        setShippingQuote(quote);
+      })
+      .catch((err) => {
+        console.error("Shipping quote fetch error:", err);
+        if (isMounted) setShippingQuote(null);
+      })
+      .finally(() => {
+        if (isMounted) setIsShippingLoading(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [values.state, values.pincode, activeItems]);
+
   // Check stock availability for active checkout items
   useEffect(() => {
     if (activeItems.length === 0) {
-      setStockError(null);
+      queueMicrotask(() => {
+        setStockError(null);
+      });
       return;
     }
     let isMounted = true;
@@ -287,29 +449,103 @@ function CheckoutContent() {
     };
   }, [activeItems]);
 
-  // Dynamic location check when 6-digit pincode is entered
+  // Dynamically recalculate allowed payment methods whenever active cart items change
   useEffect(() => {
-    const cleanPin = values.pincode.trim();
-    if (!/^[1-9][0-9]{5}$/.test(cleanPin) || activeItems.length === 0) {
-      setLocationValidation(null);
+    if (activeItems.length === 0) {
+      queueMicrotask(() => {
+        setPaymentEligibility({
+          allowCod: true,
+          allowReservePay: true,
+          allowedMethods: ["RAZORPAY", "COD"],
+          hasConflict: false,
+          hasRestrictedBangaloreProducts: false,
+          productMethods: [],
+        });
+      });
       return;
     }
 
     let isMounted = true;
-    setIsValidatingLocation(true);
+    const productIds = Array.from(new Set(activeItems.map((i) => i.productId)));
+    getCartPaymentEligibilityAction(productIds)
+      .then((res) => {
+        if (!isMounted) return;
+        setPaymentEligibility(res);
+
+        // Synchronize selected payment method
+        setPaymentMethod((prev) => {
+          if (res.hasConflict || res.allowedMethods.length === 0) {
+            return "";
+          }
+          if (res.allowedMethods.length === 1) {
+            return res.allowedMethods[0];
+          }
+          if (prev && res.allowedMethods.includes(prev as "RAZORPAY" | "COD")) {
+            return prev;
+          }
+          return res.allowedMethods[0];
+        });
+      })
+      .catch((err) => {
+        console.error("Failed to fetch cart payment eligibility:", err);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [activeItems]);
+
+  // Dynamic location check when 6-digit pincode is entered
+  useEffect(() => {
+    const cleanPin = values.pincode.trim();
+    if (cleanPin.length < 6 || activeItems.length === 0) {
+      queueMicrotask(() => {
+        setLocationValidation(null);
+        setIsValidatingLocation(false);
+      });
+      return;
+    }
+
+    if (!/^[1-9][0-9]{5}$/.test(cleanPin)) {
+      queueMicrotask(() => {
+        setLocationValidation({
+          isValid: false,
+          code: "INVALID_PIN",
+          status: "INVALID_PIN",
+          message: "Please enter a valid 6-digit Indian pincode.",
+          hasRestrictedProducts: false,
+          unavailableProducts: [],
+          allowedPaymentMethods: [],
+        });
+        setIsValidatingLocation(false);
+      });
+      return;
+    }
+
+    let isMounted = true;
+    queueMicrotask(() => {
+      if (isMounted) setIsValidatingLocation(true);
+    });
 
     const productIds = Array.from(new Set(activeItems.map((i) => i.productId)));
     validateCheckoutLocation({ pincode: cleanPin, productIds })
       .then((res) => {
         if (!isMounted) return;
         setLocationValidation(res);
-        // If restricted products are present, force payment method to COD
-        if (res.hasRestrictedProducts) {
-          setPaymentMethod("COD");
-        }
       })
       .catch((err) => {
         console.error("Location validation error:", err);
+        if (isMounted) {
+          setLocationValidation({
+            isValid: false,
+            code: "SERVICE_ERROR",
+            status: "SERVICE_ERROR",
+            message: "Unable to verify delivery location due to a server error. Please try again.",
+            hasRestrictedProducts: false,
+            unavailableProducts: [],
+            allowedPaymentMethods: [],
+          });
+        }
       })
       .finally(() => {
         if (isMounted) setIsValidatingLocation(false);
@@ -317,6 +553,7 @@ function CheckoutContent() {
 
     return () => {
       isMounted = false;
+      setIsValidatingLocation(false);
     };
   }, [values.pincode, activeItems]);
 
@@ -360,6 +597,19 @@ function CheckoutContent() {
     loadRazorpayScript().catch(() => {});
   }, []);
 
+  const isRestrictedCodOnly = locationValidation?.hasRestrictedProducts === true || hasRestrictedItem;
+
+  // Effective allowed payment methods: purely from product-level payment configuration intersection.
+  // Delivery location (Bengaluru) does NOT override payment methods — only allow_cod / allow_reserve_pay do.
+  const effectiveAllowedMethods = useMemo<Array<"COD" | "RAZORPAY">>(() => {
+    if (paymentEligibility.hasConflict) return [];
+    return paymentEligibility.allowedMethods;
+  }, [paymentEligibility]);
+
+  const hasPaymentConflict =
+    paymentEligibility.hasConflict ||
+    effectiveAllowedMethods.length === 0;
+
   if (!hydrated) {
     return (
       <main className="section-shell py-12 sm:py-16" aria-busy="true" aria-label="Loading checkout">
@@ -388,19 +638,76 @@ function CheckoutContent() {
     setServerMessage("");
   }
 
+  function handleStateChange(newState: string) {
+    setValues((current) => ({
+      ...current,
+      state: newState,
+      district: "", // Clear district selection when state changes
+    }));
+    setSelectedState(newState);
+    if (!newState) setShippingQuote(null);
+    setErrors((current) => ({
+      ...current,
+      state: undefined,
+      district: undefined,
+    }));
+    setServerMessage("");
+  }
+
   const hasUnavailableProducts =
     locationValidation &&
     !locationValidation.isValid &&
     locationValidation.code === "RESTRICTED_PRODUCTS_UNAVAILABLE" &&
     locationValidation.unavailableProducts.length > 0;
 
-  const isRestrictedCodOnly = locationValidation?.hasRestrictedProducts === true;
+  const isDeliveryUnavailable = shippingQuote !== null && !shippingQuote.isAvailable;
+  const hasRestrictedBangaloreMismatch = Boolean(
+    (locationValidation?.hasRestrictedProducts || hasRestrictedItem) && values.state && values.state !== "KA"
+  );
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
+    if (hasPaymentConflict || !paymentMethod) {
+      setServerMessage(
+        paymentEligibility.conflictReason ||
+          "These items cannot be ordered together due to conflicting payment methods. Please separate your orders."
+      );
+      return;
+    }
+
+    if (isValidatingLocation) {
+      setServerMessage("Please wait a moment while your delivery location is being verified.");
+      return;
+    }
+
+    if (locationValidation && !locationValidation.isValid) {
+      if (locationValidation.code === "SERVICE_ERROR") {
+        setServerMessage(locationValidation.message || "Unable to verify delivery location due to a server error. Please retry verification.");
+        return;
+      }
+      if (locationValidation.code === "INVALID_PIN") {
+        setServerMessage(locationValidation.message || "Please enter a valid 6-digit Indian pincode.");
+        return;
+      }
+      if (locationValidation.code === "RESTRICTED_PRODUCTS_UNAVAILABLE") {
+        setServerMessage("Some products in your cart cannot be delivered to this location. Please remove them to proceed.");
+        return;
+      }
+    }
+
     if (hasUnavailableProducts) {
       setServerMessage("Please remove unavailable products for your delivery location before continuing.");
+      return;
+    }
+
+    if (isDeliveryUnavailable) {
+      setServerMessage(shippingQuote?.message || "Delivery is currently unavailable for the selected state.");
+      return;
+    }
+
+    if (hasRestrictedBangaloreMismatch) {
+      setServerMessage("Restricted Bangalore-only delicacies cannot be delivered outside Karnataka / Bangalore.");
       return;
     }
 
@@ -432,7 +739,7 @@ function CheckoutContent() {
     }));
 
     // FLOW A: CASH ON DELIVERY (COD)
-    if (paymentMethod === "COD" || isRestrictedCodOnly) {
+    if (paymentMethod === "COD") {
       try {
         const codResult = await createCodCheckoutSession({
           idempotencyKey,
@@ -452,6 +759,7 @@ function CheckoutContent() {
             setLocationValidation({
               isValid: false,
               code: "RESTRICTED_PRODUCTS_UNAVAILABLE",
+              status: "OUTSIDE_SERVICE_AREA",
               message: codResult.message,
               hasRestrictedProducts: true,
               unavailableProducts: codResult.unavailableProducts,
@@ -462,7 +770,6 @@ function CheckoutContent() {
         }
 
         // COD order placed successfully
-        // Cart is cleared automatically on order-success page via <OrderClearCart />
         router.push(`/order-success/${codResult.orderNumber}`);
       } catch (err) {
         console.error("COD checkout submission error:", err);
@@ -499,54 +806,57 @@ function CheckoutContent() {
         return;
       }
 
-      // Launch official Razorpay Checkout modal
-      const options = {
+      const razorpayOptions = {
         key: sessionResult.razorpayKeyId,
         amount: sessionResult.amountPaise,
-        currency: sessionResult.currency,
+        currency: "INR",
         name: "Namma Ada",
-        description: "Authentic Kerala Delicacies",
+        description: `Order ${sessionResult.orderNumber}`,
         order_id: sessionResult.razorpayOrderId,
         prefill: {
           name: values.fullName,
-          contact: values.phone,
           email: values.email || undefined,
+          contact: values.phone,
         },
         theme: {
           color: "#711e2c",
         },
         modal: {
-          ondismiss: function () {
+          ondismiss: () => {
             setIsSubmitting(false);
-            setServerMessage("Payment was cancelled. You can retry whenever you are ready.");
           },
         },
-        handler: async function (response: {
+        handler: async (response: {
           razorpay_payment_id: string;
           razorpay_order_id: string;
           razorpay_signature: string;
-        }) {
-          setIsSubmitting(true);
-          setServerMessage("Verifying payment securely...");
+        }) => {
+          try {
+            const verification = await verifyAndFinalizePayment({
+              orderNumber: sessionResult.orderNumber,
+              razorpayPaymentId: response.razorpay_payment_id,
+              razorpayOrderId: response.razorpay_order_id,
+              razorpaySignature: response.razorpay_signature,
+            });
 
-          // Strict server-side verification
-          const verifyResult = await verifyAndFinalizePayment({
-            razorpayOrderId: response.razorpay_order_id,
-            razorpayPaymentId: response.razorpay_payment_id,
-            razorpaySignature: response.razorpay_signature,
-            orderNumber: sessionResult.orderNumber,
-          });
-
-          if (verifyResult.ok) {
-            router.push(`/order-success/${verifyResult.orderNumber}`);
-          } else {
+            if (verification.ok) {
+              router.push(`/order-success/${sessionResult.orderNumber}`);
+            } else {
+              setIsSubmitting(false);
+              setServerMessage(
+                verification.message || "Payment verification failed. Please check your banking app or contact support."
+              );
+            }
+          } catch (verifyErr) {
+            console.error("Verification error:", verifyErr);
             setIsSubmitting(false);
-            setServerMessage(verifyResult.message);
+            setServerMessage("An error occurred verifying your payment. Please contact support.");
           }
         },
       };
 
-      const razorpayInstance = new window.Razorpay(options);
+      const razorpayInstance = new window.Razorpay(razorpayOptions);
+
       razorpayInstance.on("payment.failed", function (response: unknown) {
         console.error("Payment failed:", response);
         setIsSubmitting(false);
@@ -560,6 +870,9 @@ function CheckoutContent() {
       setServerMessage("An unexpected error occurred during checkout. Please try again.");
     }
   }
+
+  const deliveryFee = shippingQuote?.isAvailable ? shippingQuote.chargePaise : 0;
+  const finalTotalPaise = activeSubtotal + deliveryFee;
 
   return (
     <section className="section-shell py-8 sm:py-12">
@@ -631,11 +944,11 @@ function CheckoutContent() {
               </div>
 
               <div className="space-y-4">
-                <Field id="address" label="Address" error={errors.address}>
+                <Field id="address" label="Street Address / House / Flat / Landmark" error={errors.address}>
                   <textarea
                     {...fieldProps("address", errors.address)}
                     autoComplete="street-address"
-                    placeholder="House / Flat / Street / Landmark"
+                    placeholder="House / Flat / Building / Street / Landmark"
                     className={`min-h-24 w-full resize-y rounded-xl border bg-[#fffdf8] px-3.5 py-3 text-sm sm:text-base text-[#2b1719] outline-none placeholder:text-[#6e5b55]/60 transition-all focus-visible:border-[#711e2c] focus-visible:ring-2 focus-visible:ring-[#711e2c]/20 ${
                       errors.address ? "border-red-700" : "border-[#dfd0bd]"
                     }`}
@@ -644,26 +957,84 @@ function CheckoutContent() {
                   />
                 </Field>
 
-                <div className="grid gap-4 sm:grid-cols-3">
-                  <Field id="city" label="City" error={errors.city}>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <Field
+                    id="state"
+                    label={hasRestrictedItem ? "State / UT (Locked for Bangalore Delivery)" : "State / Union Territory"}
+                    error={errors.state}
+                  >
+                    <select
+                      id="state"
+                      name="state"
+                      aria-invalid={Boolean(errors.state)}
+                      aria-describedby={errors.state ? "state-error" : undefined}
+                      value={hasRestrictedItem ? "KA" : values.state}
+                      disabled={hasRestrictedItem}
+                      onChange={(e) => handleStateChange(e.target.value)}
+                      className={`h-11 w-full rounded-xl border bg-[#fffdf8] px-3.5 text-xs sm:text-sm font-medium text-[#2b1719] outline-none transition-all focus-visible:border-[#711e2c] focus-visible:ring-2 focus-visible:ring-[#711e2c]/20 cursor-pointer ${
+                        hasRestrictedItem ? "opacity-90 bg-[#fbf7f0] cursor-not-allowed" : ""
+                      } ${errors.state ? "border-red-700" : "border-[#dfd0bd]"}`}
+                    >
+                      {hasRestrictedItem ? (
+                        <option value="KA">Karnataka (Bengaluru Only)</option>
+                      ) : (
+                        <>
+                          <option value="">Select State / UT</option>
+                          <optgroup label="States">
+                            {indianStates
+                              .filter((s) => !s.isUnionTerritory)
+                              .map((s) => (
+                                <option key={s.code} value={s.code}>
+                                  {s.name}
+                                </option>
+                              ))}
+                          </optgroup>
+                          <optgroup label="Union Territories">
+                            {indianStates
+                              .filter((s) => s.isUnionTerritory)
+                              .map((s) => (
+                                <option key={s.code} value={s.code}>
+                                  {s.name}
+                                </option>
+                              ))}
+                          </optgroup>
+                        </>
+                      )}
+                    </select>
+                  </Field>
+
+                  <Field id="district" label="District" error={errors.district}>
+                    <select
+                      id="district"
+                      name="district"
+                      aria-invalid={Boolean(errors.district)}
+                      aria-describedby={errors.district ? "district-error" : undefined}
+                      value={values.district}
+                      disabled={!values.state}
+                      onChange={(e) => updateValue("district", e.target.value)}
+                      className={`h-11 w-full rounded-xl border bg-[#fffdf8] px-3.5 text-xs sm:text-sm font-medium text-[#2b1719] outline-none transition-all focus-visible:border-[#711e2c] focus-visible:ring-2 focus-visible:ring-[#711e2c]/20 disabled:opacity-50 disabled:bg-[#f5f1eb] cursor-pointer ${
+                        errors.district ? "border-red-700" : "border-[#dfd0bd]"
+                      }`}
+                    >
+                      <option value="">{values.state ? "Select District" : "Select State first"}</option>
+                      {availableDistricts.map((d) => (
+                        <option key={d} value={d}>
+                          {d}
+                        </option>
+                      ))}
+                    </select>
+                  </Field>
+                </div>
+
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <Field id="city" label="City / Town / Locality" error={errors.city}>
                     <Input
                       {...fieldProps("city", errors.city)}
                       error={Boolean(errors.city)}
                       autoComplete="address-level2"
-                      placeholder="e.g. Bangalore"
+                      placeholder="e.g. Indiranagar, Halasuru"
                       onChange={(event) => updateValue("city", event.target.value)}
                       value={values.city}
-                    />
-                  </Field>
-
-                  <Field id="state" label="State" error={errors.state}>
-                    <Input
-                      {...fieldProps("state", errors.state)}
-                      error={Boolean(errors.state)}
-                      autoComplete="address-level1"
-                      placeholder="e.g. Karnataka"
-                      onChange={(event) => updateValue("state", event.target.value)}
-                      value={values.state}
                     />
                   </Field>
 
@@ -675,7 +1046,7 @@ function CheckoutContent() {
                         autoComplete="postal-code"
                         inputMode="numeric"
                         maxLength={6}
-                        placeholder="e.g. 560043"
+                        placeholder="e.g. 560038"
                         onChange={(event) => updateValue("pincode", event.target.value)}
                         value={values.pincode}
                       />
@@ -687,6 +1058,118 @@ function CheckoutContent() {
                     </div>
                   </Field>
                 </div>
+
+                {/* State Delivery Status Banner */}
+                {shippingQuote?.isAvailable && (
+                  <div className="rounded-xl border border-emerald-300 bg-emerald-50/80 p-3 text-xs text-emerald-900 flex items-center justify-between animate-in fade-in">
+                    <span className="font-semibold flex items-center gap-1.5">
+                      <CheckCircle2 size={15} className="text-emerald-700 shrink-0" />
+                      <span>
+                        {shippingQuote.isBangaloreSpecial ? (
+                          <>
+                            <span>
+                              Bengaluru Special Delivery
+                              {shippingQuote.locality ? ` — ${shippingQuote.locality}` : ""}
+                            </span>
+                            <span className="block text-[11px] font-normal text-emerald-800">
+                              {shippingQuote.isCustomPinRate ? "Custom Locality Rate: " : "Rate: "}
+                              {shippingQuote.bangaloreRatePerUnitPaise === 0
+                                ? "Free"
+                                : `${formatPrice(shippingQuote.bangaloreRatePerUnitPaise ?? 0)}/unit`}
+                              {` (${shippingQuote.totalUnits ?? activeItems.reduce((s, i) => s + i.quantity, 0)} units)`}
+                            </span>
+                          </>
+                        ) : (
+                          `Delivery to ${shippingQuote.stateName}`
+                        )}
+                      </span>
+                    </span>
+                    <span className="font-bold text-emerald-800 font-mono">
+                      {shippingQuote.chargePaise === 0
+                        ? "Free Delivery"
+                        : formatPrice(shippingQuote.chargePaise)}
+                    </span>
+                  </div>
+                )}
+
+                {/* State Delivery Availability Alert */}
+                {isDeliveryUnavailable && (
+                  <div className="rounded-xl border border-red-300 bg-red-50/90 p-3.5 space-y-1 animate-in fade-in">
+                    <p className="text-xs sm:text-sm font-bold text-red-900 flex items-center gap-1.5">
+                      <span>✕</span> Delivery is currently unavailable for {shippingQuote?.stateName}.
+                    </p>
+                    <p className="text-[11px] text-red-800/80">
+                      Shipping to this state is not yet configured or currently paused. Please select another delivery state.
+                    </p>
+                  </div>
+                )}
+
+                {/* Bangalore-only item with non-Karnataka state mismatch warning */}
+                {hasRestrictedBangaloreMismatch && (
+                  <div className="rounded-xl border border-amber-300 bg-amber-50/90 p-3.5 space-y-1 animate-in fade-in">
+                    <p className="text-xs sm:text-sm font-bold text-amber-900 flex items-center gap-1.5">
+                      <span>⚠</span> Bangalore-only delicacies detected.
+                    </p>
+                    <p className="text-[11px] text-amber-800/80">
+                      Your cart contains perishable delicacies that can only be delivered within Bangalore (Karnataka). Please select Karnataka and a valid Bangalore pincode.
+                    </p>
+                  </div>
+                )}
+
+                {/* Pincode Lookup / Validation Service Error Alert */}
+                {locationValidation && !locationValidation.isValid && locationValidation.code === "SERVICE_ERROR" && (
+                  <div className="rounded-2xl border border-rose-300 bg-rose-50 p-4 sm:p-5 space-y-3 animate-in fade-in">
+                    <p className="text-xs sm:text-sm font-bold text-rose-950 flex items-center gap-2">
+                      <span className="text-rose-700">⚠</span> Location Verification Service Unavailable
+                    </p>
+                    <p className="text-xs text-rose-800/90">
+                      {locationValidation.message || "We encountered a server error while checking location availability. Please verify your connection and try again."}
+                    </p>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        const cleanPin = values.pincode.trim();
+                        if (/^[1-9][0-9]{5}$/.test(cleanPin) && activeItems.length > 0) {
+                          setIsValidatingLocation(true);
+                          const productIds = Array.from(new Set(activeItems.map((i) => i.productId)));
+                          validateCheckoutLocation({ pincode: cleanPin, productIds })
+                            .then((res) => {
+                              setLocationValidation(res);
+                            })
+                            .catch(() => {
+                              setLocationValidation({
+                                isValid: false,
+                                code: "SERVICE_ERROR",
+                                status: "SERVICE_ERROR",
+                                message: "Unable to verify delivery location due to a server error. Please try again.",
+                                hasRestrictedProducts: false,
+                                unavailableProducts: [],
+                                allowedPaymentMethods: [],
+                              });
+                            })
+                            .finally(() => setIsValidatingLocation(false));
+                        }
+                      }}
+                      className="border-rose-400 bg-white hover:bg-rose-100 text-rose-950 font-bold"
+                    >
+                      Retry Verification
+                    </Button>
+                  </div>
+                )}
+
+                {/* Invalid Pincode Format Alert */}
+                {locationValidation && !locationValidation.isValid && locationValidation.code === "INVALID_PIN" && (
+                  <div className="rounded-xl border border-amber-300 bg-amber-50 p-3.5 space-y-1 animate-in fade-in">
+                    <p className="text-xs sm:text-sm font-bold text-amber-900 flex items-center gap-1.5">
+                      <span>⚠</span> Invalid Pincode
+                    </p>
+                    <p className="text-[11px] text-amber-800/80">
+                      {locationValidation.message || "Please enter a valid 6-digit Indian postal pincode."}
+                    </p>
+                  </div>
+                )}
 
                 {/* Unavailable Products Alert (Requirement 7 & 8) */}
                 {hasUnavailableProducts && (
@@ -713,29 +1196,56 @@ function CheckoutContent() {
                   </div>
                 )}
 
-                {/* Eligible Location Success Message (Requirement 9) */}
-                {locationValidation?.isValid && isRestrictedCodOnly && (
+                {/* Eligible Location Success Message */}
+                {locationValidation?.isValid && isRestrictedCodOnly && values.state === "KA" && (
                   <div className="rounded-xl border border-emerald-300 bg-emerald-50/80 p-3.5 space-y-1 animate-in fade-in">
                     <p className="text-xs sm:text-sm font-bold text-emerald-950 flex items-center gap-1.5">
-                      <span className="text-emerald-700">✓</span> This product is available in your location.
+                      <span className="text-emerald-700">✓</span> Available for delivery
+                      {locationValidation.locality ? ` in ${locationValidation.locality}` : " in Bengaluru"}.
                     </p>
                     <p className="text-[11px] text-emerald-900/80">
-                      Freshly prepared delicacies in your order are eligible for Cash on Delivery (COD).
+                      Freshly prepared delicacies in your order are eligible for delivery in Bengaluru.
+                      {locationValidation.ratePerUnitRupees !== undefined && (
+                        <span>
+                          {" "}
+                          Shipping: {locationValidation.ratePerUnitPaise === 0 ? "Free" : `₹${locationValidation.ratePerUnitRupees}/unit`}
+                          {locationValidation.isCustomRate ? " (Custom Locality Rate)" : ""}.
+                        </span>
+                      )}
                     </p>
                   </div>
                 )}
               </div>
             </div>
 
-            {/* Step 3 Card: Payment Method (Requirement 10 & 11) */}
+            {/* Step 3 Card: Payment Method */}
             <div className="rounded-2xl sm:rounded-3xl border border-white/70 bg-gradient-to-br from-white/80 via-white/60 to-white/40 p-5 sm:p-7 backdrop-blur-xl shadow-xl shadow-amber-950/8 space-y-4">
               <div>
                 <p className="eyebrow">03</p>
                 <h2 className="mt-1 font-display text-xl sm:text-2xl font-semibold text-[#2b1719]">Payment method</h2>
               </div>
 
-              {isRestrictedCodOnly ? (
-                /* Restricted products: COD ONLY (Requirement 10: Do NOT display online payment for restricted-only/mixed checkout) */
+              {hasPaymentConflict ? (
+                /* Scenario 1: Incompatible Cart Payment Methods (No Common Method) */
+                <div className="rounded-xl border-2 border-amber-300 bg-[#fffdf8] p-5 space-y-3 shadow-2xs">
+                  <div className="flex items-start gap-3">
+                    <div className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-amber-100 text-amber-900 mt-0.5">
+                      <AlertCircle className="size-5" />
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-sm font-bold text-[#2b1719]">No Common Payment Method Available</p>
+                      <p className="text-xs sm:text-sm text-[#6e5b55] leading-relaxed">
+                        {paymentEligibility.conflictReason ||
+                          "The items currently in your cart cannot be checked out together because they do not share an available payment method."}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="rounded-lg border border-amber-200 bg-amber-50/80 p-3 text-xs text-amber-950">
+                    <span className="font-semibold">Action required:</span> Please place separate orders for products that require Cash on Delivery and products that require Online Payment.
+                  </div>
+                </div>
+              ) : effectiveAllowedMethods.length === 1 && effectiveAllowedMethods[0] === "COD" ? (
+                /* Scenario 2: Cash on Delivery (COD) Only */
                 <div className="rounded-xl border-2 border-[#711e2c] bg-[#fffdf8] p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs">
                   <div>
                     <div className="flex items-center gap-2">
@@ -743,110 +1253,173 @@ function CheckoutContent() {
                       <p className="text-sm font-bold text-[#2b1719]">Cash on Delivery (COD)</p>
                     </div>
                     <p className="text-xs text-[#6e5b55] mt-1 pl-5">
-                      Pay securely with cash or UPI when your fresh delicacies arrive at your doorstep.
+                      {isRestrictedCodOnly
+                        ? "Pay securely with cash or UPI when your fresh delicacies arrive at your doorstep."
+                        : "Pay with cash or UPI upon delivery. (Only payment method available for your items.)"}
                     </p>
                   </div>
                   <span className="self-start sm:self-auto rounded-full bg-[#711e2c]/10 text-[#711e2c] px-3 py-1 text-xs font-bold shrink-0">
                     COD Only
                   </span>
                 </div>
+              ) : effectiveAllowedMethods.length === 1 && effectiveAllowedMethods[0] === "RAZORPAY" ? (
+                /* Scenario 3: Online Payment Only */
+                <div className="rounded-xl border-2 border-[#711e2c] bg-[#fffdf8] p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="size-3 rounded-full bg-[#711e2c]" />
+                      <p className="text-sm font-bold text-[#2b1719]">Online Payment</p>
+                    </div>
+                    <p className="text-xs text-[#6e5b55] mt-1 pl-5">
+                      Pay online via UPI, Credit/Debit Cards, NetBanking (Razorpay). (Only payment method available for your items.)
+                    </p>
+                  </div>
+                  <span className="self-start sm:self-auto rounded-full bg-emerald-100 text-emerald-800 px-3 py-1 text-xs font-bold shrink-0">
+                    Online Payment Only
+                  </span>
+                </div>
               ) : (
-                /* Normal India-wide products: Allow choosing between Razorpay and COD */
-                <div className="grid gap-3 sm:grid-cols-2">
+                /* Scenario 4: Both Payment Methods Available */
+                <div className="space-y-3">
                   <label
-                    className={`cursor-pointer rounded-xl border p-4 transition-all flex flex-col justify-between ${
+                    className={`flex items-start gap-3 rounded-xl border p-4 cursor-pointer transition-all ${
                       paymentMethod === "RAZORPAY"
-                        ? "border-[#711e2c] bg-[#fffdf8] ring-2 ring-[#711e2c]/20 shadow-2xs"
-                        : "border-[#dfd0bd] bg-white/70 hover:bg-[#fffdf8]"
+                        ? "border-[#711e2c] bg-[#fffdf8] ring-2 ring-[#711e2c]/20 shadow-xs"
+                        : "border-[#e5d8c6] bg-white/60 hover:bg-white"
                     }`}
                   >
-                    <div className="flex items-center gap-3">
-                      <input
-                        type="radio"
-                        name="payment_method"
-                        value="RAZORPAY"
-                        checked={paymentMethod === "RAZORPAY"}
-                        onChange={() => setPaymentMethod("RAZORPAY")}
-                        className="accent-[#711e2c]"
-                      />
-                      <span className="text-sm font-bold text-[#2b1719]">Online Payment</span>
+                    <input
+                      type="radio"
+                      name="paymentMethod"
+                      value="RAZORPAY"
+                      checked={paymentMethod === "RAZORPAY"}
+                      onChange={() => setPaymentMethod("RAZORPAY")}
+                      className="mt-0.5 text-[#711e2c] focus:ring-[#711e2c]"
+                    />
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-sm font-bold text-[#2b1719]">Online Payment</span>
+                        <span className="text-[11px] font-semibold text-emerald-800 bg-emerald-100/70 px-2 py-0.5 rounded-full">
+                          Fast & Secure
+                        </span>
+                      </div>
+                      <p className="text-xs text-[#6e5b55] mt-0.5">UPI (GPay, PhonePe, Paytm), Credit/Debit Cards, NetBanking (Razorpay).</p>
                     </div>
-                    <p className="text-xs text-[#6e5b55] mt-2">UPI, Cards, NetBanking via Razorpay</p>
                   </label>
 
                   <label
-                    className={`cursor-pointer rounded-xl border p-4 transition-all flex flex-col justify-between ${
+                    className={`flex items-start gap-3 rounded-xl border p-4 cursor-pointer transition-all ${
                       paymentMethod === "COD"
-                        ? "border-[#711e2c] bg-[#fffdf8] ring-2 ring-[#711e2c]/20 shadow-2xs"
-                        : "border-[#dfd0bd] bg-white/70 hover:bg-[#fffdf8]"
+                        ? "border-[#711e2c] bg-[#fffdf8] ring-2 ring-[#711e2c]/20 shadow-xs"
+                        : "border-[#e5d8c6] bg-white/60 hover:bg-white"
                     }`}
                   >
-                    <div className="flex items-center gap-3">
-                      <input
-                        type="radio"
-                        name="payment_method"
-                        value="COD"
-                        checked={paymentMethod === "COD"}
-                        onChange={() => setPaymentMethod("COD")}
-                        className="accent-[#711e2c]"
-                      />
-                      <span className="text-sm font-bold text-[#2b1719]">Cash on Delivery</span>
+                    <input
+                      type="radio"
+                      name="paymentMethod"
+                      value="COD"
+                      checked={paymentMethod === "COD"}
+                      onChange={() => setPaymentMethod("COD")}
+                      className="mt-0.5 text-[#711e2c] focus:ring-[#711e2c]"
+                    />
+                    <div className="min-w-0 flex-1">
+                      <span className="text-sm font-bold text-[#2b1719]">Cash on Delivery (COD)</span>
+                      <p className="text-xs text-[#6e5b55] mt-0.5">Pay with cash or UPI upon delivery.</p>
                     </div>
-                    <p className="text-xs text-[#6e5b55] mt-2">Pay upon doorstep arrival</p>
                   </label>
                 </div>
               )}
             </div>
 
-            {/* Error / Status banner */}
-            {serverMessage && !stockError && (
+            {/* Error & Feedback Messages */}
+            {serverMessage ? (
               <div
                 aria-live="polite"
-                className="rounded-xl border border-red-300 bg-red-50 p-4 text-xs sm:text-sm text-red-800 font-medium animate-in fade-in"
+                className="rounded-2xl border border-red-300 bg-red-50 p-4 text-xs sm:text-sm text-red-900 font-medium"
                 ref={messageRef}
                 tabIndex={-1}
               >
                 {serverMessage}
               </div>
-            )}
+            ) : null}
 
-            {/* Submit CTA or Out of Stock Display */}
-            <div className="space-y-2">
+            {stockError ? (
+              <div
+                aria-live="polite"
+                className="rounded-2xl border border-red-300 bg-red-50 p-4 text-xs sm:text-sm text-red-900 font-medium space-y-1"
+                ref={messageRef}
+                tabIndex={-1}
+              >
+                <p className="font-bold">Stock check notice:</p>
+                <p>{stockError}</p>
+              </div>
+            ) : null}
+
+            {/* Action Buttons */}
+            <div className="space-y-3 pt-2">
               {stockError ? (
-                <div
-                  aria-live="assertive"
-                  ref={messageRef}
-                  tabIndex={-1}
-                  className="w-full rounded-2xl bg-[#711e2c] p-4 sm:p-5 text-center text-sm sm:text-base font-bold text-white shadow-md space-y-1.5 animate-in fade-in"
-                >
-                  <p className="flex items-center justify-center gap-2">
-                    <span className="text-amber-300 text-base">⚠</span>
-                    <span>{stockError}</span>
+                <div className="space-y-2">
+                  <p className="text-xs text-red-700">
+                    One or more items in your cart do not have enough stock. Please edit your quantities in the cart.
                   </p>
-                  <p className="text-xs font-normal text-white/80">
-                    This product is currently out of stock. Please remove it from the order summary above to continue.
-                  </p>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => router.push("/cart")}
+                    className="w-full sm:w-auto min-h-12 px-8 cursor-pointer text-sm font-semibold border-[#711e2c] text-[#711e2c]"
+                  >
+                    Return to Cart to adjust quantities
+                  </Button>
                 </div>
               ) : (
                 <>
                   <Button
                     className="w-full sm:w-auto min-h-12 px-8 cursor-pointer shadow-md text-sm font-bold"
-                    disabled={isSubmitting || Boolean(hasUnavailableProducts)}
+                    disabled={
+                      isSubmitting ||
+                      !values.state ||
+                      Boolean(hasUnavailableProducts) ||
+                      isDeliveryUnavailable ||
+                      hasRestrictedBangaloreMismatch ||
+                      isShippingLoading ||
+                      isValidatingLocation ||
+                      Boolean(locationValidation && !locationValidation.isValid) ||
+                      hasPaymentConflict ||
+                      !paymentMethod
+                    }
                     size="lg"
                     type="submit"
                   >
                     {isSubmitting
-                      ? paymentMethod === "COD" || isRestrictedCodOnly
+                      ? paymentMethod === "COD"
                         ? "Placing COD order..."
-                        : "Connecting to Razorpay..."
-                      : paymentMethod === "COD" || isRestrictedCodOnly
-                      ? `Place Order with Cash on Delivery (${formatPrice(activeSubtotal)})`
-                      : `Pay ${formatPrice(activeSubtotal)} with Razorpay`}
+                        : "Connecting to online payment..."
+                      : hasPaymentConflict
+                      ? "Payment Method Incompatible (Review Cart)"
+                      : isValidatingLocation
+                      ? "Verifying delivery location..."
+                      : locationValidation && !locationValidation.isValid && locationValidation.code === "SERVICE_ERROR"
+                      ? "Location Verification Error (Retry Above)"
+                      : locationValidation && !locationValidation.isValid && locationValidation.code === "RESTRICTED_PRODUCTS_UNAVAILABLE"
+                      ? "Items Unavailable in Your Location"
+                      : !values.state
+                      ? "Select Delivery State"
+                      : isDeliveryUnavailable
+                      ? (shippingQuote?.message || "Delivery Unavailable for Selected State")
+                      : hasRestrictedBangaloreMismatch
+                      ? "Cannot Deliver Restricted Items Outside Karnataka"
+                      : paymentMethod === "COD"
+                      ? `Place Order with Cash on Delivery (${formatPrice(finalTotalPaise)})`
+                      : paymentMethod === "RAZORPAY"
+                      ? `Pay ${formatPrice(finalTotalPaise)} with Online Payment`
+                      : "Select an Available Payment Method"}
                   </Button>
                   <p className="text-[11px] text-[#6e5b55]">
-                    {paymentMethod === "COD" || isRestrictedCodOnly
+                    {hasPaymentConflict
+                      ? "⚠️ The items in your cart do not share a common payment method."
+                      : paymentMethod === "COD"
                       ? "✓ Cash on Delivery available for verified local addresses."
-                      : "🔒 100% Secure Payment via Razorpay (UPI, Cards, NetBanking, Wallets)."}
+                      : "🔒 100% Secure Online Payment (UPI, Cards, NetBanking, Wallets)."}
                   </p>
                 </>
               )}
@@ -857,6 +1430,8 @@ function CheckoutContent() {
           <OrderSummary
             items={activeItems}
             subtotalPaise={activeSubtotal}
+            shippingQuote={shippingQuote}
+            isShippingLoading={isShippingLoading}
             onRemoveItem={handleRemoveSingleItem}
           />
         </div>

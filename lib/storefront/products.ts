@@ -19,6 +19,8 @@ export type StorefrontProduct = {
   is_free_shipping: boolean;
   is_featured: boolean;
   display_order: number;
+  allow_cod?: boolean;
+  allow_reserve_pay?: boolean;
   weight?: string | null;
   primary_image: { url: string; alt: string } | null;
   images: StorefrontProductImage[];

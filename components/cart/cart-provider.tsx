@@ -5,11 +5,14 @@ import { addCartItem, getCartItemCount, getCartSubtotalPaise, parseStoredCart, r
 import { CartDrawer } from "@/components/cart/cart-drawer";
 
 const storageKey = "namma-ada-cart";
+const stateStorageKey = "namma-ada-delivery-state";
 
 type CartContextValue = {
   items: CartItem[];
   itemCount: number;
   subtotalPaise: number;
+  selectedState: string;
+  setSelectedState: (state: string) => void;
   hydrated: boolean;
   isDrawerOpen: boolean;
   openCart: () => void;
@@ -25,13 +28,16 @@ const CartContext = createContext<CartContextValue | null>(null);
 
 export function CartProvider({ children }: { children: ReactNode }) {
   const [items, setItems] = useState<CartItem[]>([]);
+  const [selectedState, setSelectedStateState] = useState<string>("");
   const [hydrated, setHydrated] = useState(false);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
 
   useEffect(() => {
     let stored: string | null = null;
+    let storedState: string | null = null;
     try {
       stored = window.localStorage.getItem(storageKey);
+      storedState = window.localStorage.getItem(stateStorageKey);
     } catch {
       // Storage can be unavailable in privacy-restricted browser contexts.
     }
@@ -47,11 +53,15 @@ export function CartProvider({ children }: { children: ReactNode }) {
     }
     const hydrationTimer = window.setTimeout(() => {
       setItems(parsed);
+      if (storedState) {
+        setSelectedStateState(storedState);
+      }
       setHydrated(true);
     }, 0);
 
     function handleStorage(event: StorageEvent) {
       if (event.key === storageKey) setItems(parseStoredCart(event.newValue));
+      if (event.key === stateStorageKey && event.newValue) setSelectedStateState(event.newValue);
     }
 
     window.addEventListener("storage", handleStorage);
@@ -65,11 +75,27 @@ export function CartProvider({ children }: { children: ReactNode }) {
     if (hydrated) {
       try {
         window.localStorage.setItem(storageKey, JSON.stringify(items));
+        if (selectedState) {
+          window.localStorage.setItem(stateStorageKey, selectedState);
+        } else {
+          window.localStorage.removeItem(stateStorageKey);
+        }
       } catch {
         // The in-memory cart remains usable when persistence is unavailable.
       }
     }
-  }, [hydrated, items]);
+  }, [hydrated, items, selectedState]);
+
+  const setSelectedState = useCallback((state: string) => {
+    setSelectedStateState(state);
+    try {
+      if (state) {
+        window.localStorage.setItem(stateStorageKey, state);
+      } else {
+        window.localStorage.removeItem(stateStorageKey);
+      }
+    } catch {}
+  }, []);
 
   const openCart = useCallback(() => setIsDrawerOpen(true), []);
   const closeCart = useCallback(() => setIsDrawerOpen(false), []);
@@ -89,6 +115,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
       items,
       itemCount: getCartItemCount(items),
       subtotalPaise: getCartSubtotalPaise(items),
+      selectedState,
+      setSelectedState,
       hydrated,
       isDrawerOpen,
       openCart,
@@ -99,7 +127,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       removeItem,
       clearCart,
     }),
-    [items, hydrated, isDrawerOpen, openCart, closeCart, toggleCart, addItem, setQuantity, removeItem, clearCart]
+    [items, selectedState, setSelectedState, hydrated, isDrawerOpen, openCart, closeCart, toggleCart, addItem, setQuantity, removeItem, clearCart]
   );
 
   return (

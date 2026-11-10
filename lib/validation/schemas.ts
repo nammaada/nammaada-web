@@ -10,3 +10,13 @@ export const emailSchema = z.string().trim().email();
 export const phoneSchema = z.string().trim().min(7).max(20);
 
 export const pincodeSchema = z.string().regex(/^[1-9][0-9]{5}$/, "Enter a valid six-digit pincode.");
+
+export const productPaymentMethodsSchema = z
+  .object({
+    allow_cod: z.boolean(),
+    allow_reserve_pay: z.boolean(),
+  })
+  .refine((data) => data.allow_cod || data.allow_reserve_pay, {
+    message: "At least one payment method (Cash on Delivery or Online Payment) must be enabled.",
+  });
+
