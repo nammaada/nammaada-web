@@ -19,6 +19,13 @@ import { quantitySchema, uuidSchema } from "@/lib/validation/schemas";
 import { sendOrderConfirmationWhatsApp } from "@/lib/whatsapp/server";
 import { sendOrderConfirmationEmails } from "@/lib/email/server";
 import type { EmailOrderItem } from "@/lib/email/types";
+import { calculateAuthoritativeCartShipping } from "@/lib/shipping/rules";
+import { findState } from "@/lib/constants/india-geo";
+import {
+  calculateCartPaymentEligibility,
+  getAuthoritativeProductPaymentMethods,
+  type CartPaymentEligibility,
+} from "@/lib/products/payment-methods";
 
 const checkoutSessionInputSchema = z.object({
   idempotencyKey: uuidSchema,
@@ -42,8 +49,8 @@ function generateOrderNumber(): string {
 }
 
 const locationValidationInputSchema = z.object({
-  pincode: z.string().trim().regex(/^[1-9][0-9]{5}$/, "Enter a valid 6-digit Indian pincode."),
-  productIds: z.array(uuidSchema).min(1),
+  pincode: z.string().trim(),
+  productIds: z.array(z.string().min(1)).min(1),
 });
 
 /**
@@ -55,14 +62,65 @@ export async function validateCheckoutLocation(input: unknown): Promise<PincodeV
   if (!parsed.success) {
     return {
       isValid: false,
-      message: parsed.error.issues[0]?.message || "Please enter a valid 6-digit pincode.",
+      code: "INVALID_PIN",
+      status: "INVALID_PIN",
+      message: "Please enter a valid 6-digit Indian pincode.",
       hasRestrictedProducts: false,
       unavailableProducts: [],
       allowedPaymentMethods: [],
     };
   }
 
-  return validatePincodeAvailability(parsed.data.pincode, parsed.data.productIds);
+  try {
+    return await validatePincodeAvailability(parsed.data.pincode, parsed.data.productIds);
+  } catch (err) {
+    console.error("Error in validateCheckoutLocation:", err);
+    return {
+      isValid: false,
+      code: "SERVICE_ERROR",
+      status: "SERVICE_ERROR",
+      message: "Unable to verify delivery location due to a server error. Please try again.",
+      hasRestrictedProducts: false,
+      unavailableProducts: [],
+      allowedPaymentMethods: [],
+    };
+  }
+}
+
+/**
+ * Server action to authoritatively calculate cart payment method eligibility
+ * based on the individual products in the cart (allow_cod / allow_reserve_pay fields).
+ * Delivery location restrictions are handled separately and do not affect this calculation.
+ */
+export async function getCartPaymentEligibilityAction(
+  productIds: string[]
+): Promise<CartPaymentEligibility> {
+  const uniqueIds = Array.from(new Set(productIds.filter(Boolean)));
+  if (uniqueIds.length === 0) {
+    return {
+      allowCod: true,
+      allowReservePay: true,
+      allowedMethods: ["RAZORPAY", "COD"],
+      hasConflict: false,
+      hasRestrictedBangaloreProducts: false,
+      productMethods: [],
+    };
+  }
+
+  try {
+    const authoritativeProducts = await getAuthoritativeProductPaymentMethods(uniqueIds);
+    return calculateCartPaymentEligibility(authoritativeProducts);
+  } catch (err) {
+    console.error("Error in getCartPaymentEligibilityAction:", err);
+    return {
+      allowCod: true,
+      allowReservePay: true,
+      allowedMethods: ["RAZORPAY", "COD"],
+      hasConflict: false,
+      hasRestrictedBangaloreProducts: false,
+      productMethods: [],
+    };
+  }
 }
 
 export async function checkCartStock(
@@ -117,8 +175,10 @@ export type CreateRazorpaySessionResult =
 /**
  * Creates an authoritative pending order in the database and initiates a Razorpay Order.
  * CRITICAL SECURITY & RESTRICTION ENFORCEMENT:
- * 1. Online payment (Razorpay) is STRICTLY FORBIDDEN for any cart containing restricted delicacies.
- * 2. All prices, subtotals, shipping, and totals are computed strictly on the server from the database.
+ * 1. All prices, subtotals, shipping, and totals are computed strictly on the server from the database.
+ * 2. Payment method eligibility is determined by product-level allow_cod / allow_reserve_pay fields.
+ * 3. Bengaluru-only products require a valid Bengaluru pincode (delivery restriction) but may now
+ *    allow Online Payment if the administrator has enabled it on the product.
  */
 export async function createRazorpayCheckoutSession(
   input: unknown
@@ -167,14 +227,27 @@ export async function createRazorpayCheckoutSession(
       return { ok: false, message: "One or more items in your cart are no longer available." };
     }
 
-    // STRICT BACKEND RESTRICTION: No restricted products allowed for online Razorpay payment!
-    const hasRestrictedProduct = dbProducts.some(
-      (p) => toDeliveryType(p.delivery_scope) === "RESTRICTED_LOCATION"
-    );
-    if (hasRestrictedProduct) {
+    // Fetch authoritative product payment configurations & recalculate allowed methods
+    const authoritativePaymentInfo = await getAuthoritativeProductPaymentMethods(productIds);
+    const paymentMap = new Map(authoritativePaymentInfo.map((p) => [p.id, p]));
+    const dbProductsWithPayment = dbProducts.map((p) => {
+      const auth = paymentMap.get(p.id);
+      return {
+        ...p,
+        allow_cod: auth?.allow_cod ?? true,
+        allow_reserve_pay: auth?.allow_reserve_pay ?? true,
+      };
+    });
+
+    const paymentEligibility = calculateCartPaymentEligibility(dbProductsWithPayment);
+
+    // Verify Online Payment is enabled for every product in the cart & reject manipulated requests
+    if (!paymentEligibility.allowReservePay || paymentEligibility.hasConflict) {
       return {
         ok: false,
-        message: "Restricted delicacies are Cash on Delivery only. Online payment is not allowed for these items.",
+        message:
+          paymentEligibility.conflictReason ||
+          "Online Payment is not available for one or more items in your cart. Please select Cash on Delivery.",
       };
     }
 
@@ -265,28 +338,54 @@ export async function createRazorpayCheckoutSession(
       });
     }
 
-    // 4. Calculate authoritative shipping fee
-    let shippingFeePaise = 0;
-    if (!allFreeShipping) {
-      const customerState = checkout.state.trim().toLowerCase();
-      const { data: shippingRules } = await supabase
-        .from("shipping_rules")
-        .select("state_name, charge_paise")
-        .eq("is_active", true);
+    // 4. Calculate authoritative shipping fee (supports both all-India and Bengaluru special delivery)
+    const hasBangaloreItems = resolvedItems.some((i) => i.deliveryType === "RESTRICTED_LOCATION");
+    const shippingCalc = await calculateAuthoritativeCartShipping({
+      stateCodeOrName: checkout.state,
+      pincode: checkout.pincode,
+      items: resolvedItems.map((i) => ({
+        productId: i.productId,
+        quantity: i.quantity,
+        delivery_scope: i.deliveryType === "RESTRICTED_LOCATION" ? "bangalore_only" : "all_india",
+      })),
+      hasBangaloreOnlyProducts: hasBangaloreItems,
+      allFreeShipping,
+    });
 
-      const matchingRule = shippingRules?.find(
-        (r) => r.state_name.trim().toLowerCase() === customerState
-      );
+    if (!shippingCalc.isAvailable) {
+      return {
+        ok: false,
+        message: shippingCalc.message || `Delivery is currently not available for ${checkout.state}.`,
+      };
+    }
+    const shippingFeePaise = shippingCalc.chargePaise;
 
-      if (matchingRule) {
-        shippingFeePaise = matchingRule.charge_paise;
-      } else {
-        shippingFeePaise = 0;
+    // 4b. If Bengaluru items are present, enforce Karnataka state and validate pincode
+    if (hasBangaloreItems) {
+      const canonicalStateForBangalore = findState(checkout.state);
+      if (canonicalStateForBangalore?.code !== "KA") {
+        return {
+          ok: false,
+          message: "Restricted Bangalore-only delicacies cannot be delivered outside Karnataka / Bangalore.",
+        };
+      }
+      const pincodeValidation = await validatePincodeAvailability(checkout.pincode, productIds);
+      if (!pincodeValidation.isValid) {
+        return {
+          ok: false,
+          message: pincodeValidation.message || "Some products are not available in your location.",
+        };
       }
     }
 
     const totalAmountPaise = subtotalPaise + shippingFeePaise;
     const orderNumber = generateOrderNumber();
+
+    const canonicalState = findState(checkout.state);
+    const stateNameToStore = canonicalState ? canonicalState.name : checkout.state.trim();
+    const districtCityToStore = checkout.district
+      ? `${checkout.city.trim()}, ${checkout.district.trim()}`
+      : checkout.city.trim();
 
     // 5. Insert Customer Record
     const { data: customer, error: custErr } = await supabase
@@ -296,8 +395,8 @@ export async function createRazorpayCheckoutSession(
         phone: checkout.phone.trim(),
         email: checkout.email?.trim() || null,
         address: checkout.address.trim(),
-        district_city: checkout.city.trim(),
-        state: checkout.state.trim(),
+        district_city: districtCityToStore,
+        state: stateNameToStore,
         pincode: checkout.pincode.trim(),
       })
       .select("id")
@@ -324,8 +423,8 @@ export async function createRazorpayCheckoutSession(
         customer_phone_snapshot: checkout.phone.trim(),
         customer_email_snapshot: checkout.email?.trim() || null,
         delivery_address_snapshot: checkout.address.trim(),
-        delivery_district_city: checkout.city.trim(),
-        delivery_state: checkout.state.trim(),
+        delivery_district_city: districtCityToStore,
+        delivery_state: stateNameToStore,
         delivery_pincode: checkout.pincode.trim(),
       })
       .select("id")
@@ -375,6 +474,8 @@ export async function createRazorpayCheckoutSession(
       paymentMethod: "RAZORPAY",
       itemsDeliveryType,
       userId: authUserId,
+      deliveryDistrict: checkout.district?.trim(),
+      deliveryCity: checkout.city?.trim(),
     });
 
     // 8. Create Razorpay Order via Razorpay API
@@ -458,6 +559,30 @@ export async function createCodCheckoutSession(
       return { ok: false, message: "One or more items in your cart are no longer available." };
     }
 
+    // Fetch authoritative product payment configurations & recalculate allowed methods
+    const authoritativePaymentInfo = await getAuthoritativeProductPaymentMethods(productIds);
+    const paymentMap = new Map(authoritativePaymentInfo.map((p) => [p.id, p]));
+    const dbProductsWithPayment = dbProducts.map((p) => {
+      const auth = paymentMap.get(p.id);
+      return {
+        ...p,
+        allow_cod: auth?.allow_cod ?? true,
+        allow_reserve_pay: auth?.allow_reserve_pay ?? true,
+      };
+    });
+
+    const paymentEligibility = calculateCartPaymentEligibility(dbProductsWithPayment);
+
+    // Verify Cash on Delivery is enabled for every product in the cart & reject manipulated requests
+    if (!paymentEligibility.allowCod || paymentEligibility.hasConflict) {
+      return {
+        ok: false,
+        message:
+          paymentEligibility.conflictReason ||
+          "Cash on Delivery is not available for one or more items in your cart. Please select Online Payment.",
+      };
+    }
+
     // 2. Dynamic Location Validation: If any restricted products are present, validate pincode
     const validation = await validatePincodeAvailability(checkout.pincode, productIds);
     if (!validation.isValid) {
@@ -466,6 +591,14 @@ export async function createCodCheckoutSession(
         code: validation.code,
         message: validation.message || "Some products are not available in your location.",
         unavailableProducts: validation.unavailableProducts,
+      };
+    }
+
+    const canonicalState = findState(checkout.state);
+    if (validation.hasRestrictedProducts && canonicalState?.code !== "KA") {
+      return {
+        ok: false,
+        message: "Restricted Bangalore-only delicacies cannot be delivered outside Karnataka / Bangalore.",
       };
     }
 
@@ -556,28 +689,34 @@ export async function createCodCheckoutSession(
       });
     }
 
-    // 4. Calculate authoritative shipping fee
-    let shippingFeePaise = 0;
-    if (!allFreeShipping) {
-      const customerState = checkout.state.trim().toLowerCase();
-      const { data: shippingRules } = await supabase
-        .from("shipping_rules")
-        .select("state_name, charge_paise")
-        .eq("is_active", true);
+    // 4. Calculate authoritative shipping fee (COD supports both all-India and Bangalore special)
+    const shippingCalc = await calculateAuthoritativeCartShipping({
+      stateCodeOrName: checkout.state,
+      pincode: checkout.pincode,
+      items: resolvedItems.map((i) => ({
+        productId: i.productId,
+        quantity: i.quantity,
+        delivery_scope: i.deliveryType === "RESTRICTED_LOCATION" ? "bangalore_only" : "all_india",
+      })),
+      hasBangaloreOnlyProducts: validation.hasRestrictedProducts,
+      allFreeShipping,
+    });
 
-      const matchingRule = shippingRules?.find(
-        (r) => r.state_name.trim().toLowerCase() === customerState
-      );
-
-      if (matchingRule) {
-        shippingFeePaise = matchingRule.charge_paise;
-      } else {
-        shippingFeePaise = 0;
-      }
+    if (!shippingCalc.isAvailable) {
+      return {
+        ok: false,
+        message: shippingCalc.message || `Delivery is currently not available for ${checkout.state}.`,
+      };
     }
+    const shippingFeePaise = shippingCalc.chargePaise;
 
     const totalAmountPaise = subtotalPaise + shippingFeePaise;
     const orderNumber = generateOrderNumber();
+
+    const stateNameToStore = canonicalState ? canonicalState.name : checkout.state.trim();
+    const districtCityToStore = checkout.district
+      ? `${checkout.city.trim()}, ${checkout.district.trim()}`
+      : checkout.city.trim();
 
     // 5. Insert Customer Record
     const { data: customer, error: custErr } = await supabase
@@ -587,8 +726,8 @@ export async function createCodCheckoutSession(
         phone: checkout.phone.trim(),
         email: checkout.email?.trim() || null,
         address: checkout.address.trim(),
-        district_city: checkout.city.trim(),
-        state: checkout.state.trim(),
+        district_city: districtCityToStore,
+        state: stateNameToStore,
         pincode: checkout.pincode.trim(),
       })
       .select("id")
@@ -610,12 +749,13 @@ export async function createCodCheckoutSession(
         total_amount_paise: totalAmountPaise,
         order_status: "pending",
         payment_status: "pending",
+        payment_method: "COD",
         customer_name_snapshot: checkout.fullName.trim(),
         customer_phone_snapshot: checkout.phone.trim(),
         customer_email_snapshot: checkout.email?.trim() || null,
         delivery_address_snapshot: checkout.address.trim(),
-        delivery_district_city: checkout.city.trim(),
-        delivery_state: checkout.state.trim(),
+        delivery_district_city: districtCityToStore,
+        delivery_state: stateNameToStore,
         delivery_pincode: checkout.pincode.trim(),
       })
       .select("id")
@@ -666,6 +806,13 @@ export async function createCodCheckoutSession(
       paymentMethod: "COD",
       itemsDeliveryType,
       userId: authUserId,
+      deliveryDistrict: checkout.district?.trim(),
+      deliveryCity: checkout.city?.trim(),
+      shippingFeePaise,
+      shippingRatePerUnitPaise: shippingCalc.bangaloreRatePerUnitPaise,
+      shippingLocality: shippingCalc.locality || validation.locality,
+      shippingPincode: checkout.pincode.trim(),
+      isBangaloreSpecial: Boolean(shippingCalc.isBangaloreSpecial),
     });
 
     // 9. Atomically decrement stock
@@ -718,8 +865,8 @@ export async function createCodCheckoutSession(
         customerPhone: checkout.phone.trim(),
         customerEmail: checkout.email?.trim() || null,
         deliveryAddress: checkout.address.trim(),
-        deliveryDistrictCity: checkout.city.trim(),
-        deliveryState: checkout.state.trim(),
+        deliveryDistrictCity: districtCityToStore,
+        deliveryState: stateNameToStore,
         deliveryCountry: "India",
         deliveryPincode: checkout.pincode.trim(),
         subtotalPaise,

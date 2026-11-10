@@ -1,20 +1,20 @@
 "use client";
 
 import Image from "next/image";
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
-import { Plus, UploadCloud, X, Star, RefreshCw, Trash2, ImageIcon, Check } from "lucide-react";
+import { Plus, UploadCloud, X, Star, RefreshCw, Trash2, ImageIcon, Check, AlertCircle } from "lucide-react";
 import {
   saveProduct,
   uploadProductImage,
   deleteProductImage,
   setPrimaryImage,
   replaceProductImage,
-  updateProductImage,
 } from "@/actions/admin";
 import { AdminField, CheckField, FormSection, MoneyField, Submit } from "@/components/admin/admin-form";
 import { ConfirmDialog } from "@/components/admin/confirm-dialog";
 import { Button } from "@/components/ui/button";
+import { Switch } from "@/components/ui/switch";
 
 export type ImageRow = {
   id: string;
@@ -40,6 +40,8 @@ type Product = {
   is_active?: boolean;
   is_featured?: boolean;
   display_order?: number;
+  allow_cod?: boolean;
+  allow_reserve_pay?: boolean;
 };
 
 export function ProductForm({
@@ -59,6 +61,11 @@ export function ProductForm({
 }) {
   const [slug, setSlug] = useState(product?.slug ?? "");
   const [slugManuallyEdited, setSlugManuallyEdited] = useState(Boolean(product?.slug));
+
+  // Payment method availability states
+  const [allowCod, setAllowCod] = useState<boolean>(product?.allow_cod !== false);
+  const [allowReservePay, setAllowReservePay] = useState<boolean>(product?.allow_reserve_pay !== false);
+  const isInvalidPaymentConfig = !allowCod && !allowReservePay;
 
   // Modal states
   const [modalOpen, setModalOpen] = useState(false);
@@ -112,11 +119,11 @@ export function ProductForm({
   };
 
   // Remove staged image on Create
-  const [mounted, setMounted] = useState(false);
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
+  const mounted = useSyncExternalStore(
+    () => () => {},
+    () => true,
+    () => false
+  );
 
   const handleRemoveStagedImage = () => {
     setStagedFile(null);
@@ -130,7 +137,15 @@ export function ProductForm({
   };
 
   return (
-    <form action={saveProduct} className="w-full space-y-8">
+    <form
+      action={saveProduct}
+      className="w-full space-y-8"
+      onSubmit={(e) => {
+        if (isInvalidPaymentConfig) {
+          e.preventDefault();
+        }
+      }}
+    >
       <input name="id" type="hidden" value={product?.id ?? ""} />
       <input name="product_id" type="hidden" value={product?.id ?? ""} />
 
@@ -239,7 +254,73 @@ export function ProductForm({
             type="number"
           />
         </div>
+      </FormSection>
 
+      {/* 4. Payment Methods */}
+      <FormSection
+        description="Configure which payment methods are accepted for this product. At least one method must remain enabled."
+        title="Payment Methods"
+      >
+        <div className="grid gap-4 sm:grid-cols-2 pt-1">
+          <div className={`rounded-xl border p-4 transition-colors ${allowCod ? "border-primary/40 bg-secondary/20" : "border-border bg-card"}`}>
+            <Switch
+              checked={allowCod}
+              description="Allow customers to pay with cash or UPI on doorstep delivery."
+              id="switch-allow-cod"
+              label="Cash on Delivery (COD)"
+              name="allow_cod"
+              onChange={(e) => setAllowCod(e.target.checked)}
+            />
+          </div>
+
+          <div className={`rounded-xl border p-4 transition-colors ${allowReservePay ? "border-primary/40 bg-secondary/20" : "border-border bg-card"}`}>
+            <Switch
+              checked={allowReservePay}
+              description="Allow customers to pay online via UPI, Cards, NetBanking (Razorpay)."
+              id="switch-allow-reserve-pay"
+              label="Online Payment"
+              name="allow_reserve_pay"
+              onChange={(e) => setAllowReservePay(e.target.checked)}
+            />
+          </div>
+        </div>
+
+        {/* Configuration Status & Validation Error Message */}
+        {isInvalidPaymentConfig ? (
+          <div
+            role="alert"
+            className="flex items-start gap-2.5 rounded-xl border border-red-300 bg-red-50 p-4 text-xs sm:text-sm text-red-800 font-medium animate-in fade-in"
+          >
+            <AlertCircle className="size-4 shrink-0 text-red-700 mt-0.5" />
+            <div>
+              <p className="font-semibold text-red-900">At least one payment method must always be enabled.</p>
+              <p className="text-xs text-red-700 mt-0.5">
+                Cannot save product when both Cash on Delivery and Online Payment are disabled. Please enable at least one method.
+              </p>
+            </div>
+          </div>
+        ) : (
+          <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border/80 bg-secondary/30 px-4 py-2.5 text-xs text-muted-foreground">
+            <div className="flex items-center gap-2">
+              <span className="font-semibold text-foreground">Active Configuration:</span>
+              {allowCod && allowReservePay && (
+                <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 text-emerald-800 px-2.5 py-0.5 font-semibold text-[11px]">
+                  ✓ Both COD & Online Payment Available
+                </span>
+              )}
+              {allowCod && !allowReservePay && (
+                <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 text-amber-900 px-2.5 py-0.5 font-semibold text-[11px]">
+                  ✓ Cash on Delivery (COD) Only
+                </span>
+              )}
+              {!allowCod && allowReservePay && (
+                <span className="inline-flex items-center gap-1 rounded-full bg-blue-100 text-blue-900 px-2.5 py-0.5 font-semibold text-[11px]">
+                  ✓ Online Payment Only
+                </span>
+              )}
+            </div>
+          </div>
+        )}
       </FormSection>
 
       {/* 4. Product Images (Inside Main Form) */}
@@ -428,7 +509,11 @@ export function ProductForm({
 
       {/* Submit Button Bar */}
       <div className="flex items-center justify-end pt-6 border-t border-border">
-        <Submit label={submitLabel || (isNew ? "Create product" : "Save product changes")} size="lg" />
+        <Submit
+          disabled={isInvalidPaymentConfig}
+          label={submitLabel || (isNew ? "Create product" : "Save product changes")}
+          size="lg"
+        />
       </div>
 
       {/* ONE Simple Add Image Modal / Pop-up */}

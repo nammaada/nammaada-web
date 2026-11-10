@@ -180,7 +180,16 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
                 <span className="font-medium text-foreground">{formatINR(order.subtotal_paise)}</span>
               </div>
               <div className="flex justify-between text-muted-foreground">
-                <span>Shipping Fee</span>
+                <div>
+                  <span>Shipping Fee</span>
+                  {orderMeta?.isBangaloreSpecial && (
+                    <span className="block text-xs text-amber-900 font-medium">
+                      Bengaluru Special Delivery
+                      {orderMeta.shippingRatePerUnitPaise !== undefined &&
+                        ` (${formatINR(orderMeta.shippingRatePerUnitPaise)} / unit)`}
+                    </span>
+                  )}
+                </div>
                 <span className="font-medium text-foreground">{formatINR(order.shipping_fee_paise)}</span>
               </div>
               <div className="flex justify-between border-t border-border pt-2 text-base font-bold text-primary">
@@ -229,6 +238,11 @@ export default async function OrderDetailPage({ params }: { params: Promise<{ id
                 <p className="mt-1">
                   {order.delivery_district_city}, {order.delivery_state} — {order.delivery_pincode}
                 </p>
+                {orderMeta?.shippingLocality && (
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Locality: <span className="font-semibold text-foreground">{orderMeta.shippingLocality}</span>
+                  </p>
+                )}
               </div>
             </Card>
           </div>

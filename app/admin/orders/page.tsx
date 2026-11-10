@@ -62,7 +62,9 @@ export default async function OrdersPage({
         ? items.map((i) => `${i.product_name_snapshot} (${i.quantity})`).join(", ")
         : "Delicacies";
 
-    const deliveryLocation = `${order.delivery_district_city}, ${order.delivery_pincode}`;
+    const deliveryLocation = meta?.shippingLocality
+      ? `${meta.shippingLocality}, ${order.delivery_district_city}, ${order.delivery_pincode}`
+      : `${order.delivery_district_city}, ${order.delivery_pincode}`;
 
     return {
       ...order,
