@@ -7,6 +7,10 @@ import {
   fetchRawBangaloreShippingConfig,
   type BengaluruPincodeConfig,
 } from "@/lib/delivery/bengaluru-pincodes";
+import {
+  getAuthoritativeProductPaymentMethods,
+  calculateCartPaymentEligibility,
+} from "@/lib/products/payment-methods";
 
 export type DeliveryType = "INDIA_WIDE" | "RESTRICTED_LOCATION";
 
@@ -218,8 +222,26 @@ export async function validatePincodeAvailability(
       return false;
     });
 
+    // Authoritative payment methods configuration (from product-level settings only)
+    const authoritativePaymentInfo = await getAuthoritativeProductPaymentMethods(uniqueIds);
+    const paymentEligibility = calculateCartPaymentEligibility(authoritativePaymentInfo);
+
     // If no products in the cart are restricted, India-wide delivery applies
     if (restrictedProducts.length === 0) {
+      if (paymentEligibility.hasConflict || paymentEligibility.allowedMethods.length === 0) {
+        return {
+          isValid: false,
+          code: "RESTRICTED_PRODUCTS_UNAVAILABLE",
+          status: "OUTSIDE_SERVICE_AREA",
+          message:
+            paymentEligibility.conflictReason ||
+            "The items in your cart do not share a common payment method.",
+          hasRestrictedProducts: false,
+          unavailableProducts: [],
+          allowedPaymentMethods: [],
+        };
+      }
+
       return {
         isValid: true,
         code: "OK",
@@ -227,7 +249,7 @@ export async function validatePincodeAvailability(
         message: "This product is available for delivery in your location.",
         hasRestrictedProducts: false,
         unavailableProducts: [],
-        allowedPaymentMethods: ["RAZORPAY", "COD"],
+        allowedPaymentMethods: paymentEligibility.allowedMethods,
       };
     }
 
@@ -283,7 +305,7 @@ export async function validatePincodeAvailability(
       };
     }
 
-    // Pincode is eligible! Restricted fresh delicacies are COD ONLY
+    // Pincode is eligible. Return product-level payment methods (no payment override for Bengaluru).
     return {
       isValid: true,
       code: "OK",
@@ -296,7 +318,7 @@ export async function validatePincodeAvailability(
       ratePerUnitRupees: rateResolution.rateRupees,
       isCustomRate: rateResolution.isCustomRate,
       unavailableProducts: [],
-      allowedPaymentMethods: ["COD"],
+      allowedPaymentMethods: paymentEligibility.allowedMethods,
     };
   } catch (error) {
     console.error("Unexpected error in validatePincodeAvailability:", error);

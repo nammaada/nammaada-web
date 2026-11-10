@@ -4,11 +4,12 @@ import Image from "next/image";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from "react";
-import { CheckCircle2 } from "lucide-react";
+import { CheckCircle2, AlertCircle } from "lucide-react";
 import {
   checkCartStock,
   createCodCheckoutSession,
   createRazorpayCheckoutSession,
+  getCartPaymentEligibilityAction,
   validateCheckoutLocation,
   verifyAndFinalizePayment,
 } from "@/actions/checkout";
@@ -24,6 +25,7 @@ import { getDistrictsForState, getIndianStates } from "@/lib/constants/india-geo
 import type { CartShippingCalculationQuote } from "@/lib/shipping/rules";
 import type { CartItem } from "@/lib/cart/cart";
 import type { PincodeValidationResult } from "@/lib/delivery/restricted-locations";
+import type { CartPaymentEligibility } from "@/lib/products/payment-methods";
 
 function formatPrice(paise: number) {
   return new Intl.NumberFormat("en-IN", { currency: "INR", style: "currency" }).format(paise / 100);
@@ -298,8 +300,18 @@ function CheckoutContent() {
     });
   }, [searchParams]);
 
-  // Payment method selection: "RAZORPAY" | "COD"
-  const [paymentMethod, setPaymentMethod] = useState<"RAZORPAY" | "COD">("RAZORPAY");
+  // Payment method selection: "RAZORPAY" | "COD" | ""
+  const [paymentMethod, setPaymentMethod] = useState<"RAZORPAY" | "COD" | "">("RAZORPAY");
+
+  // Dynamic product-level payment eligibility state
+  const [paymentEligibility, setPaymentEligibility] = useState<CartPaymentEligibility>({
+    allowCod: true,
+    allowReservePay: true,
+    allowedMethods: ["RAZORPAY", "COD"],
+    hasConflict: false,
+    hasRestrictedBangaloreProducts: false,
+    productMethods: [],
+  });
 
   // Dynamic pincode validation state
   const [locationValidation, setLocationValidation] = useState<PincodeValidationResult | null>(null);
@@ -437,6 +449,52 @@ function CheckoutContent() {
     };
   }, [activeItems]);
 
+  // Dynamically recalculate allowed payment methods whenever active cart items change
+  useEffect(() => {
+    if (activeItems.length === 0) {
+      queueMicrotask(() => {
+        setPaymentEligibility({
+          allowCod: true,
+          allowReservePay: true,
+          allowedMethods: ["RAZORPAY", "COD"],
+          hasConflict: false,
+          hasRestrictedBangaloreProducts: false,
+          productMethods: [],
+        });
+      });
+      return;
+    }
+
+    let isMounted = true;
+    const productIds = Array.from(new Set(activeItems.map((i) => i.productId)));
+    getCartPaymentEligibilityAction(productIds)
+      .then((res) => {
+        if (!isMounted) return;
+        setPaymentEligibility(res);
+
+        // Synchronize selected payment method
+        setPaymentMethod((prev) => {
+          if (res.hasConflict || res.allowedMethods.length === 0) {
+            return "";
+          }
+          if (res.allowedMethods.length === 1) {
+            return res.allowedMethods[0];
+          }
+          if (prev && res.allowedMethods.includes(prev as "RAZORPAY" | "COD")) {
+            return prev;
+          }
+          return res.allowedMethods[0];
+        });
+      })
+      .catch((err) => {
+        console.error("Failed to fetch cart payment eligibility:", err);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [activeItems]);
+
   // Dynamic location check when 6-digit pincode is entered
   useEffect(() => {
     const cleanPin = values.pincode.trim();
@@ -474,10 +532,6 @@ function CheckoutContent() {
       .then((res) => {
         if (!isMounted) return;
         setLocationValidation(res);
-        // If restricted products are present and valid, force payment method to COD
-        if (res.hasRestrictedProducts && res.isValid) {
-          setPaymentMethod("COD");
-        }
       })
       .catch((err) => {
         console.error("Location validation error:", err);
@@ -543,6 +597,19 @@ function CheckoutContent() {
     loadRazorpayScript().catch(() => {});
   }, []);
 
+  const isRestrictedCodOnly = locationValidation?.hasRestrictedProducts === true || hasRestrictedItem;
+
+  // Effective allowed payment methods: purely from product-level payment configuration intersection.
+  // Delivery location (Bengaluru) does NOT override payment methods — only allow_cod / allow_reserve_pay do.
+  const effectiveAllowedMethods = useMemo<Array<"COD" | "RAZORPAY">>(() => {
+    if (paymentEligibility.hasConflict) return [];
+    return paymentEligibility.allowedMethods;
+  }, [paymentEligibility]);
+
+  const hasPaymentConflict =
+    paymentEligibility.hasConflict ||
+    effectiveAllowedMethods.length === 0;
+
   if (!hydrated) {
     return (
       <main className="section-shell py-12 sm:py-16" aria-busy="true" aria-label="Loading checkout">
@@ -593,7 +660,6 @@ function CheckoutContent() {
     locationValidation.code === "RESTRICTED_PRODUCTS_UNAVAILABLE" &&
     locationValidation.unavailableProducts.length > 0;
 
-  const isRestrictedCodOnly = locationValidation?.hasRestrictedProducts === true || hasRestrictedItem;
   const isDeliveryUnavailable = shippingQuote !== null && !shippingQuote.isAvailable;
   const hasRestrictedBangaloreMismatch = Boolean(
     (locationValidation?.hasRestrictedProducts || hasRestrictedItem) && values.state && values.state !== "KA"
@@ -601,6 +667,14 @@ function CheckoutContent() {
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+
+    if (hasPaymentConflict || !paymentMethod) {
+      setServerMessage(
+        paymentEligibility.conflictReason ||
+          "These items cannot be ordered together due to conflicting payment methods. Please separate your orders."
+      );
+      return;
+    }
 
     if (isValidatingLocation) {
       setServerMessage("Please wait a moment while your delivery location is being verified.");
@@ -665,7 +739,7 @@ function CheckoutContent() {
     }));
 
     // FLOW A: CASH ON DELIVERY (COD)
-    if (paymentMethod === "COD" || isRestrictedCodOnly) {
+    if (paymentMethod === "COD") {
       try {
         const codResult = await createCodCheckoutSession({
           idempotencyKey,
@@ -1063,9 +1137,6 @@ function CheckoutContent() {
                           validateCheckoutLocation({ pincode: cleanPin, productIds })
                             .then((res) => {
                               setLocationValidation(res);
-                              if (res.hasRestrictedProducts && res.isValid) {
-                                setPaymentMethod("COD");
-                              }
                             })
                             .catch(() => {
                               setLocationValidation({
@@ -1125,7 +1196,7 @@ function CheckoutContent() {
                   </div>
                 )}
 
-                {/* Eligible Location Success Message (Requirement 9) */}
+                {/* Eligible Location Success Message */}
                 {locationValidation?.isValid && isRestrictedCodOnly && values.state === "KA" && (
                   <div className="rounded-xl border border-emerald-300 bg-emerald-50/80 p-3.5 space-y-1 animate-in fade-in">
                     <p className="text-xs sm:text-sm font-bold text-emerald-950 flex items-center gap-1.5">
@@ -1133,7 +1204,7 @@ function CheckoutContent() {
                       {locationValidation.locality ? ` in ${locationValidation.locality}` : " in Bengaluru"}.
                     </p>
                     <p className="text-[11px] text-emerald-900/80">
-                      Freshly prepared delicacies in your order are eligible for Cash on Delivery (COD).
+                      Freshly prepared delicacies in your order are eligible for delivery in Bengaluru.
                       {locationValidation.ratePerUnitRupees !== undefined && (
                         <span>
                           {" "}
@@ -1147,15 +1218,34 @@ function CheckoutContent() {
               </div>
             </div>
 
-            {/* Step 3 Card: Payment Method (Requirement 10 & 11) */}
+            {/* Step 3 Card: Payment Method */}
             <div className="rounded-2xl sm:rounded-3xl border border-white/70 bg-gradient-to-br from-white/80 via-white/60 to-white/40 p-5 sm:p-7 backdrop-blur-xl shadow-xl shadow-amber-950/8 space-y-4">
               <div>
                 <p className="eyebrow">03</p>
                 <h2 className="mt-1 font-display text-xl sm:text-2xl font-semibold text-[#2b1719]">Payment method</h2>
               </div>
 
-              {isRestrictedCodOnly ? (
-                /* Restricted products: COD ONLY */
+              {hasPaymentConflict ? (
+                /* Scenario 1: Incompatible Cart Payment Methods (No Common Method) */
+                <div className="rounded-xl border-2 border-amber-300 bg-[#fffdf8] p-5 space-y-3 shadow-2xs">
+                  <div className="flex items-start gap-3">
+                    <div className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-amber-100 text-amber-900 mt-0.5">
+                      <AlertCircle className="size-5" />
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-sm font-bold text-[#2b1719]">No Common Payment Method Available</p>
+                      <p className="text-xs sm:text-sm text-[#6e5b55] leading-relaxed">
+                        {paymentEligibility.conflictReason ||
+                          "The items currently in your cart cannot be checked out together because they do not share an available payment method."}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="rounded-lg border border-amber-200 bg-amber-50/80 p-3 text-xs text-amber-950">
+                    <span className="font-semibold">Action required:</span> Please place separate orders for products that require Cash on Delivery and products that require Online Payment.
+                  </div>
+                </div>
+              ) : effectiveAllowedMethods.length === 1 && effectiveAllowedMethods[0] === "COD" ? (
+                /* Scenario 2: Cash on Delivery (COD) Only */
                 <div className="rounded-xl border-2 border-[#711e2c] bg-[#fffdf8] p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs">
                   <div>
                     <div className="flex items-center gap-2">
@@ -1163,15 +1253,33 @@ function CheckoutContent() {
                       <p className="text-sm font-bold text-[#2b1719]">Cash on Delivery (COD)</p>
                     </div>
                     <p className="text-xs text-[#6e5b55] mt-1 pl-5">
-                      Pay securely with cash or UPI when your fresh delicacies arrive at your doorstep.
+                      {isRestrictedCodOnly
+                        ? "Pay securely with cash or UPI when your fresh delicacies arrive at your doorstep."
+                        : "Pay with cash or UPI upon delivery. (Only payment method available for your items.)"}
                     </p>
                   </div>
                   <span className="self-start sm:self-auto rounded-full bg-[#711e2c]/10 text-[#711e2c] px-3 py-1 text-xs font-bold shrink-0">
                     COD Only
                   </span>
                 </div>
+              ) : effectiveAllowedMethods.length === 1 && effectiveAllowedMethods[0] === "RAZORPAY" ? (
+                /* Scenario 3: Online Payment Only */
+                <div className="rounded-xl border-2 border-[#711e2c] bg-[#fffdf8] p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="size-3 rounded-full bg-[#711e2c]" />
+                      <p className="text-sm font-bold text-[#2b1719]">Online Payment</p>
+                    </div>
+                    <p className="text-xs text-[#6e5b55] mt-1 pl-5">
+                      Pay online via UPI, Credit/Debit Cards, NetBanking (Razorpay). (Only payment method available for your items.)
+                    </p>
+                  </div>
+                  <span className="self-start sm:self-auto rounded-full bg-emerald-100 text-emerald-800 px-3 py-1 text-xs font-bold shrink-0">
+                    Online Payment Only
+                  </span>
+                </div>
               ) : (
-                /* India-wide products: Allow Customer to Choose COD or Razorpay */
+                /* Scenario 4: Both Payment Methods Available */
                 <div className="space-y-3">
                   <label
                     className={`flex items-start gap-3 rounded-xl border p-4 cursor-pointer transition-all ${
@@ -1190,12 +1298,12 @@ function CheckoutContent() {
                     />
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center justify-between gap-2">
-                        <span className="text-sm font-bold text-[#2b1719]">Razorpay (Online Payment)</span>
+                        <span className="text-sm font-bold text-[#2b1719]">Online Payment</span>
                         <span className="text-[11px] font-semibold text-emerald-800 bg-emerald-100/70 px-2 py-0.5 rounded-full">
                           Fast & Secure
                         </span>
                       </div>
-                      <p className="text-xs text-[#6e5b55] mt-0.5">UPI (GPay, PhonePe, Paytm), Credit/Debit Cards, NetBanking.</p>
+                      <p className="text-xs text-[#6e5b55] mt-0.5">UPI (GPay, PhonePe, Paytm), Credit/Debit Cards, NetBanking (Razorpay).</p>
                     </div>
                   </label>
 
@@ -1275,15 +1383,19 @@ function CheckoutContent() {
                       hasRestrictedBangaloreMismatch ||
                       isShippingLoading ||
                       isValidatingLocation ||
-                      Boolean(locationValidation && !locationValidation.isValid)
+                      Boolean(locationValidation && !locationValidation.isValid) ||
+                      hasPaymentConflict ||
+                      !paymentMethod
                     }
                     size="lg"
                     type="submit"
                   >
                     {isSubmitting
-                      ? paymentMethod === "COD" || isRestrictedCodOnly
+                      ? paymentMethod === "COD"
                         ? "Placing COD order..."
-                        : "Connecting to Razorpay..."
+                        : "Connecting to online payment..."
+                      : hasPaymentConflict
+                      ? "Payment Method Incompatible (Review Cart)"
                       : isValidatingLocation
                       ? "Verifying delivery location..."
                       : locationValidation && !locationValidation.isValid && locationValidation.code === "SERVICE_ERROR"
@@ -1296,14 +1408,18 @@ function CheckoutContent() {
                       ? (shippingQuote?.message || "Delivery Unavailable for Selected State")
                       : hasRestrictedBangaloreMismatch
                       ? "Cannot Deliver Restricted Items Outside Karnataka"
-                      : paymentMethod === "COD" || isRestrictedCodOnly
+                      : paymentMethod === "COD"
                       ? `Place Order with Cash on Delivery (${formatPrice(finalTotalPaise)})`
-                      : `Pay ${formatPrice(finalTotalPaise)} with Razorpay`}
+                      : paymentMethod === "RAZORPAY"
+                      ? `Pay ${formatPrice(finalTotalPaise)} with Online Payment`
+                      : "Select an Available Payment Method"}
                   </Button>
                   <p className="text-[11px] text-[#6e5b55]">
-                    {paymentMethod === "COD" || isRestrictedCodOnly
+                    {hasPaymentConflict
+                      ? "⚠️ The items in your cart do not share a common payment method."
+                      : paymentMethod === "COD"
                       ? "✓ Cash on Delivery available for verified local addresses."
-                      : "🔒 100% Secure Payment via Razorpay (UPI, Cards, NetBanking, Wallets)."}
+                      : "🔒 100% Secure Online Payment (UPI, Cards, NetBanking, Wallets)."}
                   </p>
                 </>
               )}

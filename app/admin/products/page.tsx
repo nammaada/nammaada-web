@@ -24,6 +24,8 @@ type ProductRow = {
   delivery_scope?: string;
   is_active: boolean;
   is_featured: boolean;
+  allow_cod?: boolean;
+  allow_reserve_pay?: boolean;
 };
 
 type ImageRow = {

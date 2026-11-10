@@ -17,6 +17,7 @@ import {
   type BengaluruPincodeConfig,
   type BengaluruDeliverySummary,
 } from "@/lib/delivery/bengaluru-pincodes";
+import { saveProductPaymentMethodsFallback } from "@/lib/products/payment-methods";
 
 function text(form: FormData, key: string) { return String(form.get(key) ?? "").trim(); }
 function bool(form: FormData, key: string) { return form.get(key) === "on" || form.get(key) === "true"; }
@@ -133,7 +134,14 @@ export async function saveProduct(form: FormData) {
     }
   }
 
-  const values = {
+  // Validate product-level payment methods: at least one method must be enabled
+  const allowCod = bool(form, "allow_cod");
+  const allowReservePay = bool(form, "allow_reserve_pay");
+  if (!allowCod && !allowReservePay) {
+    fail(failPath, "At least one payment method (Cash on Delivery or Online Payment) must be enabled.");
+  }
+
+  const values: Record<string, unknown> = {
     category_id: categoryId,
     name,
     slug,
@@ -146,19 +154,49 @@ export async function saveProduct(form: FormData) {
     is_active: bool(form, "is_active"),
     is_featured: bool(form, "is_featured"),
     display_order: integer(form, "display_order"),
+    allow_cod: allowCod,
+    allow_reserve_pay: allowReservePay,
   };
 
   let newId: string | null = null;
   if (id) {
     const result = await client.from("products").update(values).eq("id", id);
-    if (result.error) fail(failPath, dbMessage());
+    if (result.error) {
+      if (result.error.code === "42703" || result.error.message?.includes("allow_")) {
+        delete values.allow_cod;
+        delete values.allow_reserve_pay;
+        const resFallback = await client.from("products").update(values).eq("id", id);
+        if (resFallback.error) fail(failPath, dbMessage());
+      } else {
+        fail(failPath, dbMessage());
+      }
+    }
   } else {
     const result = await client.from("products").insert(values).select("id").single();
-    if (result.error) fail(failPath, dbMessage());
-    newId = (result.data as { id: string } | null)?.id ?? null;
+    if (result.error) {
+      if (result.error.code === "42703" || result.error.message?.includes("allow_")) {
+        delete values.allow_cod;
+        delete values.allow_reserve_pay;
+        const resFallback = await client.from("products").insert(values).select("id").single();
+        if (resFallback.error) fail(failPath, dbMessage());
+        newId = (resFallback.data as { id: string } | null)?.id ?? null;
+      } else {
+        fail(failPath, dbMessage());
+      }
+    } else {
+      newId = (result.data as { id: string } | null)?.id ?? null;
+    }
   }
 
   const targetProductId = id || newId;
+
+  // Persist payment methods to fallback storage
+  if (targetProductId) {
+    await saveProductPaymentMethodsFallback(targetProductId, {
+      allow_cod: allowCod,
+      allow_reserve_pay: allowReservePay,
+    });
+  }
 
   // If an image file was provided, upload to Cloudinary & insert into product_images
   const file = form.get("image_file") || form.get("file");

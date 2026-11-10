@@ -106,8 +106,11 @@ create table public.products (
   is_active boolean not null default false,
   is_featured boolean not null default false,
   display_order integer not null default 0 check (display_order >= 0),
+  allow_cod boolean not null default true,
+  allow_reserve_pay boolean not null default true,
   created_at timestamptz not null default now(),
-  updated_at timestamptz not null default now()
+  updated_at timestamptz not null default now(),
+  constraint products_at_least_one_payment_method check (allow_cod = true or allow_reserve_pay = true)
 );
 
 -- Variants are optional. Products without variants use the product price and
@@ -347,7 +350,9 @@ select
   p.delivery_scope,
   p.is_free_shipping,
   p.is_featured,
-  p.display_order
+  p.display_order,
+  p.allow_cod,
+  p.allow_reserve_pay
 from public.products p
 where p.is_active;
 
